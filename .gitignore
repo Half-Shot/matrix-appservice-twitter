@@ -31,3 +31,9 @@ node_modules
 
 # Optional REPL history
 .node_repl_history
+
+# Sensitive files
+bearer.tok
+config.yaml
+twitter-registration.yaml
+*.db
