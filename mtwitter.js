@@ -3,10 +3,17 @@ var Request = require('request');
 var fs = require('fs');
 var Buffer = require('buffer').Buffer;
 
-var mtwitter = function(config){
+var TWITTER_PROFILE_INTERVAL = 60000;
+
+var mtwitter = function(bridge,config){
   this.app_auth = config.app_auth;
   this.app_twitter = null;
-  
+  this.tuser_cache = {};
+  this.timeline_list = [];
+  this.timeline_queue = [];
+  this.timeline_period = 0;
+  this.timeline_intervalobj = null;
+  this._bridge = bridge;
   this.get_bearer_token = function(cb){
     
     try{
@@ -69,20 +76,108 @@ var mtwitter = function(config){
     }
   });
 
-  
-  this.get_user = function(name,cb){
-    console.log("Looking up " + name);
-    this.app_twitter.get('users/show',{screen_name: name}, function(error, user, response){
+  this.get_user_by_id = function(id,cb){
+    var ts = new Date().getTime();
+    for(var name in this.tuser_cache){
+      var cached = this.tuser_cache[name];
+      if(ts - cached.cache_time > TWITTER_PROFILE_INTERVAL){
+        continue;
+      }
+      if(cached.user != null){
+        if(cached.user.id_str == id){
+          cb(cached.user);
+          return;
+        }
+      }
+    }
+    
+    this.app_twitter.get('users/show',{user_id : id}, function(error, user, response){
       if(error){
         console.error(error);
         cb(null);
       }
       else {
+        twit.tuser_cache[user.screen_name] = {cache_time:ts,user:user};
         cb(user);
       }
     })
+    
   }
   
+  this.get_user = function(name,cb){
+    console.log("Looking up @" + name);
+    var ts = new Date().getTime();
+    if(this.tuser_cache[name] != undefined){
+      console.log("Using cache");
+      var cached = this.tuser_cache[name];
+      if(ts - cached.cache_time < TWITTER_PROFILE_INTERVAL){
+        return cached.user;
+      }
+    }
+    var twit = this;
+    this.app_twitter.get('users/show',{screen_name: name}, function(error, user, response){
+      if(error){
+        console.error(error);
+        twit.tuser_cache[name] = {cache_time:ts,user:null};
+        cb(null);
+      }
+      else {
+        twit.tuser_cache[name] = {cache_time:ts,user:user};
+        cb(user);
+      }
+    });
+  }
+  
+  this.enqueue_timeline = (userid,localroom,remoteroom) => {
+    var obj = {"user_id":userid,"local":localroom,"remote":remoteroom};
+    this.timeline_list.push(obj);
+    this.timeline_queue.push(obj);
+  }
+  
+  this.process_timeline = () => {
+    if(this.timeline_queue < 1){
+      return;
+    }
+    var tline = this.timeline_queue[0];
+    this.timeline_queue = this.timeline_queue.slice(1);
+    var id = tline.remote.getId().substr(9);
+    
+    var req = {user_id : id,count: 1};
+    var since = tline.remote.get("twitter_since");
+    if(since != undefined){
+      req.since_id = since;
+    }
+    
+    var intent = this._bridge.getIntent(tline.user_id);
+    this.app_twitter.get('statuses/user_timeline',req, function(error, feed, response){
+      if(!error){
+        if(feed.length > 0){
+          feed = feed.reverse();
+          for(var item in feed){
+            intent.sendText(tline.local.roomId,feed[item].text);
+          }
+          tline.remote.set("twitter_since",feed[0].id_str);
+        }
+      }
+      else {
+          console.error(error);
+      }
+    });
+    this._bridge.getRoomStore().setRemoteRoom(tline.remote);
+    this.timeline_queue.push(tline);
+  }
+  
+  this.stop_timeline = () => {
+    if(this.timeline_intervalobj){
+      clearInterval(this.timeline_intervalobj);
+      this.timeline_intervalobj = null;
+    }
+  }
+  
+  this.start_timeline = () => {
+    this.timeline_period = 3050; //Twitter allows 300 calls per 15 minute (We add 50 milliseconds for a little safety).
+    this.timeline_intervalobj = setInterval(this.process_timeline,this.timeline_period);
+  }
 }
 
 // this.init: function(config){
