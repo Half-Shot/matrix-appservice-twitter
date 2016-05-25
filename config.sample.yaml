@@ -1,0 +1,4 @@
+app_auth: #Get these from twitter by creating an application through the API site.
+    consumer_key: BLAHBLAHBLAH
+    consumer_secret: BLAHBLAHBLAH
+  

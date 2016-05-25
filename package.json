@@ -1,0 +1,19 @@
+{
+  "name": "matrix-appservice-twitter",
+  "version": "0.1.0",
+  "description": "A Matrix AS Bridge for Twitter",
+  "main": "twitter-as.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Half-Shot/matrix-appservice-twitter.git"
+  },
+  "author": "Will Hunt",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/Half-Shot/matrix-appservice-twitter/issues"
+  },
+  "homepage": "https://github.com/Half-Shot/matrix-appservice-twitter#readme"
+}
