@@ -138,7 +138,6 @@ new Cli({
       Twitter = new MTwitter(bridge,config);
       Twitter.start_timeline();
       bridge.run(port, config);
-      return;
       //Register rooms
       bridge.loadDatabases().then(() => {
             var roomstore = bridge.getRoomStore();
