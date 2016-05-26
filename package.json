@@ -15,5 +15,9 @@
   "bugs": {
     "url": "https://github.com/Half-Shot/matrix-appservice-twitter/issues"
   },
-  "homepage": "https://github.com/Half-Shot/matrix-appservice-twitter#readme"
+  "homepage": "https://github.com/Half-Shot/matrix-appservice-twitter#readme",
+  "dependencies": {
+    "stream-buffers": "^3.0.0",
+    "matrix-js-sdk": "git+ssh://git@github.com/matrix-org/matrix-js-sdk.git#develop"
+  }
 }

@@ -72,6 +72,10 @@ new Cli({
                           url: tuser.profile_image_url_https,
                           remote: remoteUser
                         };
+                        uploadImageFromUrl(bridge,tuser.profile_image_url_https,queriedUser.getId()).then((image_uri) =>{
+                          console.log(image_uri);
+                          bridge.getIntent(queriedUser.getId()).setAvatarUrl(image_uri);
+                        });
                         resolve(userObj);
                       }
                       else {
@@ -86,15 +90,22 @@ new Cli({
                   console.log(event.type);
                   if(event.type == "m.room.member"){
                     if(event.membership == "invite" && event.state_key.startsWith("@twitter_")){ //We should prolly use a regex
-                      console.log("Got an invite.")
-                      bridge.getIntent(event.state_key).join(event.room_id);
-                      //Make sure we are sending and receiving events.
-                      bridge.getRoomStore().getLinkedRemoteRooms(event.room_id).then(function(room){
-                        Twitter.enqueue_timeline(event.state_key,new MatrixRoom(event.room_id),room[0]);
-                        Twitter.restart_timeline();
-                      }).catch(()=>{
-                        console.error("Couldn't find remote room for the room we just joined ("+event.room_id+").")
+                      var intent = bridge.getIntent(event.state_key);
+                      intent.join(event.room_id);
+                      
+                      //Set the avatar based on the 'owners' avatar.
+                      intent.getClient().getProfileInfo(event.state_key,'avatar_url').then((url) => {
+                        console.log(url);
+                        intent.sendStateEvent(event.room_id,"m.room.avatar","",{"url":url.avatar_url});
                       });
+                      
+                      if(context.rooms.remote != null){
+                          Twitter.enqueue_timeline(event.state_key,context.rooms.matrix,context.rooms.remote);
+                      }
+                      else {
+                        console.log("Couldn't find the remote room for this timeline.");
+                      }
+                      //Make sure we are sending and receiving events.
 
                     }
                   }
@@ -127,6 +138,8 @@ new Cli({
       Twitter = new MTwitter(bridge,config);
       Twitter.start_timeline();
       bridge.run(port, config);
+      return;
+      //Register rooms
       bridge.loadDatabases().then(() => {
             var roomstore = bridge.getRoomStore();
             roomstore.getRemoteRooms({}).then((rooms) => {
@@ -159,7 +172,6 @@ function constructTimelineRoom(user,aliasLocalpart){
     users[roomOwner] = 75;
     var powers = roomPowers(users);
     var remote = new RemoteRoom("timeline_"+user.id_str);
-    
     remote.set("twitter_type","timeline");
     remote.set("twitter_user",roomOwner);
     opts = {
@@ -200,28 +212,29 @@ function uploadImageFromUrl(bridge,url,id=null,name=null){
         name = url.split("/");
         name = name[name.length-1];
       }
-      //var size = parseInt(res.headers["content-length"]);
-      //var buffer = Buffer.alloc(size);
-      //var bsize = 0;
-      // res.on('data', (d) => {
-      //   d.copy(buffer,bsize);
-      //   bsize += d.length;
-      // });
+      var size = parseInt(res.headers["content-length"]);
+      var buffer = Buffer.alloc(size);
+      var bsize = 0;
+      res.on('data', (d) => {
+         d.copy(buffer,bsize);
+         bsize += d.length;
+      });
       res.on('error',() => {
         reject("Failed to download.");
       });
       res.on('end',() => {
+        resolve(buffer);
       });
-      resolve(res);
     })
-  }).then((data_buffer) => {
+  }).then((buffer) => {
     return bridge.getIntent(id).getClient().uploadContent({
-      stream: data_buffer,
+      stream: buffer,
       name: name,
       type: contenttype
     });
   }).then((response) => {
     var content_uri = JSON.parse(response).content_uri;
+    return content_uri;
     console.log("Media uploaded to " + content_uri);
   }).catch(function(reason){
     console.error("Failed to get image from url:",reason)

@@ -142,28 +142,29 @@ var mtwitter = function(bridge,config){
     this.timeline_queue = this.timeline_queue.slice(1);
     var id = tline.remote.getId().substr(9);
     
-    var req = {user_id : id,count: 1};
+    var req = {user_id : id,count: 3};
     var since = tline.remote.get("twitter_since");
     if(since != undefined){
       req.since_id = since;
     }
     
-    var intent = this._bridge.getIntent(tline.user_id);
+    var bridge = this._bridge
     this.app_twitter.get('statuses/user_timeline',req, function(error, feed, response){
       if(!error){
         if(feed.length > 0){
+          var intent = bridge.getIntent(tline.user_id);
+          tline.remote.set("twitter_since",feed[0].id_str);
           feed = feed.reverse();
           for(var item in feed){
-            intent.sendText(tline.local.roomId,feed[item].text);
+            intent.sendText(tline.local.roomId,feed[item].text);//TODO: We need to make sure not to spam the HS 
           }
-          tline.remote.set("twitter_since",feed[0].id_str);
+          bridge.getRoomStore().setRemoteRoom(tline.remote);
         }
       }
       else {
           console.error(error);
       }
     });
-    this._bridge.getRoomStore().setRemoteRoom(tline.remote);
     this.timeline_queue.push(tline);
   }
   
