@@ -72,12 +72,12 @@ new Cli({
                         remote: remoteUser
                       };
                       uploadImageFromUrl(bridge,tuser.profile_image_url_https,queriedUser.getId()).then((image_uri) =>{
-                        console.log(image_uri);
+                        console.log("Set User Avatar:",image_uri);
                         bridge.getIntent(queriedUser.getId()).setAvatarUrl(image_uri);
                       });
                       resolve(userObj);
                   }).catch((error) => {
-                    console.error("Couldn't find the bastard.");
+                    console.error("Couldn't find the user.");
                     console.error("Reason:",error);
                     reject(error);
                   });
@@ -93,7 +93,7 @@ new Cli({
                       
                       //Set the avatar based on the 'owners' avatar.
                       intent.getClient().getProfileInfo(event.state_key,'avatar_url').then((url) => {
-                        console.log(url);
+                        console.log("Set Room Avatar:",url);
                         intent.sendStateEvent(event.room_id,"m.room.avatar","",{"url":url.avatar_url});
                       });
                       
