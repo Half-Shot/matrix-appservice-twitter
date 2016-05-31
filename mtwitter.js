@@ -76,62 +76,107 @@ var mtwitter = function(bridge,config){
     }
   });
 
-  this.get_user_by_id = function(id,cb){
+  this.get_user_by_id = function(id){
     var ts = new Date().getTime();
-    for(var name in this.tuser_cache){
-      var cached = this.tuser_cache[name];
-      if(ts - cached.cache_time > TWITTER_PROFILE_INTERVAL){
-        continue;
-      }
-      if(cached.user != null){
-        if(cached.user.id_str == id){
-          cb(cached.user);
-          return;
+    return new Promise( (resolve, reject) => {
+      for(var name in this.tuser_cache){
+        var cached = this.tuser_cache[name];
+        if(ts - cached.cache_time > TWITTER_PROFILE_INTERVAL){
+          continue;
+        }
+        if(cached.user != null && cached.user.id_str == id){
+          resolve(cached.user);
         }
       }
-    }
-    
-    this.app_twitter.get('users/show',{user_id : id}, function(error, user, response){
-      if(error){
-        console.error(error);
-        cb(null);
-      }
-      else {
-        twit.tuser_cache[user.screen_name] = {cache_time:ts,user:user};
-        cb(user);
-      }
-    })
-    
+      var twit = this;
+      this.app_twitter.get('users/show',{user_id : id}, function(error, user, response){
+        if(error){
+          console.error(error);
+          reject(error);
+        }
+        else {
+          twit.tuser_cache[user.screen_name] = {cache_time:ts,user:user};
+          resolve(user);
+        }
+      });
+    });
   }
   
-  this.get_user = function(name,cb){
-    console.log("Looking up @" + name);
-    var ts = new Date().getTime();
-    if(this.tuser_cache[name] != undefined){
-      console.log("Using cache");
-      var cached = this.tuser_cache[name];
-      if(ts - cached.cache_time < TWITTER_PROFILE_INTERVAL){
-        return cached.user;
-      }
-    }
+  this.get_user = function(name){
     var twit = this;
-    this.app_twitter.get('users/show',{screen_name: name}, function(error, user, response){
-      if(error){
-        console.error(error);
-        twit.tuser_cache[name] = {cache_time:ts,user:null};
-        cb(null);
+    console.log("Looking up @" + name);
+    return new Promise( (resolve, reject) => {
+      var ts = new Date().getTime();
+      if(this.tuser_cache[name] != undefined){
+        console.log("Checking cache for @" + name);
+        var cached = this.tuser_cache[name];
+        if(ts - cached.cache_time < TWITTER_PROFILE_INTERVAL){
+          resolve(cached.user);
+        }
       }
-      else {
-        twit.tuser_cache[name] = {cache_time:ts,user:user};
-        cb(user);
-      }
+      
+      console.log("Checking twitter for @" + name);
+      this.app_twitter.get('users/show',{screen_name: name}, function(error, user, response){
+        if(error){
+          twit.tuser_cache[name] = {cache_time:ts,user:null};
+          reject(error);
+        }
+        else {
+          twit.tuser_cache[name] = {cache_time:ts,user:user};
+          resolve(user);
+        }
+      });
     });
+    
   }
   
   this.enqueue_timeline = (userid,localroom,remoteroom) => {
     var obj = {"user_id":userid,"local":localroom,"remote":remoteroom};
     this.timeline_list.push(obj);
     this.timeline_queue.push(obj);
+  }
+  
+  this.construct_message = (tweet,type) => {
+    return {
+      "body": tweet.text,
+      "created_at": tweet.created_at,
+      "likes": tweet.favorite_count,
+      "reblogs": tweet.retweet_count,
+      "tweet_id": tweet.id_str,
+      "tags": tweet.entities.hashtags,
+      "msgtype": type
+    }
+  }
+  
+  this.process_tweet = (bridge,roomid,tweet,treeN) => {
+    console.log(tweet);
+    var mtwitter = this;
+    var muser = "@twitter_"+tweet.user.id_str+":"+bridge.opts.domain;
+    var intent = bridge.getIntent(muser);
+    treeN--;
+    if(treeN < 0){
+      console.log("Bailing because we have gone too far deep.")
+      return;
+    }
+    
+    var type = "m.text";
+    if(tweet.in_reply_to_status_id_str != null){
+      type = "m.notice"; // A nicer way to show previous tweets
+    }
+    var tweet_content = this.construct_message(tweet,type);
+    
+    if(tweet.in_reply_to_status_id_str != null){
+      this.app_twitter.get('statuses/show/'+tweet.in_reply_to_status_id_str,{}, function(error, newtweet, response){
+        if(!error){
+          mtwitter.process_tweet(bridge,roomid,newtweet,treeN);
+        }
+        else {
+          console.error(error);
+        }
+      });
+      setTimeout(()=>{intent.sendEvent(roomid,"m.room.message",tweet_content)},treeN*250);//Make sure not to send them too quickly.
+    }
+    //TODO: We need to make sure not to spam the HS 
   }
   
   this.process_timeline = () => {
@@ -148,17 +193,16 @@ var mtwitter = function(bridge,config){
       req.since_id = since;
     }
     
-    var bridge = this._bridge
+    var mtwitter = this;
     this.app_twitter.get('statuses/user_timeline',req, function(error, feed, response){
       if(!error){
         if(feed.length > 0){
-          var intent = bridge.getIntent(tline.user_id);
-          tline.remote.set("twitter_since",feed[0].id_str);
+          tline.remote.set("twitter_since",feed[0].id_str,3);
           feed = feed.reverse();
           for(var item in feed){
-            intent.sendText(tline.local.roomId,feed[item].text);//TODO: We need to make sure not to spam the HS 
+            mtwitter.process_tweet(mtwitter._bridge,tline.local.roomId,feed[item],3);
           }
-          bridge.getRoomStore().setRemoteRoom(tline.remote);
+          mtwitter._bridge.getRoomStore().setRemoteRoom(tline.remote);
         }
       }
       else {

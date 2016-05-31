@@ -62,26 +62,24 @@ new Cli({
               onUserQuery: function(queriedUser) {
                 return new Promise(
                   (resolve,reject) => {
-                    Twitter.get_user_by_id(queriedUser.localpart.substr(8),function(tuser){
-                      if(tuser != null){
-                        console.log("USER ACCEPTED");
-                        console.log(tuser);
-                        var remoteUser = new RemoteUser(tuser.id_str);
-                        var userObj = {
-                          name: tuser.name + " (@" + tuser.screen_name + ")",
-                          url: tuser.profile_image_url_https,
-                          remote: remoteUser
-                        };
-                        uploadImageFromUrl(bridge,tuser.profile_image_url_https,queriedUser.getId()).then((image_uri) =>{
-                          console.log(image_uri);
-                          bridge.getIntent(queriedUser.getId()).setAvatarUrl(image_uri);
-                        });
-                        resolve(userObj);
-                      }
-                      else {
-                        console.log("USER REJECTED");
-                        reject();
-                      }
+                    Twitter.get_user_by_id(queriedUser.localpart.substr(8)).then((tuser) => {
+                      console.log("USER ACCEPTED");
+                      console.log(tuser);
+                      var remoteUser = new RemoteUser(tuser.id_str);
+                      var userObj = {
+                        name: tuser.name + " (@" + tuser.screen_name + ")",
+                        url: tuser.profile_image_url_https,
+                        remote: remoteUser
+                      };
+                      uploadImageFromUrl(bridge,tuser.profile_image_url_https,queriedUser.getId()).then((image_uri) =>{
+                        console.log(image_uri);
+                        bridge.getIntent(queriedUser.getId()).setAvatarUrl(image_uri);
+                      });
+                      resolve(userObj);
+                  }).catch((error) => {
+                    console.error("Couldn't find the bastard.");
+                    console.error("Reason:",error);
+                    reject(error);
                   });
                 });
               },
@@ -91,7 +89,7 @@ new Cli({
                   if(event.type == "m.room.member"){
                     if(event.membership == "invite" && event.state_key.startsWith("@twitter_")){ //We should prolly use a regex
                       var intent = bridge.getIntent(event.state_key);
-                      intent.join(event.room_id);
+                      //intent.join(event.room_id);
                       
                       //Set the avatar based on the 'owners' avatar.
                       intent.getClient().getProfileInfo(event.state_key,'avatar_url').then((url) => {
@@ -105,8 +103,6 @@ new Cli({
                       else {
                         console.log("Couldn't find the remote room for this timeline.");
                       }
-                      //Make sure we are sending and receiving events.
-
                     }
                   }
                   
@@ -114,23 +110,7 @@ new Cli({
                   //console.log("Context:",context);
                   return; // we will handle incoming matrix requests later
               },
-              onAliasQuery : function(alias, aliasLocalpart) {
-                  return new Promise((resolve,reject) => {
-                    Twitter.get_user(aliasLocalpart.substr(9),function(tuser){
-                      if(tuser != null){
-                        if(!tuser.protected){
-                          resolve(constructTimelineRoom(tuser,aliasLocalpart));
-                        }
-                        else {
-                          reject();
-                        }
-                      }
-                      else {
-                        reject();
-                      }
-                    });
-                  });
-              }
+              onAliasQuery : roomQuery
           }
       });
       console.log("Matrix-side listening on port %s", port);
@@ -154,6 +134,23 @@ new Cli({
       })
     }
 }).run();
+
+function roomQuery(alias, aliasLocalpart){
+  return Twitter.get_user(aliasLocalpart.substr(9)).then((tuser) => {
+    console.log(tuser);
+      if(tuser != null){
+        if(!tuser.protected){
+          return constructTimelineRoom(tuser,aliasLocalpart);
+        }
+        else {
+          return;
+        }
+      }
+      else {
+        return;
+      }
+  });
+}
 
 /*
   This will create a stream room for one users timeline.
