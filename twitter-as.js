@@ -1,6 +1,6 @@
 var http = require("http");
 
-var MTwitter = require("./mtwitter.js").MatrixTwitter;
+var MatrixTwitter = require("./mtwitter.js").MatrixTwitter;
 var https = require('https');
 var Cli = require("matrix-appservice-bridge").Cli;
 var Buffer = require("buffer").Buffer;
@@ -60,28 +60,27 @@ new Cli({
             registration: "twitter-registration.yaml",
             controller: {
                 onUserQuery: function(queriedUser) {
-                    return new Promise(
-                        (resolve, reject) => {
-                            Twitter.get_user_by_id(queriedUser.localpart.substr(8)).then((tuser) => {
-                                console.log("USER ACCEPTED");
-                                console.log(tuser);
-                                var remoteUser = new RemoteUser(tuser.id_str);
-                                var userObj = {
-                                    name: tuser.name + " (@" + tuser.screen_name + ")",
-                                    url: tuser.profile_image_url_https,
-                                    remote: remoteUser
-                                };
-                                uploadImageFromUrl(bridge, tuser.profile_image_url_https, queriedUser.getId()).then((image_uri) => {
-                                    console.log("Set User Avatar:", image_uri);
-                                    bridge.getIntent(queriedUser.getId()).setAvatarUrl(image_uri);
-                                });
-                                resolve(userObj);
-                            }).catch((error) => {
-                                console.error("Couldn't find the user.");
-                                console.error("Reason:", error);
-                                reject(error);
-                            });
-                        });
+                    var twitter_user;
+                    var image_uri;
+                    return Twitter.get_user_by_id(queriedUser.localpart.substr(8)).then( (tuser) => {
+                      twitter_user = tuser;
+                      return uploadImageFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((uri) => {
+                          console.log("Got User Avatar:", uri);
+                          image_uri = uri;
+                      });
+                    }).then(() => {
+                      var remoteUser = new RemoteUser(twitter_user.id_str);
+                      var user = {
+                          name: twitter_user.name + " (@" + twitter_user.screen_name + ")",
+                          url: image_uri,
+                          remote: remoteUser
+                      };
+                      console.log(user);
+                      return user;
+                    }).catch((error) => {
+                        console.error("Couldn't find the user.");
+                        console.error("Reason:", error);
+                    });
                 },
                 onEvent: function(request, context) {
                     var event = request.getData();
@@ -89,7 +88,7 @@ new Cli({
                     if (event.type == "m.room.member") {
                         if (event.membership == "invite" && event.state_key.startsWith("@twitter_")) { //We should prolly use a regex
                             var intent = bridge.getIntent(event.state_key);
-                            //intent.join(event.room_id);
+                            intent.join(event.room_id);
 
                             //Set the avatar based on the 'owners' avatar.
                             intent.getClient().getProfileInfo(event.state_key, 'avatar_url').then((url) => {
@@ -116,7 +115,7 @@ new Cli({
         });
         console.log("Matrix-side listening on port %s", port);
         //Setup twitter
-        Twitter = new MTwitter(bridge, config);
+        Twitter = new MatrixTwitter(bridge, config);
         Twitter.start_timeline();
         bridge.run(port, config);
         //Register rooms
@@ -137,16 +136,13 @@ new Cli({
 }).run();
 
 function roomQuery(alias, aliasLocalpart) {
+    console.log(aliasLocalpart);
     return Twitter.get_user(aliasLocalpart.substr(9)).then((tuser) => {
         console.log(tuser);
         if (tuser != null) {
             if (!tuser.protected) {
                 return constructTimelineRoom(tuser, aliasLocalpart);
-            } else {
-                return;
             }
-        } else {
-            return;
         }
     });
 }
