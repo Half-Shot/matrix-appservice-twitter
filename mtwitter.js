@@ -135,6 +135,10 @@ mtwitter.prototype.get_user = function(name) {
 
 }
 
+/*
+  Add a user's timeline to the iterator. Tweets will be automatically send to
+  the given room.
+*/
 mtwitter.prototype.enqueue_timeline = function(userid, localroom, remoteroom) {
     var obj = {
         "user_id": userid,
@@ -145,7 +149,10 @@ mtwitter.prototype.enqueue_timeline = function(userid, localroom, remoteroom) {
     this.timeline_queue.push(obj);
 }
 
-
+/*
+  This function will fill the content structure for a new matrix message
+  for a given tweet.
+*/
 mtwitter.prototype.construct_message = function(tweet, type) {
     return {
         "body": tweet.text,
@@ -158,6 +165,10 @@ mtwitter.prototype.construct_message = function(tweet, type) {
     }
 }
 
+/*
+  Process a given tweet (including resolving any parent parent tweets), and
+  submit it to the appropriate room.
+*/
 mtwitter.prototype.process_tweet = function(bridge, roomid, tweet, treeN) {
     //console.log(tweet);
     var muser = "@twitter_" + tweet.user.id_str + ":" + bridge.opts.domain;
@@ -188,7 +199,10 @@ mtwitter.prototype.process_tweet = function(bridge, roomid, tweet, treeN) {
     }
 }
 
-mtwitter.prototype.process_timeline = function(self) {
+/*
+  Internal function to process the timeline queue.
+*/
+mtwitter.prototype._process_timeline = function(self) {
     if (self.timeline_queue.length < 1) {
         return;
     }
@@ -232,7 +246,7 @@ mtwitter.prototype.stop_timeline = function() {
 
 mtwitter.prototype.start_timeline = function() {
     this.timeline_period = 3050; //Twitter allows 300 calls per 15 minute (We add 50 milliseconds for a little safety).
-    this.timeline_intervalobj = setInterval(() => {this.process_timeline(this);}, this.timeline_period);
+    this.timeline_intervalobj = setInterval(() => {this._process_timeline(this);}, this.timeline_period);
 }
 
 module.exports = {
