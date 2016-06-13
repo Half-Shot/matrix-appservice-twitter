@@ -59,64 +59,14 @@ new Cli({
             domain: "localhost",
             registration: "twitter-registration.yaml",
             controller: {
-                onUserQuery: function(queriedUser) {
-                    var twitter_user;
-                    var image_uri;
-                    return Twitter.get_user_by_id(queriedUser.localpart.substr(8)).then( (tuser) => {
-                      twitter_user = tuser;
-                      return uploadImageFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((uri) => {
-                          console.log("Got User Avatar:", uri);
-                          image_uri = uri;
-                      });
-                    }).then(() => {
-                      var remoteUser = new RemoteUser(twitter_user.id_str);
-                      var user = {
-                          name: twitter_user.name + " (@" + twitter_user.screen_name + ")",
-                          url: image_uri,
-                          remote: remoteUser
-                      };
-                      console.log(user);
-                      return user;
-                    }).catch((error) => {
-                        console.error("Couldn't find the user.");
-                        console.error("Reason:", error);
-                    });
-                },
-                onEvent: function(request, context) {
-                    var event = request.getData();
-                    console.log(event.type);
-                    if (event.type == "m.room.member") {
-                        if (event.membership == "invite" && event.state_key.startsWith("@twitter_")) { //We should prolly use a regex
-                            var intent = bridge.getIntent(event.state_key);
-                            intent.join(event.room_id);
-
-                            //Set the avatar based on the 'owners' avatar.
-                            intent.getClient().getProfileInfo(event.state_key, 'avatar_url').then((url) => {
-                                console.log("Set Room Avatar:", url);
-                                intent.sendStateEvent(event.room_id, "m.room.avatar", "", {
-                                    "url": url.avatar_url
-                                });
-                            });
-
-                            if (context.rooms.remote != null) {
-                                Twitter.enqueue_timeline(event.state_key, context.rooms.matrix, context.rooms.remote);
-                            } else {
-                                console.log("Couldn't find the remote room for this timeline.");
-                            }
-                        }
-                    }
-
-                    //console.log("Request:",request);
-                    //console.log("Context:",context);
-                    return; // we will handle incoming matrix requests later
-                },
+                onUserQuery: userQuery,
+                onEvent: eventQuery,
                 onAliasQuery: roomQuery
             }
         });
         console.log("Matrix-side listening on port %s", port);
         //Setup twitter
         Twitter = new MatrixTwitter(bridge, config);
-        Twitter.start_timeline();
         bridge.run(port, config);
         //Register rooms
         bridge.loadDatabases().then(() => {
@@ -126,7 +76,7 @@ new Cli({
                     if (rroom.data.extras.twitter_type == 'timeline') {
                         roomstore.getLinkedMatrixRooms(rroom.roomId).then(function(room) {
                             //Send the userid and roomid to the twitter stack for processing.
-                            Twitter.enqueue_timeline(rroom.data.extras.twitter_user, room[0], rroom);
+                            Twitter.add_timeline(rroom.data.extras.twitter_user, room[0], rroom);
                         });
                     }
                 });
@@ -135,9 +85,24 @@ new Cli({
     }
 }).run();
 
+function userQuery(queriedUser) {
+  return Twitter.get_user_by_id(queriedUser.localpart.substr("twitter_".length)).then( (tuser) => {
+    return uploadImageFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((uri) => {
+      return {
+        name: twitter_user.name + " (@" + twitter_user.screen_name + ")",
+        url: uri,
+        remote: new RemoteUser(twitter_user.id_str)
+      };
+    });
+  }).catch((error) => {
+      console.error("Couldn't find the user.");
+      console.error("Reason:", error);
+  });
+}
+
 function roomQuery(alias, aliasLocalpart) {
     console.log(aliasLocalpart);
-    return Twitter.get_user(aliasLocalpart.substr(9)).then((tuser) => {
+    return Twitter.get_user(aliasLocalpart.substr("@twitter_".length)).then((tuser) => {
         console.log(tuser);
         if (tuser != null) {
             if (!tuser.protected) {
@@ -145,6 +110,35 @@ function roomQuery(alias, aliasLocalpart) {
             }
         }
     });
+}
+
+function eventQuery(request, context) {
+    var event = request.getData();
+    console.log(event.type);
+    if (event.type == "m.room.member") {
+        if (event.membership == "invite" && event.state_key.startsWith("@twitter_")) { //We should prolly use a regex
+            var intent = bridge.getIntent(event.state_key);
+            intent.join(event.room_id);
+
+            //Set the avatar based on the 'owners' avatar.
+            intent.getClient().getProfileInfo(event.state_key, 'avatar_url').then((url) => {
+                console.log("Set Room Avatar:", url);
+                intent.sendStateEvent(event.room_id, "m.room.avatar", "", {
+                    "url": url.avatar_url
+                });
+            });
+
+            if (context.rooms.remote != null) {
+                Twitter.add_timeline(event.state_key, context.rooms.matrix, context.rooms.remote);
+            } else {
+                console.log("Couldn't find the remote room for this timeline.");
+            }
+        }
+    }
+
+    //console.log("Request:",request);
+    //console.log("Context:",context);
+    return; // we will handle incoming matrix requests later
 }
 
 /*

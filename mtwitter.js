@@ -3,77 +3,100 @@ var Request = require('request');
 var fs = require('fs');
 var Buffer = require('buffer').Buffer;
 
-var TWITTER_PROFILE_INTERVAL = 60000;
+const TWITTER_PROFILE_INTERVAL = 60000;//ms;
 
-var mtwitter = function(bridge, config) {
+var MTwitter = function (bridge, config) {
   this.app_auth = config.app_auth;
   this.app_twitter = null;
   this.tuser_cache = {};
   this.timeline_list = [];
   this.timeline_queue = [];
   this.timeline_period = 0;
-  this.timeline_intervalobj = null;
+  this.timeline_intervalID = null;
+  this.msg_queue = [];
   this._bridge = bridge;
 
-  this.get_bearer_token((bt) => {
-      if (bt != null) {
-          this.app_auth.bearer_token = bt;
-          console.log("Twitter Application Auth OK!");
-          this.app_twitter = new Twitter(this.app_auth);
-          return;
-      }
-      console.error("Twitter Application Failed Auth. The bridge will be operating in a limited capacity.");
+
+  this.get_bearer_token().then((token) => {
+    this.app_auth.bearer_token = token;
+    console.log('Retrieved token');
+    this.app_twitter = new Twitter(this.app_auth);
+    setInterval(() => { this._process_queue(); }, 500);
+    this.start_timeline();
+  }).catch((error) => {
+      console.error('Error trying to retrieve bearer token:', error);
+      throw "Couldn't get a bearer token for Twitter AS.";
+  });
+};
+
+MTwitter.prototype._get_bearer_http = function () {
+  return new Promise( (resolve,reject) => {
+    var key = this.app_auth.consumer_key + ":" + this.app_auth.consumer_secret;
+    key = Buffer.from(key, 'ascii').toString('base64');
+    var options = {
+        url: "https://api.twitter.com/oauth2/token",
+        headers: {
+            'Authorization': "Basic " + key
+        },
+        form: "grant_type=client_credentials",
+        contentType: "application/x-www-form-urlencoded;charset=UTF-8"
+    };
+    Request.post(options, function(error, response, body) {
+        if (error) {
+            reject(error);
+        } else {
+            try {
+                var jsonresponse = JSON.parse(body);
+                if (jsonresponse.token_type == "bearer") {
+                    fs.writeFile("bearer.tok", jsonresponse.access_token, (err) => {
+                        if (err) {
+                            //This error is unfortunate, but not a failure to retrieve a token so the bridge can run fine.
+                            console.error("Couldn't write bearer token to file. Reason:",err);
+                        }
+                    });
+                    //Not waiting for callback since it is trivial to get a new token, and can be done async
+                    resolve(jsonresponse.bearer_token);
+                } else {
+                    reject("Request to oauth2/post did not return the correct token type ('bearer'). This is weeeird.");
+                }
+            } catch (e) {
+                reject(e);
+            }
+        }
+    });
   });
 }
 
-mtwitter.prototype.get_bearer_token = function(cb){
-  try {
-      fs.accessSync('bearer.tok', fs.R_OK);
-      var tok = fs.readFileSync('bearer.tok', 'utf8');
-      cb(tok);
-      return;
-  } catch (e) {
-      console.log("Bearer token either does not exist or cannot be read, getting a new token.")
-  }
-
-  var key = this.app_auth.consumer_key + ":" + this.app_auth.consumer_secret;
-  key = Buffer.from(this.app_auth.consumer_key + ":" + this.app_auth.consumer_secret, 'ascii').toString('base64');
-  var options = {
-      url: "https://api.twitter.com/oauth2/token",
-      headers: {
-          'Authorization': "Basic " + key
-      },
-      form: "grant_type=client_credentials",
-      contentType: "application/x-www-form-urlencoded;charset=UTF-8"
-  };
-  Request.post(options, function(error, response, body) {
-      if (error) {
-          console.log("Error", error);
-          return false;
-      } else {
-          try {
-              var jsonresponse = JSON.parse(body);
-              if (jsonresponse.token_type == "bearer") {
-                  fs.writeFile("bearer.tok", jsonresponse.access_token, (err) => {
-                      if (err) {
-                          console.error("Couldn't write bearer token to file. Reason:",err);
-                      }
-                  });
-                  cb(jsonresponse.bearer_token);
-              } else {
-                  console.error("Error getting bearer token: Unexpected response");
-                  cb(null);
-              }
-          } catch (e) {
-              console.error("Error getting bearer token:", e);
-              cb(null);
-          }
-
+MTwitter.prototype.get_bearer_token = function () {
+  return new Promise((resolve,reject) => {
+    fs.readFile('bearer.tok',{encoding:'utf-8'}, (err, content) => {
+      if(err){
+        console.log("Token file not found or unreadable. Requesting new token.");
+        return this._get_bearer_http();
       }
+      //Test the token
+      var auth = {
+        consumer_key: this.app_auth.consumer_key,
+        consumer_secret: this.app_auth.consumer_secret,
+        bearer_token: content
+      };
+      this.app_twitter = new Twitter(auth).get('application/rate_limit_status', {}, (error,status,response) => {        
+        if(error){
+          console.log("Authentication with existing token failed. ");
+          fs.unlink('bearer.tok', (err) => {
+            return this._get_bearer_http();
+          });
+        }
+        else {
+          console.log("Existing token OK.");
+          resolve(content);
+        }
+      });
+    });
   });
 }
 
-mtwitter.prototype.get_user_by_id = function(id) {
+MTwitter.prototype.get_user_by_id = function(id) {
     var ts = new Date().getTime();
     return new Promise((resolve, reject) => {
         for (var name in this.tuser_cache) {
@@ -89,7 +112,7 @@ mtwitter.prototype.get_user_by_id = function(id) {
             user_id: id
         }, (error, user, response) => {
             if (error) {
-                console.error(error);
+                console.error("get_user_by_id: GET /users/show returned: ", error);
                 reject(error);
             } else {
                 this.tuser_cache[user.screen_name] = {
@@ -102,7 +125,7 @@ mtwitter.prototype.get_user_by_id = function(id) {
     });
 }
 
-mtwitter.prototype.get_user = function(name) {
+MTwitter.prototype.get_user = function(name) {
     console.log("Looking up @" + name);
     return new Promise((resolve, reject) => {
         var ts = new Date().getTime();
@@ -136,10 +159,10 @@ mtwitter.prototype.get_user = function(name) {
 }
 
 /*
-  Add a user's timeline to the iterator. Tweets will be automatically send to
+  Add a user's timeline to the timeline processor. Tweets will be automatically send to
   the given room.
 */
-mtwitter.prototype.enqueue_timeline = function(userid, localroom, remoteroom) {
+MTwitter.prototype.add_timeline = function(userid, localroom, remoteroom) {
     var obj = {
         "user_id": userid,
         "local": localroom,
@@ -153,7 +176,7 @@ mtwitter.prototype.enqueue_timeline = function(userid, localroom, remoteroom) {
   This function will fill the content structure for a new matrix message
   for a given tweet.
 */
-mtwitter.prototype.construct_message = function(tweet, type) {
+MTwitter.prototype.tweet_to_matrix_content = function(tweet, type) {
     return {
         "body": tweet.text,
         "created_at": tweet.created_at,
@@ -165,51 +188,66 @@ mtwitter.prototype.construct_message = function(tweet, type) {
     }
 }
 
+//Runs every 500ms to help not overflow the room.
+MTwitter.prototype._process_queue = function(){
+  if(this.msg_queue.length > 0){
+    var msg = this.msg_queue[0];
+    this.msg_queue = this.msg_queue.slice(1);
+    var intent = this._bridge.getIntent(msg.userId);
+    intent.sendEvent(msg.roomId, msg.type, msg.content);
+  }
+}
+
 /*
-  Process a given tweet (including resolving any parent parent tweets), and
-  submit it to the appropriate room.
+  Process a given tweet (including resolving any parent tweets), and
+  submit it to the given room.
+  TreeN - depth of the
 */
-mtwitter.prototype.process_tweet = function(bridge, roomid, tweet, treeN) {
+MTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
     //console.log(tweet);
-    var muser = "@twitter_" + tweet.user.id_str + ":" + bridge.opts.domain;
-    var intent = bridge.getIntent(muser);
-    treeN--;
-    if (treeN < 0) {
+    depth--;
+    if (depth < 0) {
         console.log("Bailing because we have gone too far deep.")
         return;
     }
+    
+    var muser = "@twitter_" + tweet.user.id_str + ":" + bridge.opts.domain;
+    var intent = this._bridge.getIntent(muser);
 
     var type = "m.text";
     if (tweet.in_reply_to_status_id_str != null) {
         type = "m.notice"; // A nicer way to show previous tweets
     }
-    var tweet_content = this.construct_message(tweet, type);
-
+    
     if (tweet.in_reply_to_status_id_str != null) {
         this.app_twitter.get('statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet, response) => {
             if (!error) {
-                this.process_tweet(bridge, roomid, newtweet, treeN);
+                this.process_tweet(roomid, newtweet, depth);
                 return;
             }
-            console.error(error);
+            console.error("process_tweet: GET /statuses/show returned: ", error);
         });
-        setTimeout(() => {
-            intent.sendEvent(roomid, "m.room.message", tweet_content)
-        }, treeN * 250); //Make sure not to send them too quickly.
     }
+    this.msg_queue.push(
+      {
+        userId:muser,
+        roomId:roomid,
+        type:type,
+        content:this.tweet_to_matrix_content(tweet, type)
+      }
+    );
 }
 
 /*
   Internal function to process the timeline queue.
 */
-mtwitter.prototype._process_timeline = function(self) {
-    if (self.timeline_queue.length < 1) {
+MTwitter.prototype._process_timeline = function(self) {
+    if (this.timeline_queue.length < 1) {
         return;
     }
     
-    var tline = self.timeline_queue[0];
-    self.timeline_queue = self.timeline_queue.slice(1);
-    var id = tline.remote.getId().substr(9);
+    var tline = this.timeline_queue.shift();
+    var id = tline.remote.getId().substr("@twitter_".length);
 
     var req = {
         user_id: id,
@@ -220,35 +258,34 @@ mtwitter.prototype._process_timeline = function(self) {
         req.since_id = since;
     }
 
-    self.app_twitter.get('statuses/user_timeline', req, (error, feed, response) => {
-        if (!error) {
-            if (feed.length > 0) {
-                tline.remote.set("twitter_since", feed[0].id_str, 3);
-                feed = feed.reverse();
-                for (var item in feed) {
-                    self.process_tweet(self._bridge, tline.local.roomId, feed[item], 3);
-                }
-                self._bridge.getRoomStore().setRemoteRoom(tline.remote);
-            }
-            return;
+    this.app_twitter.get('statuses/user_timeline', req, (error, feed, response) => {
+        if(error){
+          console.error("_process_timeline: GET /statuses/user_timeline returned: ", error);
+          return;
         }
-        console.error(error);
+        if (feed.length > 0) {
+            tline.remote.set("twitter_since", feed[0].id_str, 3);
+            feed.reverse().forEach((item) => {
+                this.process_tweet(tline.local.roomId, item, 3);
+            });
+            this._bridge.getRoomStore().setRemoteRoom(tline.remote);
+        }
     });
-    self.timeline_queue.push(tline);
+    this.timeline_queue.push(tline);
 }
 
-mtwitter.prototype.stop_timeline = function() {
-    if (this.timeline_intervalobj) {
-        clearInterval(this.timeline_intervalobj);
-        this.timeline_intervalobj = null;
+MTwitter.prototype.stop_timeline = function() {
+    if (this.timeline_intervalID) {
+        clearInterval(this.timeline_intervalID);
+        this.timeline_intervalID = null;
     }
 }
 
-mtwitter.prototype.start_timeline = function() {
+MTwitter.prototype.start_timeline = function() {
     this.timeline_period = 3050; //Twitter allows 300 calls per 15 minute (We add 50 milliseconds for a little safety).
-    this.timeline_intervalobj = setInterval(() => {this._process_timeline(this);}, this.timeline_period);
+    this.timeline_intervalID = setInterval(() => {this._process_timeline();}, this.timeline_period);
 }
 
 module.exports = {
-    MatrixTwitter: mtwitter
+    MatrixTwitter: MTwitter
 }
