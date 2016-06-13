@@ -3,8 +3,11 @@ var Request = require('request');
 var fs = require('fs');
 var Buffer = require('buffer').Buffer;
 
-const TWITTER_PROFILE_INTERVAL = 60000;//ms;
-
+const TWITTER_PROFILE_INTERVAL_MS = 60000;
+/*
+  We pass in the full configuration to the constructor since eventually other
+  settings will be placed into config (for flags and other forms of auth).
+*/
 var MTwitter = function (bridge, config) {
   this.app_auth = config.app_auth;
   this.app_twitter = null;
@@ -16,8 +19,11 @@ var MTwitter = function (bridge, config) {
   this.msg_queue = [];
   this._bridge = bridge;
 
+  
+};
 
-  this.get_bearer_token().then((token) => {
+MTwitter.prototype.start = function(){
+  return this.get_bearer_token().then((token) => {
     this.app_auth.bearer_token = token;
     console.log('Retrieved token');
     this.app_twitter = new Twitter(this.app_auth);
@@ -27,7 +33,7 @@ var MTwitter = function (bridge, config) {
       console.error('Error trying to retrieve bearer token:', error);
       throw "Couldn't get a bearer token for Twitter AS.";
   });
-};
+}
 
 MTwitter.prototype._get_bearer_http = function () {
   return new Promise( (resolve,reject) => {
@@ -44,6 +50,9 @@ MTwitter.prototype._get_bearer_http = function () {
     Request.post(options, function(error, response, body) {
         if (error) {
             reject(error);
+        } else if (response.statusCode !== 200){
+            reject("Response to bearer token request returned non OK")
+            console.log("Body of response:",body);
         } else {
             try {
                 var jsonresponse = JSON.parse(body);
@@ -58,6 +67,7 @@ MTwitter.prototype._get_bearer_http = function () {
                     resolve(jsonresponse.bearer_token);
                 } else {
                     reject("Request to oauth2/post did not return the correct token type ('bearer'). This is weeeird.");
+                    console.log("Body of response:",body);
                 }
             } catch (e) {
                 reject(e);
@@ -72,6 +82,7 @@ MTwitter.prototype.get_bearer_token = function () {
     fs.readFile('bearer.tok',{encoding:'utf-8'}, (err, content) => {
       if(err){
         console.log("Token file not found or unreadable. Requesting new token.");
+        console.log(err);
         return this._get_bearer_http();
       }
       //Test the token
@@ -81,15 +92,19 @@ MTwitter.prototype.get_bearer_token = function () {
         bearer_token: content
       };
       this.app_twitter = new Twitter(auth).get('application/rate_limit_status', {}, (error,status,response) => {        
-        if(error){
+        if(response.statusCode == 401){
           console.log("Authentication with existing token failed. ");
           fs.unlink('bearer.tok', (err) => {
             return this._get_bearer_http();
           });
         }
+        else if (response.statusCode == 200){
+            console.log("Existing token OK.");
+            resolve(content);
+        }
         else {
-          console.log("Existing token OK.");
-          resolve(content);
+            console.log(error);
+            reject("Unexpected response to application/rate_limit_status during bearer token validation. Bailing.");
         }
       });
     });
@@ -99,9 +114,8 @@ MTwitter.prototype.get_bearer_token = function () {
 MTwitter.prototype.get_user_by_id = function(id) {
     var ts = new Date().getTime();
     return new Promise((resolve, reject) => {
-        for (var name in this.tuser_cache) {
-            var cached = this.tuser_cache[name];
-            if (ts - cached.cache_time > TWITTER_PROFILE_INTERVAL) {
+        for (var cached of this.tuser_cache) {
+            if (ts - cached.cache_time > TWITTER_PROFILE_INTERVAL_MS) {
                 continue;
             }
             if (cached.user != null && cached.user.id_str == id) {
@@ -132,7 +146,7 @@ MTwitter.prototype.get_user = function(name) {
         if (this.tuser_cache[name] != undefined) {
             console.log("Checking cache for @" + name);
             var cached = this.tuser_cache[name];
-            if (ts - cached.cache_time < TWITTER_PROFILE_INTERVAL) {
+            if (ts - cached.cache_time < TWITTER_PROFILE_INTERVAL_MS) {
                 resolve(cached.user);
             }
         }
@@ -191,8 +205,7 @@ MTwitter.prototype.tweet_to_matrix_content = function(tweet, type) {
 //Runs every 500ms to help not overflow the room.
 MTwitter.prototype._process_queue = function(){
   if(this.msg_queue.length > 0){
-    var msg = this.msg_queue[0];
-    this.msg_queue = this.msg_queue.slice(1);
+    var msg = this.msg_queue.shift();
     var intent = this._bridge.getIntent(msg.userId);
     intent.sendEvent(msg.roomId, msg.type, msg.content);
   }
@@ -200,14 +213,17 @@ MTwitter.prototype._process_queue = function(){
 
 /*
   Process a given tweet (including resolving any parent tweets), and
-  submit it to the given room.
-  TreeN - depth of the
+  submit it to the given room. This function is recursive, limited to the depth
+  set.
+  roomid - Matrix Room ID of the room that we are processing.
+  depth - The maximum depth of the tweet chain (replies to replies) to be traversed.
+  Set this to how deep you wish to traverse and it will be decreased when the
+  function calls itself. 
 */
 MTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
     //console.log(tweet);
     depth--;
     if (depth < 0) {
-        console.log("Bailing because we have gone too far deep.")
         return;
     }
     
