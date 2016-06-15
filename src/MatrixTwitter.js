@@ -18,6 +18,7 @@ var MTwitter = function (bridge, config) {
   this.timeline_intervalID = null;
   this.msg_queue = [];
   this._bridge = bridge;
+  this.tweet_event_cache = {};
 
   
 };
@@ -114,7 +115,8 @@ MTwitter.prototype.get_bearer_token = function () {
 MTwitter.prototype.get_user_by_id = function(id) {
     var ts = new Date().getTime();
     return new Promise((resolve, reject) => {
-        for (var cached of this.tuser_cache) {
+        for (var i in this.tuser_cache) {
+            var cached = this.tuser_cache[i];
             if (ts - cached.cache_time > TWITTER_PROFILE_INTERVAL_MS) {
                 continue;
             }
@@ -184,6 +186,13 @@ MTwitter.prototype.add_timeline = function(userid, localroom, remoteroom) {
     };
     this.timeline_list.push(obj);
     this.timeline_queue.push(obj);
+    console.log("Added Timeline:",userid);
+}
+
+MTwitter.prototype.remove_timeline = function(userid){
+  const tlfind = (tline) => { tline.user_id == userid };
+  this.timeline_list  = this.timeline_list.splice(this.timeline_list.findIndex(tlfind),1);
+  this.timeline_queue = this.timeline_queue.splice(this.timeline_queue.findIndex(tlfind),1);
 }
 
 /*
@@ -207,7 +216,9 @@ MTwitter.prototype._process_queue = function(){
   if(this.msg_queue.length > 0){
     var msg = this.msg_queue.shift();
     var intent = this._bridge.getIntent(msg.userId);
-    intent.sendEvent(msg.roomId, msg.type, msg.content);
+    intent.sendEvent(msg.roomId, msg.type, msg.content).then( (id) => {
+      console.log(id);
+    });
   }
 }
 
@@ -248,7 +259,7 @@ MTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
       {
         userId:muser,
         roomId:roomid,
-        type:type,
+        type:"m.room.message",
         content:this.tweet_to_matrix_content(tweet, type)
       }
     );

@@ -1,16 +1,19 @@
-var http = require("http");
+var https   = require('https');
+var Buffer  = require("buffer").Buffer;
+var log     = require('npmlog');
 
-var MatrixTwitter = require("./mtwitter.js").MatrixTwitter;
-var https = require('https');
-var Cli = require("matrix-appservice-bridge").Cli;
-var Buffer = require("buffer").Buffer;
-var Bridge = require("matrix-appservice-bridge").Bridge;
-var RemoteUser = require("matrix-appservice-bridge").RemoteUser;
-var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
-var RemoteRoom = require("matrix-appservice-bridge").MatrixRoom;
+var Cli         = require("matrix-appservice-bridge").Cli;
+var Bridge      = require("matrix-appservice-bridge").Bridge;
+var RemoteUser  = require("matrix-appservice-bridge").RemoteUser;
+var RemoteRoom  = require("matrix-appservice-bridge").RemoteRoom;
+var MatrixRoom  = require("matrix-appservice-bridge").MatrixRoom;
 var AppServiceRegistration = require("matrix-appservice-bridge").AppServiceRegistration;
 
+var MatrixTwitter = require("./src/MatrixTwitter.js").MatrixTwitter;
+var TwitterRoomHandler = require("./src/TwitterRoomHandler.js").TwitterRoomHandler;
+
 var twitter;
+var troomstore;
 
 function roomPowers(users) {
     return {
@@ -62,18 +65,27 @@ new Cli({
             controller: {
                 onUserQuery: userQuery,
                 onEvent: eventQuery,
-                onAliasQuery: roomQuery
+                onAliasQuery: roomQuery,
+                onLog: function(line, isError){
+                  if(isError){ // Make logging less verbose
+                    console.error(line);
+                  }
+                  /*else{
+                    console.log(line);
+                  }*/
+                }
             }
         });
-        console.log("Matrix-side listening on port %s", port);
+        log.info("AppServ","Matrix-side listening on port %s", port);
         //Setup twitter
         twitter = new MatrixTwitter(bridge, config);
-        
+        troomstore = new TwitterRoomHandler(bridge);
+        var roomstore;
         twitter.start().then(() => {
           bridge.run(port, config);
           return bridge.loadDatabases();
         }).then(() => {
-          var roomstore = bridge.getRoomStore();
+          roomstore = bridge.getRoomStore();
           return roomstore.getRemoteRooms({});
         }).then((rooms) => {
           rooms.forEach((rroom, i, a) => {
@@ -89,7 +101,8 @@ new Cli({
 }).run();
 
 function userQuery(queriedUser) {
-  return twitter.get_user_by_id(queriedUser.localpart.substr("twitter_".length)).then( (tuser) => {
+  console.log(queriedUser);
+  return twitter.get_user_by_id(queriedUser.localpart.substr("twitter_".length)).then( (twitter_user) => {
     /* Even users with a default avatar will still have an avatar url set.
        This *should* always work. */
     return uploadContentFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((uri) => {
@@ -100,15 +113,13 @@ function userQuery(queriedUser) {
       };
     });
   }).catch((error) => {
-      console.error("Couldn't find the user.");
-      console.error("Reason:", error);
+      log.error("UserQuery","Couldn't find the user.\nReason: %s",error);
   });
 }
 
 function roomQuery(alias, aliasLocalpart) {
     console.log(aliasLocalpart);
     return twitter.get_user(aliasLocalpart.substr("@twitter_".length)).then((tuser) => {
-        console.log(tuser);
         if (tuser != null) {
             if (!tuser.protected) {
                 return constructTimelineRoom(tuser, aliasLocalpart);
@@ -117,36 +128,64 @@ function roomQuery(alias, aliasLocalpart) {
     });
 }
 
-function eventQuery(request, context) {
-    var event = request.getData();
-    console.log(event.type);
-    if (event.type == "m.room.member") {
-        if (event.membership == "invite" && event.state_key.startsWith("@twitter_")) { //We should prolly use a regex
-            var intent = bridge.getIntent(event.state_key);
-            intent.join(event.room_id);
-
-            //Set the avatar based on the 'owners' avatar.
-            intent.getClient().getProfileInfo(event.state_key, 'avatar_url').then((content) => {
-                
-                if(typeof content.avatar_url != "string"){
-                  console.error("User",event.state_key,"does not have an avatar set. This is unexpected.");
-                  console.log(content);
-                  return;
-                }
-                
-                console.log("Set Room Avatar:", content.avatar_url);
-                intent.sendStateEvent(event.room_id, "m.room.avatar", "", {
-                    "url": content.avatar_url
-                });
-            });
-
-            if (context.rooms.remote != null) {
-                twitter.add_timeline(event.state_key, context.rooms.matrix, context.rooms.remote);
-            } else {
-                console.log("Couldn't find the remote room for this timeline.");
-            }
-        }
-    }
+function eventQuery(request, context)
+{
+    troomstore.passEvent(request, context);
+    // if (event.type == "m.room.member")
+    // {
+    //     console.log(context.rooms);
+    //     //var name = context.rooms.remote;
+    //     //console.log(name);
+    //     if (event.state_key.startsWith("@twitter_"))
+    //     { //We should prolly use a regex
+    //         if (event.membership == "invite")
+    //         {
+    //             var intent = bridge.getIntent(event.state_key);
+    //             intent.join(event.room_id);
+    // 
+    //             //Set the avatar based on the 'owners' avatar.
+    //             intent.getClient().getProfileInfo(event.state_key, 'avatar_url').then((content) =>
+    //             {
+    // 
+    //                 if (typeof content.avatar_url != "string")
+    //                 {
+    //                     console.error("User", event.state_key, "does not have an avatar set. This is unexpected.");
+    //                     console.log(content);
+    //                     return;
+    //                 }
+    // 
+    //                 console.log("Set Room Avatar:", content.avatar_url);
+    //                 intent.sendStateEvent(event.room_id, "m.room.avatar", "",
+    //                 {
+    //                     "url": content.avatar_url
+    //                 });
+    //             });
+    // 
+    //             if (context.rooms.remote != null)
+    //             {
+    //                 twitter.add_timeline(event.state_key, context.rooms.matrix, context.rooms.remote);
+    //                 return;
+    //             }
+    //             console.log("Couldn't find the remote room for this timeline.");
+    //         }
+    //         else if(event.membership == "leave"){
+    //           console.log(event);
+    //           var users = getRoomMembers(event.room_id);
+    //           for(var user of users){
+    //             console.log(user);
+    //           }
+    //         }
+    //       }
+    //       else //Regular room
+    //       {
+    //           //Check room is 1:1
+    //           console.log("One 2 One Room:",event);
+    //           if (getRoomMembers(event.room_id).length != 1)
+    //           {
+    //               return; //We only do 1:1 rooms.
+    //           }
+    //       }
+    // }
 }
 
 /*
@@ -230,9 +269,9 @@ function uploadContentFromUrl(bridge, url, id = null, name = null) {
     }).then((response) => {
         var content_uri = JSON.parse(response).content_uri;
         return content_uri;
-        console.log("Media uploaded to " + content_uri);
+        log.info("UploadContent","Media uploaded to %s", content_uri);
     }).catch(function(reason) {
-        console.error("Failed to get image from url:", reason)
+        log.error("UploadContent","Failed to get image from url:\n%s", reason)
     })
 
 }
