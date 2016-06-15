@@ -18,8 +18,6 @@ var MTwitter = function (bridge, config) {
   this.timeline_intervalID = null;
   this.msg_queue = [];
   this._bridge = bridge;
-
-  
 };
 
 MTwitter.prototype.start = function(){
@@ -27,7 +25,7 @@ MTwitter.prototype.start = function(){
     this.app_auth.bearer_token = token;
     console.log('Retrieved token');
     this.app_twitter = new Twitter(this.app_auth);
-    setInterval(() => { this._process_queue(); }, 500);
+    setInterval(() => { this._process_head_of_msg_queue(); }, 500);
     this.start_timeline();
   }).catch((error) => {
       console.error('Error trying to retrieve bearer token:', error);
@@ -53,6 +51,7 @@ MTwitter.prototype._get_bearer_http = function () {
         } else if (response.statusCode !== 200){
             reject("Response to bearer token request returned non OK")
             console.log("Body of response:",body);
+            console.log("Statuscode of respnse:",response.statusCode);
         } else {
             try {
                 var jsonresponse = JSON.parse(body);
@@ -203,7 +202,7 @@ MTwitter.prototype.tweet_to_matrix_content = function(tweet, type) {
 }
 
 //Runs every 500ms to help not overflow the room.
-MTwitter.prototype._process_queue = function(){
+MTwitter.prototype._process_head_of_msg_queue = function(){
   if(this.msg_queue.length > 0){
     var msg = this.msg_queue.shift();
     var intent = this._bridge.getIntent(msg.userId);
