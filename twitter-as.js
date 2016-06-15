@@ -1,6 +1,6 @@
 var http = require("http");
 
-var MTwitter = require("./mtwitter.js").MatrixTwitter;
+var MatrixTwitter = require("./mtwitter.js").MatrixTwitter;
 var https = require('https');
 var Cli = require("matrix-appservice-bridge").Cli;
 var Buffer = require("buffer").Buffer;
@@ -9,7 +9,7 @@ var RemoteUser = require("matrix-appservice-bridge").RemoteUser;
 var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 var RemoteRoom = require("matrix-appservice-bridge").MatrixRoom;
 var AppServiceRegistration = require("matrix-appservice-bridge").AppServiceRegistration;
-var Twitter;
+var twitter;
 
 function roomPowers(users) {
     return {
@@ -59,103 +59,102 @@ new Cli({
             domain: "localhost",
             registration: "twitter-registration.yaml",
             controller: {
-                onUserQuery: function(queriedUser) {
-                    return new Promise(
-                        (resolve, reject) => {
-                            Twitter.get_user_by_id(queriedUser.localpart.substr(8)).then((tuser) => {
-                                console.log("USER ACCEPTED");
-                                console.log(tuser);
-                                var remoteUser = new RemoteUser(tuser.id_str);
-                                var userObj = {
-                                    name: tuser.name + " (@" + tuser.screen_name + ")",
-                                    url: tuser.profile_image_url_https,
-                                    remote: remoteUser
-                                };
-                                uploadImageFromUrl(bridge, tuser.profile_image_url_https, queriedUser.getId()).then((image_uri) => {
-                                    console.log("Set User Avatar:", image_uri);
-                                    bridge.getIntent(queriedUser.getId()).setAvatarUrl(image_uri);
-                                });
-                                resolve(userObj);
-                            }).catch((error) => {
-                                console.error("Couldn't find the user.");
-                                console.error("Reason:", error);
-                                reject(error);
-                            });
-                        });
-                },
-                onEvent: function(request, context) {
-                    var event = request.getData();
-                    console.log(event.type);
-                    if (event.type == "m.room.member") {
-                        if (event.membership == "invite" && event.state_key.startsWith("@twitter_")) { //We should prolly use a regex
-                            var intent = bridge.getIntent(event.state_key);
-                            //intent.join(event.room_id);
-
-                            //Set the avatar based on the 'owners' avatar.
-                            intent.getClient().getProfileInfo(event.state_key, 'avatar_url').then((url) => {
-                                console.log("Set Room Avatar:", url);
-                                intent.sendStateEvent(event.room_id, "m.room.avatar", "", {
-                                    "url": url.avatar_url
-                                });
-                            });
-
-                            if (context.rooms.remote != null) {
-                                Twitter.enqueue_timeline(event.state_key, context.rooms.matrix, context.rooms.remote);
-                            } else {
-                                console.log("Couldn't find the remote room for this timeline.");
-                            }
-                        }
-                    }
-
-                    //console.log("Request:",request);
-                    //console.log("Context:",context);
-                    return; // we will handle incoming matrix requests later
-                },
+                onUserQuery: userQuery,
+                onEvent: eventQuery,
                 onAliasQuery: roomQuery
             }
         });
         console.log("Matrix-side listening on port %s", port);
         //Setup twitter
-        Twitter = new MTwitter(bridge, config);
-        Twitter.start_timeline();
-        bridge.run(port, config);
-        //Register rooms
-        bridge.loadDatabases().then(() => {
-            var roomstore = bridge.getRoomStore();
-            roomstore.getRemoteRooms({}).then((rooms) => {
-                rooms.forEach((rroom, i, a) => {
-                    if (rroom.data.extras.twitter_type == 'timeline') {
-                        roomstore.getLinkedMatrixRooms(rroom.roomId).then(function(room) {
-                            //Send the userid and roomid to the twitter stack for processing.
-                            Twitter.enqueue_timeline(rroom.data.extras.twitter_user, room[0], rroom);
-                        });
-                    }
+
+        twitter = new MatrixTwitter(bridge, config);
+        
+        twitter.start().then(() => {
+          bridge.run(port, config);
+          return bridge.loadDatabases();
+        }).then(() => {
+          var roomstore = bridge.getRoomStore();
+          return roomstore.getRemoteRooms({});
+        }).then((rooms) => {
+          rooms.forEach((rroom, i, a) => {
+            if (rroom.data.extras.twitter_type == 'timeline') {
+                roomstore.getLinkedMatrixRooms(rroom.roomId).then(function(room) {
+                    //Send the userid and roomid to the twitter stack for processing.
+                    twitter.add_timeline(rroom.data.extras.twitter_user, room[0], rroom);
                 });
-            });
-        })
+            }
+          });
+        });
     }
 }).run();
 
+function userQuery(queriedUser) {
+  return twitter.get_user_by_id(queriedUser.localpart.substr("twitter_".length)).then( (tuser) => {
+    /* Even users with a default avatar will still have an avatar url set.
+       This *should* always work. */
+    return uploadContentFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((uri) => {
+      return {
+        name: twitter_user.name + " (@" + twitter_user.screen_name + ")",
+        url: uri,
+        remote: new RemoteUser(twitter_user.id_str)
+      };
+    });
+  }).catch((error) => {
+      console.error("Couldn't find the user.");
+      console.error("Reason:", error);
+  });
+}
+
 function roomQuery(alias, aliasLocalpart) {
-    return Twitter.get_user(aliasLocalpart.substr(9)).then((tuser) => {
+    console.log(aliasLocalpart);
+    return twitter.get_user(aliasLocalpart.substr("@twitter_".length)).then((tuser) => {
         console.log(tuser);
         if (tuser != null) {
             if (!tuser.protected) {
                 return constructTimelineRoom(tuser, aliasLocalpart);
-            } else {
-                return;
+
             }
-        } else {
-            return;
         }
     });
 }
 
+function eventQuery(request, context) {
+    var event = request.getData();
+    console.log(event.type);
+    if (event.type == "m.room.member") {
+        if (event.membership == "invite" && event.state_key.startsWith("@twitter_")) { //We should prolly use a regex
+            var intent = bridge.getIntent(event.state_key);
+            intent.join(event.room_id);
+
+            //Set the avatar based on the 'owners' avatar.
+            intent.getClient().getProfileInfo(event.state_key, 'avatar_url').then((content) => {
+                
+                if(typeof content.avatar_url != "string"){
+                  console.error("User",event.state_key,"does not have an avatar set. This is unexpected.");
+                  console.log(content);
+                  return;
+                }
+                
+                console.log("Set Room Avatar:", content.avatar_url);
+                intent.sendStateEvent(event.room_id, "m.room.avatar", "", {
+                    "url": content.avatar_url
+                });
+            });
+
+            if (context.rooms.remote != null) {
+                twitter.add_timeline(event.state_key, context.rooms.matrix, context.rooms.remote);
+            } else {
+                console.log("Couldn't find the remote room for this timeline.");
+            }
+        }
+    }
+}
+
 /*
-  This will create a stream room for one users timeline.
-  Users who are not authenticated via OAuth will recieve the default power of 0
-  Users who are authenticated via Oauth will recieve a power level of 10
-  The owner of this stream will recieve a 75
+  This will create a stream room for one user's timeline.
+  Users who are not authenticated via OAuth will receive the default power of 0
+  Users who are authenticated via Oauth will receive a power level of 10
+  The owner of this stream will receive a 75
   The bot will have 100
 */
 function constructTimelineRoom(user, aliasLocalpart) {
@@ -183,7 +182,7 @@ function constructTimelineRoom(user, aliasLocalpart) {
                 },
                 "state_key": ""
             }, {
-                "type": "org.twitter.data",
+                "type": "org.matrix.twitter.data",
                 "content": user,
                 "state_key": ""
             }
@@ -195,8 +194,12 @@ function constructTimelineRoom(user, aliasLocalpart) {
     };
 }
 
-//WIP
-function uploadImageFromUrl(bridge, url, id = null, name = null) {
+/*
+  This function will take a URL, upload it to Matrix and return the corresponding
+  MXC url in a Promise. The content will be uploaded on the users behalf using
+  the ID, or the AS bot if set to null.
+*/
+function uploadContentFromUrl(bridge, url, id = null, name = null) {
     var contenttype;
     return new Promise((resolve, reject) => {
         https.get((url), (res) => {
