@@ -1,9 +1,12 @@
 var Twitter = require('twitter');
 var Request = require('request');
 var fs = require('fs');
+var log = require('npmlog');
 var Buffer = require('buffer').Buffer;
 
 const TWITTER_PROFILE_INTERVAL_MS = 60000;
+const TWITTER_CLIENT_INTERVAL_MS = 60000;
+
 /*
   We pass in the full configuration to the constructor since eventually other
   settings will be placed into config (for flags and other forms of auth).
@@ -12,6 +15,7 @@ var MTwitter = function (bridge, config) {
   this.app_auth = config.app_auth;
   this.app_twitter = null;
   this.tuser_cache = {};
+  this.tclients = {};
   this.timeline_list = [];
   this.timeline_queue = [];
   this.timeline_period = 0;
@@ -24,12 +28,12 @@ var MTwitter = function (bridge, config) {
 MTwitter.prototype.start = function(){
   return this.get_bearer_token().then((token) => {
     this.app_auth.bearer_token = token;
-    console.log('Retrieved token');
+    log.info('Twitter','Retrieved token');
     this.app_twitter = new Twitter(this.app_auth);
     setInterval(() => { this._process_head_of_msg_queue(); }, 500);
     this.start_timeline();
   }).catch((error) => {
-      console.error('Error trying to retrieve bearer token:', error);
+      log.error('Twitter','Error trying to retrieve bearer token:', error);
       throw "Couldn't get a bearer token for Twitter AS.";
   });
 }
@@ -60,7 +64,7 @@ MTwitter.prototype._get_bearer_http = function () {
                     fs.writeFile("bearer.tok", jsonresponse.access_token, (err) => {
                         if (err) {
                             //This error is unfortunate, but not a failure to retrieve a token so the bridge can run fine.
-                            console.error("Couldn't write bearer token to file. Reason:",err);
+                            log.error("Twitter","Couldn't write bearer token to file. Reason:",err);
                         }
                     });
                     //Not waiting for callback since it is trivial to get a new token, and can be done async
@@ -81,7 +85,7 @@ MTwitter.prototype.get_bearer_token = function () {
   return new Promise((resolve,reject) => {
     fs.readFile('bearer.tok',{encoding:'utf-8'}, (err, content) => {
       if(err){
-        console.log("Token file not found or unreadable. Requesting new token.");
+        log.warn('Twitter',"Token file not found or unreadable. Requesting new token.");
         console.log(err);
         return this._get_bearer_http();
       }
@@ -93,13 +97,13 @@ MTwitter.prototype.get_bearer_token = function () {
       };
       this.app_twitter = new Twitter(auth).get('application/rate_limit_status', {}, (error,status,response) => {        
         if(response.statusCode == 401){
-          console.log("Authentication with existing token failed. ");
+          log.warn('Twitter',"Authentication with existing token failed. ");
           fs.unlink('bearer.tok', (err) => {
             return this._get_bearer_http();
           });
         }
         else if (response.statusCode == 200){
-            console.log("Existing token OK.");
+            log.info('Twitter',"Existing token OK.");
             resolve(content);
         }
         else {
@@ -108,6 +112,90 @@ MTwitter.prototype.get_bearer_token = function () {
         }
       });
     });
+  });
+}
+
+MTwitter.prototype._get_twitter_client = function(sender){
+  //Check if we have the account in the cache
+  return new Promise( (resolve,reject) =>{
+    var id = sender.getId();
+    var ts = new Date().getTime();
+    var client;
+    var creds = sender.get("twitter_oauth");
+    if(this.tclients.hasOwnProperty(id)){
+      client = this.tclients[id];
+      if(ts - client.last_auth < TWITTER_CLIENT_INTERVAL_MS){
+        resolve(client);
+      }
+      client.get("account/verify_credentials",(error,details) =>{
+        if(error){
+          delete this.tclients[id];//Invalidate it
+          log.info("Twitter","Credentials for " + id + " are no longer valid.");
+        }
+        //TODO: Do something with the output ideally like update the users profile.
+      });
+    }
+    console.log(creds);
+    console.log(this.tclients);
+    if(creds !== undefined && !this.tclients.hasOwnProperty(id)) {
+      console.log(creds);
+      client = new Twitter({
+        consumer_key: this.app_auth.consumer_key,
+        consumer_secret: this.app_auth.consumer_secret,
+        access_token_key: creds.access_token,
+        access_token_secret: creds.access_token_secret
+      });
+      client.last_auth = ts;
+      this.tclients[id] = client;
+      client.get("account/verify_credentials",(error,details) =>{
+        if(error){
+          delete this.tclients[id];//Invalidate it
+          console.log(error);
+          log.error("Twitter","We couldn't reauthenticate with the supplied access token for " + id + ". Look into this.");
+          reject("Twitter account could not be reauthenticated.");
+          //TODO: Possibly find a way to get another key.
+        }
+        resolve(client);
+      });
+      
+    }
+    else{
+      reject("No twitter account linked.");
+    }
+  });
+}
+
+MTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body){
+  var type = remote.get("twitter_type");
+  if(type != "timeline"){
+    log.error("Twitter","Twitter type was wrong (%s) ",type)
+    return;//Where am I meant to send it :(
+  }
+  
+  var client;
+  
+  this._get_twitter_client(sender).then((c) => {
+    client = c;
+    var timelineID = remote.getId().substr("timeline_".length);
+    log.info("Twitter","Trying to tweet " + timelineID);
+    return this.get_user_by_id(timelineID)
+    //Send away!
+  }).then(tuser => {
+    var name = "@"+tuser.screen_name;
+    if(!body.startsWith(name)){
+      body = (name + " " + body).substr(0,140);
+    }
+    console.log(body);
+    client.post("statuses/update",{status:body},(error,tweet) => {
+      if(error){
+        log.error("Twitter","Failed to send tweet.");
+        console.log(error);
+        return;
+      }
+      log.info("Twitter","Tweet sent from %s!",sender.getId());
+    });
+  }).catch(err =>{
+    log.error("Twiter","Failed to send tweet. %s",err);
   });
 }
 
@@ -127,7 +215,7 @@ MTwitter.prototype.get_user_by_id = function(id) {
             user_id: id
         }, (error, user, response) => {
             if (error) {
-                console.error("get_user_by_id: GET /users/show returned: ", error);
+                log.error('Twitter',"get_user_by_id: GET /users/show returned: ", error);
                 reject(error);
             } else {
                 this.tuser_cache[user.screen_name] = {
@@ -141,18 +229,18 @@ MTwitter.prototype.get_user_by_id = function(id) {
 }
 
 MTwitter.prototype.get_user = function(name) {
-    console.log("Looking up @" + name);
+    log.info('Twitter',"Looking up @" + name);
     return new Promise((resolve, reject) => {
         var ts = new Date().getTime();
         if (this.tuser_cache[name] != undefined) {
-            console.log("Checking cache for @" + name);
+            log.info('Twitter',"Checking cache for @" + name);
             var cached = this.tuser_cache[name];
             if (ts - cached.cache_time < TWITTER_PROFILE_INTERVAL_MS) {
                 resolve(cached.user);
             }
         }
 
-        console.log("Checking twitter for @" + name);
+        log.info('Twitter',"Checking twitter for @" + name);
         this.app_twitter.get('users/show', {
             screen_name: name
         }, (error, user, response) => {
@@ -185,7 +273,7 @@ MTwitter.prototype.add_timeline = function(userid, localroom, remoteroom) {
     };
     this.timeline_list.push(obj);
     this.timeline_queue.push(obj);
-    console.log("Added Timeline:",userid);
+    log.log('Twitter',"Added Timeline: %s",userid);
 }
 
 MTwitter.prototype.remove_timeline = function(userid){
@@ -216,7 +304,7 @@ MTwitter.prototype._process_head_of_msg_queue = function(){
     var msg = this.msg_queue.shift();
     var intent = this._bridge.getIntent(msg.userId);
     intent.sendEvent(msg.roomId, msg.type, msg.content).then( (id) => {
-      console.log(id);
+      //TODO: Cache this for..reasons.
     });
   }
 }
@@ -231,7 +319,6 @@ MTwitter.prototype._process_head_of_msg_queue = function(){
   function calls itself. 
 */
 MTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
-    //console.log(tweet);
     depth--;
     if (depth < 0) {
         return;
@@ -251,7 +338,7 @@ MTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
                 this.process_tweet(roomid, newtweet, depth);
                 return;
             }
-            console.error("process_tweet: GET /statuses/show returned: ", error);
+            log.error("Twitter","process_tweet: GET /statuses/show returned: %s", error);
         });
     }
     this.msg_queue.push(
@@ -286,7 +373,7 @@ MTwitter.prototype._process_timeline = function(self) {
 
     this.app_twitter.get('statuses/user_timeline', req, (error, feed, response) => {
         if(error){
-          console.error("_process_timeline: GET /statuses/user_timeline returned: ", error);
+          log.error("Twitter","_process_timeline: GET /statuses/user_timeline returned: %s", error);
           return;
         }
         if (feed.length > 0) {

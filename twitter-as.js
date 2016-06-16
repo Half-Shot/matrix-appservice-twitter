@@ -11,6 +11,9 @@ var AppServiceRegistration = require("matrix-appservice-bridge").AppServiceRegis
 
 var MatrixTwitter = require("./src/MatrixTwitter.js").MatrixTwitter;
 var TwitterRoomHandler = require("./src/TwitterRoomHandler.js").TwitterRoomHandler;
+var AccountServices = require("./src/AccountServices.js").AccountServices;
+var TimelineHandler = require("./src/TimelineHandler.js").TimelineHandler;
+
 
 var twitter;
 var troomstore;
@@ -33,7 +36,7 @@ function roomPowers(users) {
             "redact": 75,
             "state_default": 0,
             "users": users,
-            "users_default": 0
+            "users_default": 10
         },
         "state_key": "",
         "type": "m.room.power_levels"
@@ -64,7 +67,7 @@ new Cli({
             registration: "twitter-registration.yaml",
             controller: {
                 onUserQuery: userQuery,
-                onEvent: eventQuery,
+                onEvent: (request, context) => { troomstore.passEvent(request,context); },
                 onAliasQuery: roomQuery,
                 onLog: function(line, isError){
                   if(isError){ // Make logging less verbose
@@ -79,7 +82,13 @@ new Cli({
         log.info("AppServ","Matrix-side listening on port %s", port);
         //Setup twitter
         twitter = new MatrixTwitter(bridge, config);
-        troomstore = new TwitterRoomHandler(bridge);
+        troomstore = new TwitterRoomHandler(bridge, config,
+          {
+            services: new AccountServices(bridge, config.app_auth),
+            timeline: new TimelineHandler(bridge, twitter)
+          }
+        );
+        
         var roomstore;
         twitter.start().then(() => {
           bridge.run(port, config);
@@ -101,7 +110,6 @@ new Cli({
 }).run();
 
 function userQuery(queriedUser) {
-  console.log(queriedUser);
   return twitter.get_user_by_id(queriedUser.localpart.substr("twitter_".length)).then( (twitter_user) => {
     /* Even users with a default avatar will still have an avatar url set.
        This *should* always work. */
@@ -126,66 +134,6 @@ function roomQuery(alias, aliasLocalpart) {
             }
         }
     });
-}
-
-function eventQuery(request, context)
-{
-    troomstore.passEvent(request, context);
-    // if (event.type == "m.room.member")
-    // {
-    //     console.log(context.rooms);
-    //     //var name = context.rooms.remote;
-    //     //console.log(name);
-    //     if (event.state_key.startsWith("@twitter_"))
-    //     { //We should prolly use a regex
-    //         if (event.membership == "invite")
-    //         {
-    //             var intent = bridge.getIntent(event.state_key);
-    //             intent.join(event.room_id);
-    // 
-    //             //Set the avatar based on the 'owners' avatar.
-    //             intent.getClient().getProfileInfo(event.state_key, 'avatar_url').then((content) =>
-    //             {
-    // 
-    //                 if (typeof content.avatar_url != "string")
-    //                 {
-    //                     console.error("User", event.state_key, "does not have an avatar set. This is unexpected.");
-    //                     console.log(content);
-    //                     return;
-    //                 }
-    // 
-    //                 console.log("Set Room Avatar:", content.avatar_url);
-    //                 intent.sendStateEvent(event.room_id, "m.room.avatar", "",
-    //                 {
-    //                     "url": content.avatar_url
-    //                 });
-    //             });
-    // 
-    //             if (context.rooms.remote != null)
-    //             {
-    //                 twitter.add_timeline(event.state_key, context.rooms.matrix, context.rooms.remote);
-    //                 return;
-    //             }
-    //             console.log("Couldn't find the remote room for this timeline.");
-    //         }
-    //         else if(event.membership == "leave"){
-    //           console.log(event);
-    //           var users = getRoomMembers(event.room_id);
-    //           for(var user of users){
-    //             console.log(user);
-    //           }
-    //         }
-    //       }
-    //       else //Regular room
-    //       {
-    //           //Check room is 1:1
-    //           console.log("One 2 One Room:",event);
-    //           if (getRoomMembers(event.room_id).length != 1)
-    //           {
-    //               return; //We only do 1:1 rooms.
-    //           }
-    //       }
-    // }
 }
 
 /*

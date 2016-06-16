@@ -8,22 +8,20 @@
 */
 
 var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
+var log = require('npmlog');
 
-var AccountServices = require("./AccountServices.js").AccountServices;
-
-var TwitterRoomHandler = function (bridge) {
+var TwitterRoomHandler = function (bridge, config, handlers) {
   this._bridge = bridge;
-  this._service_handler = new AccountServices(bridge); // 'service' handler
+  this.handlers = handlers; // 'service' handler
 }
 
-TwitterRoomHandler.prototype.processInvite = function (request, context){
+TwitterRoomHandler.prototype.processInvite = function (event,request, context){
   var remote = context.rooms.remote;
   var intent = this._bridge.getIntent();
-  var event = request.getData();
   if(remote){
-    var rtype = remote.data.extras.twitter_type;
-    if(rtype == "timelime"){
-      this._timeline_handler.processInvite(request, context);
+    var rtype = remote.data.twitter_type;
+    if(rtype == "timeline"){
+      this.handlers.timeline.processInvite(event,request, context);
       return;
     }
     //TODO: Deal with an invite to an existing room.
@@ -31,32 +29,37 @@ TwitterRoomHandler.prototype.processInvite = function (request, context){
   else
   {
     //Services bot
-    this._service_handler.processInvite(request, context);
+    this.handlers.services.processInvite(event, request, context);
+    return;
   }
-  console.warn("Got an invite to something we cannot accept.");
+  log.info("RoomHandler","Got an invite to something we cannot accept.");
   console.warn("Event data: ", event);
-  intent.leave(event.room_id);
+  //intent.leave(event.room_id);
 }
 
 TwitterRoomHandler.prototype.passEvent = function (request, context){
   var event = request.getData();
   var remote = context.rooms.remote;
   if (event.type == "m.room.member" && event.membership == "invite"){
-    this.processInvite(request,context);
+    this.processInvite(event,request,context);
   }
   
+  console.log(remote);
+  console.log(event);
   if(remote){
     if(event.type == "m.room.message"){
-      if(remote.data.extras.twitter_type == "service"){
-        
+      console.log(remote.data);
+      if(remote.data.twitter_type == "service"){
+        this.handlers.services.processMessage(event,request,context);
+        return;
+      }
+      else if(remote.data.twitter_type == "timeline"){
+        this.handlers.timeline.processMessage(event,request,context);
+        return;
       }
     }
   }
-  else {
-    console.log("Got message from a non-registered room.");
-  }
-  
-  
+  log.info("RoomHandler","Got message from a non-registered room.");
 }
 
 module.exports = {
