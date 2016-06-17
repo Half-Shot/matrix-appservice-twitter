@@ -1,10 +1,11 @@
-# matrix-appservice-twitter
+matrix-appservice-twitter
+=========================
 
-Twitter AS bridge for Matrix.
+Twitter bridge for Matrix.
 
-# Requriements
+# Requirements
 
-- Node
+- NodeJS
 - A twitter account
   - A phone number (Twitter requires this to generate application tokens)
 
@@ -12,9 +13,10 @@ Twitter AS bridge for Matrix.
 
 - Current (alpha-like quality)
   - Read and follow a users timeline
+  - Send tweets to yourself and other users
 - To be complete
   - Follow hashtags
-  - Reply to users
+  - Reply to specific tweets
   - Read your own timeline
   - Direct Messaging
 
@@ -39,17 +41,15 @@ Next, we need to generate the appropriate registration config so that synapse ca
 node twitter-as.js -r -u "URL"
 ```
 
+The URL should be replaced by the domain/ip and port of the bridge. In this case you can usually leave it as http://localhost:9000 if you plan to run it on the same server as synapse and will be keeping the default port.
 
-URL should be replaced by the domain/ip and port of the bridge. In this case you can usually leave it as http://localhost:9000
-if you plan to run it on the same server as synapse and will be keeping the default port.
-
-Copy/symlink the generated registration file to your synapse directory and finally edit your ``homeserver.yaml`` file for syanpse so that the bridge is registered. This means changing ``app_service_config_files`` and inserting the name of your config file into the list. It should look similar to this:
+Copy/symlink the generated registration file to your synapse directory and finally edit your ``homeserver.yaml`` file for synapse so that the bridge is registered. This means changing ``app_service_config_files`` and inserting the name of your config file into the list. It should look similar to this:
 
 ```
 app_service_config_files: ["twitter-registration.yaml"]
 ```
 
-You can restart synapse after this. The bridge should show up somewhere in the log output of synapse.
+You can restart synapse after this.
 
 # Running
 
@@ -59,6 +59,17 @@ The bridge should authenticate and be ready for use.
 
 # Usage
 
+## Linking your account
+
+Linking is not required for reading timelines/hashtags, but interactions must be done under your own name.
+
+* Create a room and invite ``@twitbot:yourdomain``. 
+* Send the message `link account`
+* Follow the URL and instructions. Copy the PIN code
+* Enter the pin code directly into the room and your account should be linked up.
+
 ## User Timelines
 
-Simply join ``@twitter_@screennamegoeshere:yourdomain`` to read a users timeline.
+Simply join ``@twitter_@screennamegoeshere:yourdomain`` to read a users timeline. Protected timelines are currently not available.
+
+Accounts which are bridged (Twitter<->Matrix) will be able to send tweets to these timelines (you do not need to put the @screen_name, it is done automatically)
