@@ -286,7 +286,7 @@ MatrixTwitter.prototype.add_timeline = function(userid, localroom, remoteroom) {
     log.info('Twitter',"Added Timeline: %s",userid);
 }
 
-MTwitter.prototype.remove_timeline = function(userid){
+MatrixTwitter.prototype.remove_timeline = function(userid){
   const tlfind = (tline) => { tline.user_id == userid };
   this.timeline_list  = this.timeline_list.splice(this.timeline_list.findIndex(tlfind),1);
   this.timeline_queue = this.timeline_queue.splice(this.timeline_queue.findIndex(tlfind),1);
