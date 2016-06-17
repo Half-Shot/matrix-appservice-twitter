@@ -404,6 +404,9 @@ MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
             }
           });
       }
+      else {
+        resolve();
+      }
     }).then(() => {
       log.info("Twitter","Putting on queue:",tweet.text);
       if(this.processed_tweets.contains(tweet.id_str)){
