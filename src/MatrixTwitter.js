@@ -5,8 +5,11 @@ var log = require('npmlog');
 var Buffer = require('buffer').Buffer;
 var HTMLDecoder = new require('html-entities').AllHtmlEntities;
 
-const TWITTER_PROFILE_INTERVAL_MS = 60000;
-const TWITTER_CLIENT_INTERVAL_MS = 60000;
+var ProcessedTweetList = require("./ProcessedTweetList.js");
+
+const TWITTER_PROFILE_INTERVAL_MS   = 60000;
+const TWITTER_CLIENT_INTERVAL_MS    = 60000;
+const TWITTER_MSG_QUEUE_INTERVAL_MS = 1500;
 
 /*
   We pass in the full configuration to the constructor since eventually other
@@ -17,12 +20,13 @@ var MatrixTwitter = function (bridge, config) {
   this.app_twitter = null;
   this.tuser_cache = {};
   this.tclients = {};
-  this.sent_tweets = {};
   this.timeline_list = [];
   this.timeline_queue = [];
   this.timeline_period = 0;
   this.timeline_intervalID = null;
+  this.processed_tweets = new ProcessedTweetList();  //This will contain all the tweet IDs of things we don't want to repeat.
   this.msg_queue = [];
+  this.msg_queue_intervalID = null;
   this._bridge = bridge;
   this.tweet_event_cache = {};
 };
@@ -32,7 +36,7 @@ MatrixTwitter.prototype.start = function(){
     this.app_auth.bearer_token = token;
     log.info('Twitter','Retrieved token');
     this.app_twitter = new Twitter(this.app_auth);
-    setInterval(() => { this._process_head_of_msg_queue(); }, 500);
+    this.msg_queue_intervalID = setInterval(() => {this._process_head_of_msg_queue();}, TWITTER_MSG_QUEUE_INTERVAL_MS);
     this.start_timeline();
   }).catch((error) => {
       log.error('Twitter','Error trying to retrieve bearer token:', error);
@@ -117,7 +121,7 @@ MatrixTwitter.prototype.get_bearer_token = function () {
   });
 }
 
-MatrixTwitter.prototype._update_user_timeline = function(profile){
+MatrixTwitter.prototype._update_user_timeline_profile = function(profile){
   log.info("[STUB] Update user profile for %s",profile.screen_name);
 }
 
@@ -139,6 +143,7 @@ MatrixTwitter.prototype._get_twitter_client = function(sender){
           log.info("Twitter","Credentials for " + id + " are no longer valid.");
         }
         client.profile = profile;
+        this._update_user_timeline_profile(profile);
         //TODO: Do something with the output ideally like update the users profile.
       });
     }
@@ -160,6 +165,7 @@ MatrixTwitter.prototype._get_twitter_client = function(sender){
           //TODO: Possibly find a way to get another key.
         }
         client.profile = profile;
+        this._update_user_timeline_profile(profile);
         resolve(client);
       });
       
@@ -170,7 +176,21 @@ MatrixTwitter.prototype._get_twitter_client = function(sender){
   });
 }
 
-MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body){
+MatrixTwitter.prototype.upload_media = function(sender,data){
+  return new Promise( (resolve,reject) => {
+      this._get_twitter_client(sender).then((client) => {
+        client.post("media/upload",{media:data}, (error, media, response) => {
+        if(error){
+          log.error("Twitter",error);
+          reject("Failed to upload media");
+        }
+        resolve(media.media_id_string);
+      });
+    })
+  });
+}
+
+MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body,extras){
   var type = remote.get("twitter_type");
   if(type != "timeline"){
     log.error("Twitter","Twitter type was wrong (%s) ",type)
@@ -179,30 +199,32 @@ MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body){
   
   var client;
   
-  this._get_twitter_client(sender).then((c) => {
+  return this._get_twitter_client(sender).then((c) => {
     client = c;
     var timelineID = remote.getId().substr("timeline_".length);
     log.info("Twitter","Trying to tweet " + timelineID);
-    return this.get_user_by_id(timelineID)
-    //Send away!
+    return this.get_user_by_id(timelineID);
   }).then(tuser => {
     var name = "@"+tuser.screen_name;
     if(!body.startsWith(name) && client.profile.screen_name != tuser.screen_name){
       body = (name + " " + body).substr(0,140);
     }
-    client.post("statuses/update",{status:body},(error,tweet) => {
+    var status = {status:body};
+    if(extras !== undefined){
+      if(extras.hasOwnProperty("media")){
+        status.media_ids = extras.media.join(',');
+      }
+    }
+    
+    client.post("statuses/update",status,(error,tweet) => {
       if(error){
         log.error("Twitter","Failed to send tweet.");
         console.log(error);
         return;
       }
       var id = sender.getId();
+      this.processed_tweets.push(tweet.id_str);
       log.info("Twitter","Tweet sent from %s!",id);
-      if(!this.sent_tweets.hasOwnProperty(id))
-      {
-        this.sent_tweets[id] = [];
-      }
-      this.sent_tweets[id].push(tweet.id_str);
     });
   }).catch(err =>{
     log.error("Twiter","Failed to send tweet. %s",err);
@@ -311,12 +333,30 @@ MatrixTwitter.prototype.tweet_to_matrix_content = function(tweet, type) {
 //Runs every 500ms to help not overflow the room.
 MatrixTwitter.prototype._process_head_of_msg_queue = function(){
   if(this.msg_queue.length > 0){
-    var msg = this.msg_queue.shift();
+    var msg = this.msg_queue.pop();
+    log.info("Twitter","Pulling off queue:",msg.content.body);
     var intent = this._bridge.getIntent(msg.userId);
     intent.sendEvent(msg.roomId, msg.type, msg.content).then( (id) => {
       //TODO: Cache this for..reasons.
     });
   }
+}
+
+MatrixTwitter.prototype._push_to_msg_queue = function(muser,roomid,tweet,type){  
+  var newmsg = {
+    userId:muser,
+    roomId:roomid,
+    time:Date.parse(tweet.created_at),
+    type:"m.room.message",
+    content:this.tweet_to_matrix_content(tweet, type)
+  };
+  for(var m in this.msg_queue){
+    if(newmsg.time > this.msg_queue[m].time){
+      this.msg_queue.splice(m,0,newmsg);
+      return;
+    }
+  }
+  this.msg_queue.push(newmsg);
 }
 
 /*
@@ -332,34 +372,47 @@ MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
     //console.log(tweet);
     depth--;
     if (depth < 0) {
-        return;
+        return null;
     }
     
     var muser = "@twitter_" + tweet.user.id_str + ":" + bridge.opts.domain;
     var intent = this._bridge.getIntent(muser);
-
+        
     var type = "m.text";
     if (tweet.in_reply_to_status_id_str != null) {
         type = "m.notice"; // A nicer way to show previous tweets
     }
+    log.info("Twitter","Processing tweet:",tweet.text);
     
-    if (tweet.in_reply_to_status_id_str != null) {
-        this.app_twitter.get('statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet, response) => {
+    return new Promise( (resolve) => {
+      if (tweet.in_reply_to_status_id_str != null) {
+          this.app_twitter.get('statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet, response) => {
             if (!error) {
-                this.process_tweet(roomid, newtweet, depth);
-                return;
+                var promise = this.process_tweet(roomid, newtweet, depth)
+                if(promise != null){
+                  return promise.then(() => {
+                        resolve();
+                  });
+                }
+                else{
+                  resolve();
+                }
             }
-            log.error("Twitter","process_tweet: GET /statuses/show returned: %s", error);
-        });
-    }
-    this.msg_queue.push(
-      {
-        userId:muser,
-        roomId:roomid,
-        type:"m.room.message",
-        content:this.tweet_to_matrix_content(tweet, type)
+            else
+            {
+                log.error("process_tweet: GET /statuses/show returned: " + error);
+            }
+          });
       }
-    );
+    }).then(() => {
+      log.info("Twitter","Putting on queue:",tweet.text);
+      if(this.processed_tweets.contains(tweet.id_str)){
+        log.info("Twitter","Repeated tweet detected, not processing");
+        return;
+      }
+      this.processed_tweets.push(tweet.id_str);
+      this._push_to_msg_queue(muser,roomid,tweet,type);
+    });
 }
 
 /*
@@ -388,11 +441,21 @@ MatrixTwitter.prototype._process_timeline = function(self) {
           return;
         }
         if (feed.length > 0) {
+            if(this.msg_queue_intervalID != null){
+              clearInterval(this.msg_queue_intervalID);
+              this.msg_queue_intervalID = null;
+            }
             tline.remote.set("twitter_since", feed[0].id_str, 3);
+            var promises = [];
             feed.reverse().forEach((item) => {
-                this.process_tweet(tline.local.roomId, item, 3);
+                promises.push(this.process_tweet(tline.local.roomId, item, 3));
             });
-            this._bridge.getRoomStore().setRemoteRoom(tline.remote);
+            
+            Promise.all(promises).then(() =>{
+              this._bridge.getRoomStore().setRemoteRoom(tline.remote);
+              this.msg_queue_intervalID = setInterval(() => {this._process_head_of_msg_queue();}, TWITTER_MSG_QUEUE_INTERVAL_MS);
+            });
+
         }
     });
     this.timeline_queue.push(tline);

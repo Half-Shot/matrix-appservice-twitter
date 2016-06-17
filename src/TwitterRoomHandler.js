@@ -6,7 +6,6 @@
                 provide general assistance.
 
 */
-
 var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 var log = require('npmlog');
 

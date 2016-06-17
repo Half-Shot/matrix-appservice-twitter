@@ -1,3 +1,7 @@
+bridge:
+  domain: localhost
+  homeserverUrl: http://localhost:8008
+
 app_auth: #Get these from twitter by creating an application through the API site.
     consumer_key: BLAHBLAHBLAH
     consumer_secret: BLAHBLAHBLAH

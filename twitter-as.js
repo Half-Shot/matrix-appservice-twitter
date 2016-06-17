@@ -62,8 +62,8 @@ new Cli({
     },
     run: function(port, config) {
         bridge = new Bridge({
-            homeserverUrl: "http://localhost:8008",
-            domain: "localhost",
+            homeserverUrl: config.bridge.homeserverUrl,
+            domain: config.bridge.domain,
             registration: "twitter-registration.yaml",
             controller: {
                 onUserQuery: userQuery,
