@@ -52,6 +52,10 @@ TimelineHandler.prototype.processInvite = function (event, request, context) {
 }
 
 TimelineHandler.prototype.processMessage = function (event, request, context) {
+  if(context.senders.remote == null){
+    log.warn("Timeline","User tried to send a tweet without being known by the AS.");
+    return;
+  }
   log.info("Timeline","Got message: %s",event.content.body);
   var text = event.content.body.substr(0,140);
   this.twitter.send_tweet_to_timeline(context.rooms.remote,context.senders.remote,text);

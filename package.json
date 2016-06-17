@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/Half-Shot/matrix-appservice-twitter#readme",
   "dependencies": {
+    "html-entities": "^1.2.0",
     "matrix-js-sdk": "git+ssh://git@github.com/matrix-org/matrix-js-sdk.git#develop",
     "npmlog": "^3.0.0",
     "oauth": "^0.9.14",

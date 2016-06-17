@@ -3,6 +3,7 @@ var Request = require('request');
 var fs = require('fs');
 var log = require('npmlog');
 var Buffer = require('buffer').Buffer;
+var HTMLDecoder = new require('html-entities').AllHtmlEntities;
 
 const TWITTER_PROFILE_INTERVAL_MS = 60000;
 const TWITTER_CLIENT_INTERVAL_MS = 60000;
@@ -16,6 +17,7 @@ var MTwitter = function (bridge, config) {
   this.app_twitter = null;
   this.tuser_cache = {};
   this.tclients = {};
+  this.sent_tweets = {};
   this.timeline_list = [];
   this.timeline_queue = [];
   this.timeline_period = 0;
@@ -115,6 +117,10 @@ MTwitter.prototype.get_bearer_token = function () {
   });
 }
 
+MTwitter.prototype._update_user_timeline = function(profile){
+  log.info("[STUB] Update user profile for %s",profile.screen_name);
+}
+
 MTwitter.prototype._get_twitter_client = function(sender){
   //Check if we have the account in the cache
   return new Promise( (resolve,reject) =>{
@@ -127,18 +133,16 @@ MTwitter.prototype._get_twitter_client = function(sender){
       if(ts - client.last_auth < TWITTER_CLIENT_INTERVAL_MS){
         resolve(client);
       }
-      client.get("account/verify_credentials",(error,details) =>{
+      client.get("account/verify_credentials",(error,profile) =>{
         if(error){
           delete this.tclients[id];//Invalidate it
           log.info("Twitter","Credentials for " + id + " are no longer valid.");
         }
+        client.profile = profile;
         //TODO: Do something with the output ideally like update the users profile.
       });
     }
-    console.log(creds);
-    console.log(this.tclients);
     if(creds !== undefined && !this.tclients.hasOwnProperty(id)) {
-      console.log(creds);
       client = new Twitter({
         consumer_key: this.app_auth.consumer_key,
         consumer_secret: this.app_auth.consumer_secret,
@@ -147,7 +151,7 @@ MTwitter.prototype._get_twitter_client = function(sender){
       });
       client.last_auth = ts;
       this.tclients[id] = client;
-      client.get("account/verify_credentials",(error,details) =>{
+      client.get("account/verify_credentials",(error,profile) =>{
         if(error){
           delete this.tclients[id];//Invalidate it
           console.log(error);
@@ -155,6 +159,7 @@ MTwitter.prototype._get_twitter_client = function(sender){
           reject("Twitter account could not be reauthenticated.");
           //TODO: Possibly find a way to get another key.
         }
+        client.profile = profile;
         resolve(client);
       });
       
@@ -182,17 +187,22 @@ MTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body){
     //Send away!
   }).then(tuser => {
     var name = "@"+tuser.screen_name;
-    if(!body.startsWith(name)){
+    if(!body.startsWith(name) && client.profile.screen_name != tuser.screen_name){
       body = (name + " " + body).substr(0,140);
     }
-    console.log(body);
     client.post("statuses/update",{status:body},(error,tweet) => {
       if(error){
         log.error("Twitter","Failed to send tweet.");
         console.log(error);
         return;
       }
-      log.info("Twitter","Tweet sent from %s!",sender.getId());
+      var id = sender.getId();
+      log.info("Twitter","Tweet sent from %s!",id);
+      if(!this.sent_tweets.hasOwnProperty(id))
+      {
+        this.sent_tweets[id] = [];
+      }
+      this.sent_tweets[id].push(tweet.id_str);
     });
   }).catch(err =>{
     log.error("Twiter","Failed to send tweet. %s",err);
@@ -273,7 +283,7 @@ MTwitter.prototype.add_timeline = function(userid, localroom, remoteroom) {
     };
     this.timeline_list.push(obj);
     this.timeline_queue.push(obj);
-    log.log('Twitter',"Added Timeline: %s",userid);
+    log.info('Twitter',"Added Timeline: %s",userid);
 }
 
 MTwitter.prototype.remove_timeline = function(userid){
@@ -288,7 +298,7 @@ MTwitter.prototype.remove_timeline = function(userid){
 */
 MTwitter.prototype.tweet_to_matrix_content = function(tweet, type) {
     return {
-        "body": tweet.text,
+        "body": new HTMLDecoder().decode(tweet.text),
         "created_at": tweet.created_at,
         "likes": tweet.favorite_count,
         "reblogs": tweet.retweet_count,

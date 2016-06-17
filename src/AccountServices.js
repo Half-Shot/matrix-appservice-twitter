@@ -61,8 +61,8 @@ AccountServices.prototype.processMessage = function (event, request, context){
       intent.sendMessage(event.room_id,{"body":"You must request access with 'link account' first.","msgtype":"m.text"});
       return;
     }
+    var intent = this._bridge.getIntent();
     this._oauth_getAccessToken(pin,remoteSender).then(() => {
-      console.log("Quack");
       intent.sendMessage(event.room_id,{"body":"All good. You should now be able to use your twitter account on matrix.","msgtype":"m.text"});
     }).catch(err => {
       intent.sendMessage(event.room_id,{"body":"We couldn't verify this PIN :(. Maybe you typed it wrong or you might need to request it again.","msgtype":"m.text"});

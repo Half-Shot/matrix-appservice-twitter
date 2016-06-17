@@ -98,10 +98,15 @@ new Cli({
           return roomstore.getRemoteRooms({});
         }).then((rooms) => {
           rooms.forEach((rroom, i, a) => {
-            if (rroom.data.extras.twitter_type == 'timeline') {
+            if (rroom.data.twitter_type == 'timeline') {
                 roomstore.getLinkedMatrixRooms(rroom.roomId).then(function(room) {
+                  if(room.length > 0){
+                    twitter.add_timeline(rroom.data.twitter_user, room[0], rroom);
+                  }
+                  else{
+                    log.error("Orphan remote timeline room with no matrix link :(");
+                  }
                     //Send the userid and roomid to the twitter stack for processing.
-                    twitter.add_timeline(rroom.data.extras.twitter_user, room[0], rroom);
                 });
             }
           });

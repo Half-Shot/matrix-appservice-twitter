@@ -44,8 +44,6 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
     this.processInvite(event,request,context);
   }
   
-  console.log(remote);
-  console.log(event);
   if(remote){
     if(event.type == "m.room.message"){
       console.log(remote.data);
