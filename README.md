@@ -61,7 +61,7 @@ The bridge should authenticate and be ready for use.
 
 ## Linking your account
 
-Linking is not required for reading timelines/hashtags, but interactions must be done under your own name.
+Linking is not required for reading timelines/hashtags, but **interactions must be completed under your own account**.
 
 * Create a room and invite ``@twitbot:yourdomain``. 
 * Send the message `link account`
@@ -73,3 +73,10 @@ Linking is not required for reading timelines/hashtags, but interactions must be
 Simply join ``@twitter_@screennamegoeshere:yourdomain`` to read a users timeline. Protected timelines are currently not available.
 
 Accounts which are bridged (Twitter<->Matrix) will be able to send tweets to these timelines (you do not need to put the @screen_name, it is done automatically)
+
+## Hashtags
+
+Join ``@twitter_#hashtaggoeshere`` to follow a particular hashtag. 
+
+Accounts which are bridged (Twitter<->Matrix) will be able to send tweets which will automatically apply this tag.
+
