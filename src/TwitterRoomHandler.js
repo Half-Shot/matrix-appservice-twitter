@@ -52,12 +52,14 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
       console.log(remote.data);
       if(remote.data.twitter_type == "service"){
         this.handlers.services.processMessage(event,request,context);
-        return;
       }
       else if(remote.data.twitter_type == "timeline"){
         this.handlers.timeline.processMessage(event,request,context);
-        return;
       }
+      else if(remote.data.twitter_type == "hashtag"){
+        this.handlers.hashtag.processMessage(event,request,context);
+      }
+      return;
     }
     
     if(remote.data.twitter_type == "hashtag"){

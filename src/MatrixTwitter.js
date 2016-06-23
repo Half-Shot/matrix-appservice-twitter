@@ -132,7 +132,7 @@ MatrixTwitter.prototype.get_bearer_token = function () {
 }
 
 MatrixTwitter.prototype._update_user_timeline_profile = function(profile){
-  log.info("[STUB] Update user profile for %s",profile.screen_name);
+  log.info("Twitter","[STUB] Update user profile for %s",profile.screen_name);
 }
 
 MatrixTwitter.prototype._get_twitter_client = function(sender){
@@ -146,6 +146,7 @@ MatrixTwitter.prototype._get_twitter_client = function(sender){
       client = this.tclients[id];
       if(ts - client.last_auth < TWITTER_CLIENT_INTERVAL_MS){
         resolve(client);
+        return;
       }
       client.get("account/verify_credentials",(error,profile) =>{
         if(error){
@@ -154,7 +155,8 @@ MatrixTwitter.prototype._get_twitter_client = function(sender){
         }
         client.profile = profile;
         this._update_user_timeline_profile(profile);
-        //TODO: Do something with the output ideally like update the users profile.
+        resolve(client);
+        return;
       });
     }
     if(creds !== undefined && !this.tclients.hasOwnProperty(id)) {
@@ -200,9 +202,11 @@ MatrixTwitter.prototype.upload_media = function(sender,data){
   });
 }
 
+
+
 MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body,extras){
   var type = remote.get("twitter_type");
-  if(type != "timeline"){
+  if(!["timeline","hashtag"].includes(type)){
     log.error("Twitter","Twitter type was wrong (%s) ",type)
     return;//Where am I meant to send it :(
   }
@@ -211,18 +215,28 @@ MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body,ext
   
   return this._get_twitter_client(sender).then((c) => {
     client = c;
-    var timelineID = remote.getId().substr("timeline_".length);
-    log.info("Twitter","Trying to tweet " + timelineID);
-    return this.get_user_by_id(timelineID);
-  }).then(tuser => {
-    var name = "@"+tuser.screen_name;
-    if(!body.startsWith(name) && client.profile.screen_name != tuser.screen_name){
-      body = (name + " " + body).substr(0,140);
+    if(type == "timeline"){
+      var timelineID = remote.getId().substr("timeline_".length);
+      log.info("Twitter","Trying to tweet " + timelineID);
+      return this.get_user_by_id(timelineID);
     }
+  }).then(tuser => {
     var status = {status:body};
-    if(extras !== undefined){
-      if(extras.hasOwnProperty("media")){
-        status.media_ids = extras.media.join(',');
+    if(type == "timeline"){
+      var name = "@"+tuser.screen_name;
+      if(!body.startsWith(name) && client.profile.screen_name != tuser.screen_name){
+        status.status = (name + " " + body).substr(0,140);
+      }
+      if(extras !== undefined){
+        if(extras.hasOwnProperty("media")){
+          status.media_ids = extras.media.join(',');
+        }
+      }
+    }
+    else if(type == "hashtag"){
+      var htag = "#" + remote.roomId.substr("hashtag_".length);
+      if(!body.toLowerCase().includes(htag.toLowerCase())){
+        status.status = (htag + " " + body).substr(0,140);
       }
     }
     
@@ -516,7 +530,6 @@ MatrixTwitter.prototype._process_hashtag_feed = function(){
   }
   
   var feed = this.hashtag_queue.shift();
-  console.log(feed);
   var req = {
     q: "%23"+feed.hashtag,
     result_type: 'recent'
@@ -540,10 +553,38 @@ MatrixTwitter.prototype._process_hashtag_feed = function(){
       results.statuses.reverse().forEach((item) => {
           this.process_tweet(feed.local.roomId, item, 0);
       });
-      
-      console.log(results.statuses.length);
   });
   this.hashtag_queue.push(feed);
+}
+//
+
+MatrixTwitter.prototype.send_matrix_event_as_tweet = function(event,user,room){
+  if(user == null){
+    log.warn("Twitter","User tried to send a tweet without being known by the AS.");
+    return;
+  }
+  if(event.content.msgtype == "m.text"){
+    log.info("Twitter","Got message: %s",event.content.body);
+    var text = event.content.body.substr(0,140);
+    this.send_tweet_to_timeline(room,user,text);
+  }
+  else if(event.content.msgtype == "m.image"){
+    log.info("Twitter","Got image: %s",event.content.body);
+    //Get the url
+    var url = event.content.url;
+    if(url.startsWith("mxc://")){
+      url = this._bridge.opts.homeserverUrl + "/_matrix/media/r0/download/" + url.substr("mxc://".length);
+    }
+    this._downloadImage(url).then((buffer) =>{
+      return this.twitter.upload_media(user,buffer);
+    }).then ((mediaId) => {
+      console.log(mediaId);
+      this.send_tweet_to_timeline(room,user,"",{media:[mediaId]});
+    }).catch(err => {
+      log.error("Twitter","Failed to send image to timeline.");
+      console.error(error);
+    });    
+  }
 }
 
 module.exports = {

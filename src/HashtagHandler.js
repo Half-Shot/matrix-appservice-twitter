@@ -14,7 +14,7 @@ HashtagHandler.prototype.processInvite = function (event, request, context) {
 }
 
 HashtagHandler.prototype.processMessage = function (event, request, context) {
-  
+    this.twitter.send_matrix_event_as_tweet(event,context.senders.remote,context.rooms.remote);
 }
 
 HashtagHandler.prototype.processEvent = function (event, request, context) {

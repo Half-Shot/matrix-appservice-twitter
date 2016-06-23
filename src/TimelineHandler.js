@@ -29,7 +29,7 @@ TimelineHandler.prototype.processInvite = function (event, request, context) {
                   console.log(content);
                   return;
               }
-
+              
               log.info("Handler.Timeline","Set Room Avatar:", content.avatar_url);
               intent.sendStateEvent(event.room_id, "m.room.avatar", "",
               {
@@ -56,36 +56,7 @@ TimelineHandler.prototype.processInvite = function (event, request, context) {
 }
 
 TimelineHandler.prototype.processMessage = function (event, request, context) {
-  if(context.senders.remote == null){
-    log.warn("Handler.Timeline","User tried to send a tweet without being known by the AS.");
-    return;
-  }
-  if(event.content.msgtype == "m.text"){
-    log.info("Handler.Timeline","Got message: %s",event.content.body);
-    var text = event.content.body.substr(0,140);
-    this.twitter.send_tweet_to_timeline(context.rooms.remote,context.senders.remote,text);
-  }
-  else if(event.content.msgtype == "m.image"){
-    log.info("Handler.Timeline","Got image: %s",event.content.body);
-    //Get the url
-    var url = event.content.url;
-    if(url.startsWith("mxc://")){
-      url = this._bridge.opts.homeserverUrl + "/_matrix/media/r0/download/" + url.substr("mxc://".length);
-    }
-    this._downloadImage(url).then((buffer) =>{
-      return this.twitter.upload_media(context.senders.remote,buffer);
-    }).then ((mediaId) => {
-      console.log(mediaId);
-      this.twitter.send_tweet_to_timeline(context.rooms.remote,context.senders.remote,"",{media:[mediaId]});
-    }).catch(err => {
-      log.error("Handler.Timeline","Failed to send image to timeline.");
-      console.error(error);
-    });    
-  }
-}
-
-TimelineHandler.prototype.processEvent = function (event, request, context) {
-  //We do nothing yet with events
+  this.twitter.send_matrix_event_as_tweet(event,context.senders.remote,context.rooms.remote);
 }
 
 TimelineHandler.prototype.processAliasQuery = function(alias){
