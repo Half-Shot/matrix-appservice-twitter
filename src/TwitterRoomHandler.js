@@ -17,6 +17,7 @@ var TwitterRoomHandler = function (bridge, config, handlers) {
 TwitterRoomHandler.prototype.processInvite = function (event,request, context){
   var remote = context.rooms.remote;
   var intent = this._bridge.getIntent();
+  
   if(remote){
     var rtype = remote.data.twitter_type;
     if(rtype == "timeline"){
@@ -24,6 +25,9 @@ TwitterRoomHandler.prototype.processInvite = function (event,request, context){
       return;
     }
     //TODO: Deal with an invite to an existing room.
+  }
+  else if(event.state_key.startsWith("@twitter") && event.state_key.endsWith(":"+this._bridge.opts.domain)){
+    return;//Invite to user that wasn't linked up. Ignoring.
   }
   else
   {
@@ -55,8 +59,28 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
         return;
       }
     }
+    
+    if(remote.data.twitter_type == "hashtag"){
+      this.handlers.hashtag.processEvent(event,request,context);
+    }
   }
   log.info("RoomHandler","Got message from a non-registered room.");
+}
+
+TwitterRoomHandler.prototype.processAliasQuery = function(alias, aliasLocalpart){
+  var type = aliasLocalpart.substr("twitter_".length,1);
+  var part = aliasLocalpart.substr("twitter_.".length);
+  
+  if(type == '@'){ //User timeline
+    return this.handlers.timeline.processAliasQuery(part);
+  }
+  else if(type == '#') { //Hashtag
+    return this.handlers.hashtag.processAliasQuery(part);
+  }
+  else {
+    //Unknown
+    return null;
+  }
 }
 
 module.exports = {

@@ -35,7 +35,7 @@ AccountServices.prototype.processInvite = function (event, request, context){
 AccountServices.prototype.processMessage = function (event, request, context){
   var event = request.getData();
   if(event.content.body == "link account"){
-    log.info("AccountServices",event.sender + " is requesting a twitter account link.");
+    log.info("Handler.AccountServices",event.sender + " is requesting a twitter account link.");
     var remoteSender = context.senders.remote;
     if(!remoteSender){
       remoteSender = new RemoteUser("twitter_M"+event.sender);
@@ -49,13 +49,13 @@ AccountServices.prototype.processMessage = function (event, request, context){
       var intent = this._bridge.getIntent();
       intent.sendMessage(event.room_id,{"body":"Go to "+url+" to receive your PIN, and then type it in below.","msgtype":"m.text"});
     }).catch(err => {
-      log.error("AccountServices",err[0],err[1]);
+      log.error("Handler.AccountServices",err[0],err[1]);
       intent.sendMessage(event.room_id,{"body":"We are unable to process your request at this time.","msgtype":"m.text"});
     });
   }
   else if(isNumber(event.content.body)){
     var pin = event.content.body;
-    log.info("AccountServices","User sent a pin in to auth with.");
+    log.info("Handler.AccountServices","User sent a pin in to auth with.");
     var remoteSender = context.senders.remote;
     if(!remoteSender){
       intent.sendMessage(event.room_id,{"body":"You must request access with 'link account' first.","msgtype":"m.text"});
@@ -66,7 +66,7 @@ AccountServices.prototype.processMessage = function (event, request, context){
       intent.sendMessage(event.room_id,{"body":"All good. You should now be able to use your twitter account on matrix.","msgtype":"m.text"});
     }).catch(err => {
       intent.sendMessage(event.room_id,{"body":"We couldn't verify this PIN :(. Maybe you typed it wrong or you might need to request it again.","msgtype":"m.text"});
-      log.error("AccountServices","OAuth Access Token Failed:%s", err);
+      log.error("Handler.AccountServices","OAuth Access Token Failed:%s", err);
     });
   }
 }

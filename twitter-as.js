@@ -5,43 +5,18 @@ var log     = require('npmlog');
 var Cli         = require("matrix-appservice-bridge").Cli;
 var Bridge      = require("matrix-appservice-bridge").Bridge;
 var RemoteUser  = require("matrix-appservice-bridge").RemoteUser;
-var RemoteRoom  = require("matrix-appservice-bridge").RemoteRoom;
-var MatrixRoom  = require("matrix-appservice-bridge").MatrixRoom;
 var AppServiceRegistration = require("matrix-appservice-bridge").AppServiceRegistration;
 
 var MatrixTwitter = require("./src/MatrixTwitter.js").MatrixTwitter;
 var TwitterRoomHandler = require("./src/TwitterRoomHandler.js").TwitterRoomHandler;
 var AccountServices = require("./src/AccountServices.js").AccountServices;
 var TimelineHandler = require("./src/TimelineHandler.js").TimelineHandler;
+var HashtagHandler = require("./src/HashtagHandler.js").HashtagHandler;
 
 
 var twitter;
 var troomstore;
 
-function roomPowers(users) {
-    return {
-        "content": {
-            "ban": 50,
-            "events": {
-                "m.room.name": 100,
-                "m.room.power_levels": 100,
-                "m.room.topic": 100,
-                "m.room.join_rules": 100,
-                "m.room.avatar": 100,
-                "m.room.aliases": 75,
-                "m.room.canonical_alias": 75
-            },
-            "events_default": 10,
-            "kick": 75,
-            "redact": 75,
-            "state_default": 0,
-            "users": users,
-            "users_default": 10
-        },
-        "state_key": "",
-        "type": "m.room.power_levels"
-    };
-}
 
 new Cli({
     registrationPath: "twitter-registration.yaml",
@@ -58,6 +33,7 @@ new Cli({
         reg.setSenderLocalpart("twitbot");
         reg.addRegexPattern("users", "@twitter_.*", true);
         reg.addRegexPattern("aliases", "#twitter_@.*", true);
+        reg.addRegexPattern("aliases", "#twitter_#.*", true);
         callback(reg);
     },
     run: function(port, config) {
@@ -68,10 +44,10 @@ new Cli({
             controller: {
                 onUserQuery: userQuery,
                 onEvent: (request, context) => { troomstore.passEvent(request,context); },
-                onAliasQuery: roomQuery,
+                onAliasQuery: (alias, aliasLocalpart) => { return troomstore.processAliasQuery(alias,aliasLocalpart); },
                 onLog: function(line, isError){
                   if(isError){ // Make logging less verbose
-                    console.error(line);
+                    log.error("matrix-appservice-bridge",line);
                   }
                   /*else{
                     console.log(line);
@@ -86,7 +62,8 @@ new Cli({
         troomstore = new TwitterRoomHandler(bridge, config,
           {
             services: new AccountServices(bridge, config.app_auth),
-            timeline: new TimelineHandler(bridge, twitter)
+            timeline: new TimelineHandler(bridge, twitter),
+            hashtag: new HashtagHandler(bridge, twitter)
           }
         );
         
@@ -99,10 +76,15 @@ new Cli({
           return roomstore.getRemoteRooms({});
         }).then((rooms) => {
           rooms.forEach((rroom, i, a) => {
-            if (rroom.data.twitter_type == 'timeline') {
-                roomstore.getLinkedMatrixRooms(rroom.roomId).then(function(room) {
+            if (rroom.data.twitter_type) {
+                roomstore.getLinkedMatrixRooms(rroom.roomId).then((room) => {
                   if(room.length > 0){
-                    twitter.add_timeline(rroom.data.twitter_user, room[0], rroom);
+                    if(rroom.data.twitter_type == 'timeline'){
+                      twitter.add_timeline(rroom.data.twitter_user, room[0], rroom);
+                    }
+                    else if(rroom.data.twitter_type == 'hashtag') {
+                      twitter.add_hashtag_feed(rroom.roomId.substr("hashtag_".length),room[0],rroom);
+                    }
                   }
                   else{
                     log.error("Orphan remote timeline room with no matrix link :(");
@@ -129,62 +111,6 @@ function userQuery(queriedUser) {
   }).catch((error) => {
       log.error("UserQuery","Couldn't find the user.\nReason: %s",error);
   });
-}
-
-function roomQuery(alias, aliasLocalpart) {
-    console.log(aliasLocalpart);
-    return twitter.get_user(aliasLocalpart.substr("@twitter_".length)).then((tuser) => {
-        if (tuser != null) {
-            if (!tuser.protected) {
-                return constructTimelineRoom(tuser, aliasLocalpart);
-
-            }
-        }
-    });
-}
-
-/*
-  This will create a stream room for one user's timeline.
-  Users who are not authenticated via OAuth will receive the default power of 0
-  Users who are authenticated via Oauth will receive a power level of 10
-  The owner of this stream will receive a 75
-  The bot will have 100
-*/
-function constructTimelineRoom(user, aliasLocalpart) {
-    var botID = bridge.getBot().getUserId();
-
-    var roomOwner = "@twitter_" + user.id_str + ":" + bridge.opts.domain;
-    var users = {};
-    users[botID] = 100;
-    users[roomOwner] = 75;
-    var powers = roomPowers(users);
-    var remote = new RemoteRoom("timeline_" + user.id_str);
-    remote.set("twitter_type", "timeline");
-    remote.set("twitter_user", roomOwner);
-    opts = {
-        visibility: "public",
-        room_alias_name: aliasLocalpart,
-        name: "[Twitter] " + user.name,
-        topic: user.description,
-        invite: [roomOwner],
-        initial_state: [
-            powers, {
-                "type": "m.room.join_rules",
-                "content": {
-                    "join_rule": "public"
-                },
-                "state_key": ""
-            }, {
-                "type": "org.matrix.twitter.data",
-                "content": user,
-                "state_key": ""
-            }
-        ]
-    };
-    return {
-        creationOpts: opts,
-        remote: remote
-    };
 }
 
 /*

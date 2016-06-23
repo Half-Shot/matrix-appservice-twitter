@@ -20,10 +20,17 @@ var MatrixTwitter = function (bridge, config) {
   this.app_twitter = null;
   this.tuser_cache = {};
   this.tclients = {};
+  
   this.timeline_list = [];
   this.timeline_queue = [];
-  this.timeline_period = 0;
+  this.timeline_period = 3050; //Twitter allows 300 calls per 15 minute (We add 50 milliseconds for a little safety).
   this.timeline_intervalID = null;
+  
+  this.hashtag_period = 2050; //Twitter allows 450 calls per 15 minute (We add 50 milliseconds for a little safety).
+  this.hashtag_intervalID = null;
+  this.hashtag_list = [];
+  this.hashtag_queue = [];
+  
   this.processed_tweets = new ProcessedTweetList();  //This will contain all the tweet IDs of things we don't want to repeat.
   this.msg_queue = [];
   this.msg_queue_intervalID = null;
@@ -37,7 +44,10 @@ MatrixTwitter.prototype.start = function(){
     log.info('Twitter','Retrieved token');
     this.app_twitter = new Twitter(this.app_auth);
     this.msg_queue_intervalID = setInterval(() => {this._process_head_of_msg_queue();}, TWITTER_MSG_QUEUE_INTERVAL_MS);
+    
     this.start_timeline();
+    this.start_hashtag();
+    
   }).catch((error) => {
       log.error('Twitter','Error trying to retrieve bearer token:', error);
       throw "Couldn't get a bearer token for Twitter AS.";
@@ -314,6 +324,17 @@ MatrixTwitter.prototype.remove_timeline = function(userid){
   this.timeline_queue = this.timeline_queue.splice(this.timeline_queue.findIndex(tlfind),1);
 }
 
+MatrixTwitter.prototype.stop_timeline = function() {
+    if (this.timeline_intervalID) {
+        clearInterval(this.timeline_intervalID);
+        this.timeline_intervalID = null;
+    }
+}
+
+MatrixTwitter.prototype.start_timeline = function() {
+    this.timeline_intervalID = setInterval(() => {this._process_timeline();}, this.timeline_period);
+}
+
 /*
   This function will fill the content structure for a new matrix message
   for a given tweet.
@@ -371,13 +392,10 @@ MatrixTwitter.prototype._push_to_msg_queue = function(muser,roomid,tweet,type){
 MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
     //console.log(tweet);
     depth--;
-    if (depth < 0) {
-        return null;
-    }
     
     var muser = "@twitter_" + tweet.user.id_str + ":" + bridge.opts.domain;
     var intent = this._bridge.getIntent(muser);
-        
+    
     var type = "m.text";
     if (tweet.in_reply_to_status_id_str != null) {
         type = "m.notice"; // A nicer way to show previous tweets
@@ -385,7 +403,7 @@ MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
     log.info("Twitter","Processing tweet:",tweet.text);
     
     return new Promise( (resolve) => {
-      if (tweet.in_reply_to_status_id_str != null) {
+      if (tweet.in_reply_to_status_id_str != null && depth > 0) {
           this.app_twitter.get('statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet, response) => {
             if (!error) {
                 var promise = this.process_tweet(roomid, newtweet, depth)
@@ -448,7 +466,7 @@ MatrixTwitter.prototype._process_timeline = function(self) {
               clearInterval(this.msg_queue_intervalID);
               this.msg_queue_intervalID = null;
             }
-            tline.remote.set("twitter_since", feed[0].id_str, 3);
+            tline.remote.set("twitter_since", feed[0].id_str);
             var promises = [];
             feed.reverse().forEach((item) => {
                 promises.push(this.process_tweet(tline.local.roomId, item, 3));
@@ -464,16 +482,68 @@ MatrixTwitter.prototype._process_timeline = function(self) {
     this.timeline_queue.push(tline);
 }
 
-MatrixTwitter.prototype.stop_timeline = function() {
-    if (this.timeline_intervalID) {
-        clearInterval(this.timeline_intervalID);
-        this.timeline_intervalID = null;
+MatrixTwitter.prototype.start_hashtag = function(){
+  this.hashtag_intervalID = setInterval(() => {this._process_hashtag_feed();}, this.hashtag_period);
+}
+
+MatrixTwitter.prototype.stop_hashtag = function(){
+    if (this.hashtag_intervalID) {
+        clearInterval(this.hashtag_intervalID);
+        this.hashtag_intervalID = null;
     }
 }
 
-MatrixTwitter.prototype.start_timeline = function() {
-    this.timeline_period = 3050; //Twitter allows 300 calls per 15 minute (We add 50 milliseconds for a little safety).
-    this.timeline_intervalID = setInterval(() => {this._process_timeline();}, this.timeline_period);
+MatrixTwitter.prototype.add_hashtag_feed = function(hashtag,localroom,remoteroom){
+    var obj = {
+        "hashtag": hashtag,
+        "local": localroom,
+        "remote": remoteroom
+    };
+    this.hashtag_list.push(obj);
+    this.hashtag_queue.push(obj);
+    log.info('Twitter',"Added Hashtag Feed: %s",hashtag);
+}
+
+MatrixTwitter.prototype.remove_hashtag_feed = function(hashtag,localroom,remoteroom){
+  const htfind = (feed) => { feed.hashtag == hashtag };
+  this.hashtag_list  = this.hashtag_list.splice( this.hashtag_list.findIndex(tlfind) ,1);
+  this.hashtag_queue = this.hashtag_queue.splice(this.hashtag_queue.findIndex(tlfind),1);
+}
+
+MatrixTwitter.prototype._process_hashtag_feed = function(){
+  if (this.hashtag_queue.length < 1) {
+      return;
+  }
+  
+  var feed = this.hashtag_queue.shift();
+  console.log(feed);
+  var req = {
+    q: "%23"+feed.hashtag,
+    result_type: 'recent'
+  };
+  
+  var since = feed.remote.get("twitter_since");
+  if (since != undefined) {
+      req.since_id = since;
+  }
+  
+  this.app_twitter.get('search/tweets', req, (error, results, response) => {
+      if(error){
+        log.error("Twitter","_process_timeline: GET /statuses/user_timeline returned: %s", error);
+        return;
+      }
+      if(results.statuses.length > 0){
+        feed.remote.set("twitter_since", results.search_metadata.max_id_str);
+        this._bridge.getRoomStore().setRemoteRoom(feed.remote);
+      }
+      
+      results.statuses.reverse().forEach((item) => {
+          this.process_tweet(feed.local.roomId, item, 0);
+      });
+      
+      console.log(results.statuses.length);
+  });
+  this.hashtag_queue.push(feed);
 }
 
 module.exports = {
