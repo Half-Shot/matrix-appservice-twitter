@@ -14,8 +14,8 @@ Twitter bridge for Matrix.
 - Current (alpha-like quality)
   - Read and follow a users timeline
   - Send tweets to yourself and other users
-- To be complete
   - Follow hashtags
+- To be complete
   - Reply to specific tweets
   - Read your own timeline
   - Direct Messaging
