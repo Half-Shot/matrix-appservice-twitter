@@ -135,13 +135,12 @@ MatrixTwitter.prototype.get_bearer_token = function () {
 
 MatrixTwitter.prototype._update_user_timeline_profile = function(profile){
   //It's a free request, store the data.
-  log.info("Twitter","Updating profile for %s", profile.screen_name);
   var ts = new Date().getTime();
   return this.storage.get_profile_by_id(profile.id).then((old)=>{
     if(old != null){
       var sname = (old.profile.screen_name != profile.screen_name);
       var name = (old.profile.name != profile.name);
-      var avatar = (old.profile.profile_background_image_url_https != profile.profile_background_image_url_https);
+      var avatar = (old.profile.profile_image_url_https != profile.profile_image_url_https);
     }
     else {
       sname = true;
@@ -158,9 +157,9 @@ MatrixTwitter.prototype._update_user_timeline_profile = function(profile){
     
     if(avatar){
     log.info("Twitter","Setting new avatar for %s", profile.screen_name);
-      //util.uploadContentFromUrl(this._bridge,profile.profile_background_image_url_https,muser).then((uri) =>{
-      //  intent.setAvatarUrl(uri);
-      //});
+      util.uploadContentFromUrl(this._bridge,profile.profile_image_url_https,muser).then((uri) =>{
+        intent.setAvatarUrl(uri);
+      });
     }
   
     
@@ -519,7 +518,6 @@ MatrixTwitter.prototype._process_timeline = function(self) {
                 promises.push(this.process_tweet(tline.local.roomId, item, 3));
             });
             Promise.all(promises).then(() =>{
-              console.log("Done!");
               this._bridge.getRoomStore().setRemoteRoom(tline.remote);
               this.msg_queue_intervalID = setInterval(() => {this._process_head_of_msg_queue();}, TWITTER_MSG_QUEUE_INTERVAL_MS);
             });
