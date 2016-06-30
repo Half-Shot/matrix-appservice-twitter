@@ -133,6 +133,10 @@ MatrixTwitter.prototype.get_bearer_token = function () {
   });
 }
 
+MatrixTwitter.prototype._get_intent = function(id){
+  return this._bridge.getIntent("@twitter_" + id + ":" + this._bridge.opts.domain);
+}
+
 MatrixTwitter.prototype._update_user_timeline_profile = function(profile){
   //It's a free request, store the data.
   var ts = new Date().getTime();
@@ -147,18 +151,17 @@ MatrixTwitter.prototype._update_user_timeline_profile = function(profile){
       name = true;
       avatar = true;
     }
-    
-    var muser = "@twitter_" + profile.id_str + ":" + this._bridge.opts.domain;
-    var intent = this._bridge.getIntent(muser);
+        
+    var intent = this._get_intent(profile.id_str);
     if(name || sname){
       intent.setDisplayName(profile.name + " (@" + profile.screen_name + ")");
-      log.info("Twitter","Setting new display name for %s", profile.screen_name);
     }
     
     if(avatar){
-    log.info("Twitter","Setting new avatar for %s", profile.screen_name);
-      util.uploadContentFromUrl(this._bridge,profile.profile_image_url_https,muser).then((uri) =>{
-        intent.setAvatarUrl(uri);
+      util.uploadContentFromUrl(this._bridge,profile.profile_image_url_https,intent).then((uri) =>{
+        return intent.setAvatarUrl(uri);
+      }).catch(err => {
+          log.error('Twitter',"Couldn't set new avatar for @%s because of %s",profile.screen_name,err);
       });
     }
   
@@ -639,7 +642,7 @@ MatrixTwitter.prototype._process_incoming_dm = function(msg){
   this._bridge.getRoomStore().getMatrixRoom({twitter_type:"dm",twitter_users:users}).then((room) => {
     //TODO: Check to see if the message exists.
     if(!room){
-      var intent = this._bridge.getIntentFromLocalpart("twitter_" + msg.sender_id_str);
+      var intent = this.getIntent(msg.sender_id_str);
       log.info("Twitter.DM","Creating a new room for DMs from %s(%s) => %s(%s)",msg.sender_id_str,msg.sender_screen_name,msg.recipient_id_str,msg.recipient_screen_name);
       intent.createRoom(
         false,
@@ -679,8 +682,8 @@ MatrixTwitter.prototype._process_incoming_dm = function(msg){
 }
     
 //Send from sender to recipient
-  MatrixTwitter.prototype._put_dm_in_room = function(room,msg){
-  var intent = this._bridge.getIntentFromLocalpart("twitter_" + msg.sender_id_str);
+MatrixTwitter.prototype._put_dm_in_room = function(room,msg){
+  var intent = this.getIntent(msg.sender_id_str);
   log.info("Twitter.DM","Attempting to send DM from %s(%s) => %s(%s)",msg.sender_id_str,msg.sender_screen_name,msg.recipient_id_str,msg.recipient_screen_name);
   intent.sendEvent(room.roomId, "m.text", msg.text).then( (id) => {
     //TODO: Cache this for....reasons
