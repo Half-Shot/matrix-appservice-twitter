@@ -9,6 +9,7 @@ var log     = require('npmlog');
 */
 function uploadContentFromUrl(bridge, url, id = null, name = null) {
     var contenttype;
+    console.log(url);
     return new Promise((resolve, reject) => {
         https.get((url), (res) => {
             contenttype = res.headers["content-type"];
@@ -31,7 +32,10 @@ function uploadContentFromUrl(bridge, url, id = null, name = null) {
             });
         })
     }).then((buffer) => {
-        return bridge.getIntent(id).getClient().uploadContent({
+        if(typeof id == "string" || id == null){
+            id = bridge.getIntent(id);
+        }
+        return id.getClient().uploadContent({
             stream: buffer,
             name: name,
             type: contenttype
