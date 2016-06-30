@@ -1,5 +1,3 @@
-var https   = require('https');
-var Buffer  = require("buffer").Buffer;
 var log     = require('npmlog');
 
 var Cli         = require("matrix-appservice-bridge").Cli;
@@ -12,7 +10,10 @@ var TwitterRoomHandler = require("./src/TwitterRoomHandler.js").TwitterRoomHandl
 var AccountServices = require("./src/AccountServices.js").AccountServices;
 var TimelineHandler = require("./src/TimelineHandler.js").TimelineHandler;
 var HashtagHandler = require("./src/HashtagHandler.js").HashtagHandler;
+//var DirectMessageHandler = require("./src/DirectMessageHandler.js").DirectMessageHandler;
+var TwitterDB = require("./src/TwitterDB.js").TwitterDB;
 
+var util    = require('./src/util.js');
 
 var twitter;
 var troomstore;
@@ -34,6 +35,7 @@ new Cli({
         reg.addRegexPattern("users", "@twitter_.*", true);
         reg.addRegexPattern("aliases", "#twitter_@.*", true);
         reg.addRegexPattern("aliases", "#twitter_#.*", true);
+        reg.addRegexPattern("aliases", "#twitter_DM.*", true);
         callback(reg);
     },
     run: function(port, config) {
@@ -57,13 +59,17 @@ new Cli({
         });
         log.info("AppServ","Matrix-side listening on port %s", port);
         //Setup twitter
-
-        twitter = new MatrixTwitter(bridge, config);
+        
+        var tstorage = new TwitterDB('twitter.db');
+        tstorage.init();
+        
+        twitter = new MatrixTwitter(bridge, config, tstorage);
         troomstore = new TwitterRoomHandler(bridge, config,
           {
             services: new AccountServices(bridge, config.app_auth),
             timeline: new TimelineHandler(bridge, twitter),
-            hashtag: new HashtagHandler(bridge, twitter)
+            hashtag: new HashtagHandler(bridge, twitter),
+            //directmessage: new DirectMessageHandler(bridge,twitter)
           }
         );
         
@@ -73,6 +79,13 @@ new Cli({
           return bridge.loadDatabases();
         }).then(() => {
           roomstore = bridge.getRoomStore();
+          
+          // bridge.getUserStore().getRemoteUser("twitter_M@Half-Shot:localhost").then(value => {
+          //   twitter.attach_user_stream(value);
+          // }).catch(reason =>{
+          //   throw reason;
+          // });
+          
           return roomstore.getRemoteRooms({});
         }).then((rooms) => {
           rooms.forEach((rroom, i, a) => {
@@ -101,7 +114,7 @@ function userQuery(queriedUser) {
   return twitter.get_user_by_id(queriedUser.localpart.substr("twitter_".length)).then( (twitter_user) => {
     /* Even users with a default avatar will still have an avatar url set.
        This *should* always work. */
-    return uploadContentFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((uri) => {
+    return util.uploadContentFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((uri) => {
       return {
         name: twitter_user.name + " (@" + twitter_user.screen_name + ")",
         url: uri,
@@ -111,48 +124,4 @@ function userQuery(queriedUser) {
   }).catch((error) => {
       log.error("UserQuery","Couldn't find the user.\nReason: %s",error);
   });
-}
-
-/*
-  This function will take a URL, upload it to Matrix and return the corresponding
-  MXC url in a Promise. The content will be uploaded on the users behalf using
-  the ID, or the AS bot if set to null.
-*/
-function uploadContentFromUrl(bridge, url, id = null, name = null) {
-    var contenttype;
-    return new Promise((resolve, reject) => {
-        https.get((url), (res) => {
-            contenttype = res.headers["content-type"];
-            if (name == null) {
-                name = url.split("/");
-                name = name[name.length - 1];
-            }
-            var size = parseInt(res.headers["content-length"]);
-            var buffer = Buffer.alloc(size);
-            var bsize = 0;
-            res.on('data', (d) => {
-                d.copy(buffer, bsize);
-                bsize += d.length;
-            });
-            res.on('error', () => {
-                reject("Failed to download.");
-            });
-            res.on('end', () => {
-                resolve(buffer);
-            });
-        })
-    }).then((buffer) => {
-        return bridge.getIntent(id).getClient().uploadContent({
-            stream: buffer,
-            name: name,
-            type: contenttype
-        });
-    }).then((response) => {
-        var content_uri = JSON.parse(response).content_uri;
-        return content_uri;
-        log.info("UploadContent","Media uploaded to %s", content_uri);
-    }).catch(function(reason) {
-        log.error("UploadContent","Failed to get image from url:\n%s", reason)
-    })
-
 }

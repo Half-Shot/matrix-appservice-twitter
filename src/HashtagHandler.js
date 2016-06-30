@@ -8,8 +8,6 @@ var HashtagHandler = function (bridge, twitter) {
 
 
 HashtagHandler.prototype.processInvite = function (event, request, context) {
-  var intent = this._bridge.getIntent(event.state_key);
-  intent.leave(event.room_id);
   return;//No invites
 }
 

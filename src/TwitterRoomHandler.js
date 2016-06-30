@@ -70,15 +70,18 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
 }
 
 TwitterRoomHandler.prototype.processAliasQuery = function(alias, aliasLocalpart){
-  var type = aliasLocalpart.substr("twitter_".length,1);
+  var type = aliasLocalpart.substr("twitter_".length,2);
   var part = aliasLocalpart.substr("twitter_.".length);
   
-  if(type == '@'){ //User timeline
+  if(type[0] == '@'){ //User timeline
     return this.handlers.timeline.processAliasQuery(part);
   }
-  else if(type == '#') { //Hashtag
+  else if(type[0] == '#') { //Hashtag
     return this.handlers.hashtag.processAliasQuery(part);
   }
+  /*else if(type == 'DM') { //Hashtag
+    return this.handlers.directmessage.processAliasQuery(part.substr(1));
+  }*/
   else {
     //Unknown
     return null;

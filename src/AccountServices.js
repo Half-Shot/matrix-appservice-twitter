@@ -63,7 +63,7 @@ AccountServices.prototype.processMessage = function (event, request, context){
     }
     var intent = this._bridge.getIntent();
     this._oauth_getAccessToken(pin,remoteSender).then(() => {
-      intent.sendMessage(event.room_id,{"body":"All good. You should now be able to use your twitter account on matrix.","msgtype":"m.text"});
+      intent.sendMessage(event.room_id,{"body":"All good. You should now be able to use your Twitter account on Matrix.","msgtype":"m.text"});
     }).catch(err => {
       intent.sendMessage(event.room_id,{"body":"We couldn't verify this PIN :(. Maybe you typed it wrong or you might need to request it again.","msgtype":"m.text"});
       log.error("Handler.AccountServices","OAuth Access Token Failed:%s", err);
@@ -77,7 +77,7 @@ AccountServices.prototype._oauth_getAccessToken = function (pin,remoteUser) {
     if(data && data.oauth_token != "" && data.oauth_secret != ""){
       this._oauth.getOAuthAccessToken(data.oauth_token, data.oauth_secret, pin, (error,access_token,access_token_secret) =>{
         if(error){
-          reject(error);
+          reject(error.statusCode + ": " + error.data);
         }
         data.access_token = access_token;
         data.access_token_secret = access_token_secret;
@@ -86,13 +86,15 @@ AccountServices.prototype._oauth_getAccessToken = function (pin,remoteUser) {
         resolve();
       });
     }
-    reject("User has no associated token request data");
+    else {
+      reject("User has no associated token request data");
+    }
   });
 }
 
 AccountServices.prototype._oauth_getUrl = function(event,remoteUser){
   return new Promise((resolve,reject) => {
-    this._oauth.getOAuthRequestToken({"x_auth_access_type":"write"},(error, oAuthToken, oAuthTokenSecret, results) => {
+    this._oauth.getOAuthRequestToken({"x_auth_access_type":"dm"},(error, oAuthToken, oAuthTokenSecret, results) => {
       if(error){
         reject(["Couldn't get token for user.\n%s",error]);
       }
