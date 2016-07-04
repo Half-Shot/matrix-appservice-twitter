@@ -56,7 +56,7 @@ TimelineHandler.prototype.processInvite = function (event, request, context) {
 }
 
 TimelineHandler.prototype.processMessage = function (event, request, context) {
-  this.twitter.send_matrix_event_as_tweet(event,context.senders.remote,context.rooms.remote);
+  this.twitter.send_matrix_event_as_tweet(event,context.senders.matrix,context.rooms.remote);
 }
 
 TimelineHandler.prototype.processAliasQuery = function(alias){
