@@ -9,7 +9,6 @@ var log     = require('npmlog');
 */
 function uploadContentFromUrl(bridge, url, id = null, name = null) {
     var contenttype;
-    console.log(url);
     return new Promise((resolve, reject) => {
         https.get((url), (res) => {
             contenttype = res.headers["content-type"];
