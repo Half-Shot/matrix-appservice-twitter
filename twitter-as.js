@@ -59,33 +59,33 @@ new Cli({
         });
         log.info("AppServ","Matrix-side listening on port %s", port);
         //Setup twitter
-        
+
         var tstorage = new TwitterDB('twitter.db');
         tstorage.init();
         
         twitter = new MatrixTwitter(bridge, config, tstorage);
         troomstore = new TwitterRoomHandler(bridge, config,
           {
-            services: new AccountServices(bridge, config.app_auth),
+            services: new AccountServices(bridge, config.app_auth, tstorage),
             timeline: new TimelineHandler(bridge, twitter),
             hashtag: new HashtagHandler(bridge, twitter),
             //directmessage: new DirectMessageHandler(bridge,twitter)
           }
         );
-        
+
         var roomstore;
         twitter.start().then(() => {
           bridge.run(port, config);
           return bridge.loadDatabases();
         }).then(() => {
           roomstore = bridge.getRoomStore();
-          
-          // bridge.getUserStore().getRemoteUser("twitter_M@Half-Shot:localhost").then(value => {
-          //   twitter.attach_user_stream(value);
-          // }).catch(reason =>{
-          //   throw reason;
-          // });
-          
+
+          tstorage.get_linked_user_ids().then(ids =>{
+            ids.forEach((value) => {
+              twitter.attach_user_stream(value);
+            });
+          });
+
           return roomstore.getRemoteRooms({});
         }).then((rooms) => {
           rooms.forEach((rroom, i, a) => {
