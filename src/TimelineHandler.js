@@ -1,5 +1,4 @@
 var log  = require('npmlog');
-var http = require('http');
 var Buffer  = require("buffer").Buffer;
 
 var RemoteRoom  = require("matrix-appservice-bridge").RemoteRoom;
@@ -29,7 +28,7 @@ TimelineHandler.prototype.processInvite = function (event, request, context) {
                   console.log(content);
                   return;
               }
-              
+
               log.info("Handler.Timeline","Set Room Avatar:", content.avatar_url);
               intent.sendStateEvent(event.room_id, "m.room.avatar", "",
               {
@@ -46,7 +45,7 @@ TimelineHandler.prototype.processInvite = function (event, request, context) {
       }
       else if(event.membership == "leave"){
         log.warn("Handler.Timeline", event.sender + " left " + event.room_id);
-        
+
         //var users = getRoomMembers(event.room_id);
         //for(var user of users){
         //  console.log(user);
@@ -67,10 +66,12 @@ TimelineHandler.prototype.processAliasQuery = function(alias){
           if (!tuser.protected) {
               return this._constructTimelineRoom(tuser, alias);
           }
-          log.info("Handler.Timeline",tuser.screen_name + " is a protected account, so we can't read from it.");
+          log.warn("Handler.Timeline",tuser.screen_name + " is a protected account, so we can't read from it.");
       }
-      log.info("Handler.Timeline",tuser.screen_name + " was not found.");
-      
+      log.warn("Handler.Timeline",tuser.screen_name + " was not found.");
+
+  }).catch(reason =>{
+    log.error("Twitter","Couldn't create timeline room: ",reason);
   });
 }
 /*
@@ -94,7 +95,7 @@ TimelineHandler.prototype._constructTimelineRoom = function(user, alias) {
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", roomOwner);
     this._bridge.getRoomStore().setRemoteRoom(remote);
-    
+
     opts = {
         visibility: "public",
         room_alias_name: "twitter_@"+alias,
@@ -119,27 +120,6 @@ TimelineHandler.prototype._constructTimelineRoom = function(user, alias) {
         creationOpts: opts,
         remote: remote
     };
-}
-
-//Download an image and return it's data.
-TimelineHandler.prototype._downloadImage = function(url){
-  return new Promise((resolve, reject) => {
-      http.get((url), (res) => {
-          var size = parseInt(res.headers["content-length_downloadImage"]);
-          var buffer = Buffer.alloc(size);
-          var bsize = 0;
-          res.on('data', (d) => {
-              d.copy(buffer, bsize);
-              bsize += d.length;
-          });
-          res.on('error', () => {
-              reject("Failed to download.");
-          });
-          res.on('end', () => {
-              resolve(buffer);
-          });
-      })
-  });
 }
 
 function roomPowers(users) {
