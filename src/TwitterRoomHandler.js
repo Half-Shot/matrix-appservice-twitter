@@ -17,7 +17,7 @@ var TwitterRoomHandler = function (bridge, config, handlers) {
 TwitterRoomHandler.prototype.processInvite = function (event,request, context){
   var remote = context.rooms.remote;
   var intent = this._bridge.getIntent();
-  
+
   if(remote){
     var rtype = remote.data.twitter_type;
     if(rtype == "timeline"){
@@ -49,7 +49,6 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
   
   if(remote){
     if(event.type == "m.room.message"){
-      console.log(remote.data);
       if(remote.data.twitter_type == "service"){
         this.handlers.services.processMessage(event,request,context);
       }
@@ -59,9 +58,17 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
       else if(remote.data.twitter_type == "hashtag"){
         this.handlers.hashtag.processMessage(event,request,context);
       }
+      else if(remote.data.twitter_type == "dm"){
+        this.handlers.directmessage.processMessage(event,request,context);
+      }
+      else if(remote.data.twitter_type == "user_timeline"){
+        if(remote.data.twitter_owner == event.sender){
+          this.handlers.timeline.processMessage(event,request,context);
+        }
+      }
       return;
     }
-    
+
     if(remote.data.twitter_type == "hashtag"){
       this.handlers.hashtag.processEvent(event,request,context);
     }
@@ -72,7 +79,7 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
 TwitterRoomHandler.prototype.processAliasQuery = function(alias, aliasLocalpart){
   var type = aliasLocalpart.substr("twitter_".length,2);
   var part = aliasLocalpart.substr("twitter_.".length);
-  
+
   if(type[0] == '@'){ //User timeline
     return this.handlers.timeline.processAliasQuery(part);
   }

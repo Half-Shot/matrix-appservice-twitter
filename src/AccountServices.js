@@ -6,10 +6,11 @@ var OAuth      = require('oauth');
 
 
 
-var AccountServices = function (bridge, app_auth, storage) {
+var AccountServices = function (bridge, app_auth, storage, twitter) {
   this._bridge = bridge;
   this._app_auth = app_auth;
   this._storage = storage;
+  this._twitter = twitter;
   this._oauth = new OAuth.OAuth(
     'https://api.twitter.com/oauth/request_token',
     'https://api.twitter.com/oauth/access_token',
@@ -52,8 +53,9 @@ AccountServices.prototype.processMessage = function (event, request, context){
         intent.sendMessage(event.room_id,{"body":"You must request access with 'link account' first.","msgtype":"m.text"});
         return;
       }
-      this._oauth_getAccessToken(pin,client_data,event.sender).then(() => {
+      this._oauth_getAccessToken(pin,client_data,event.sender).then((profile) => {
         intent.sendMessage(event.room_id,{"body":"All good. You should now be able to use your Twitter account on Matrix.","msgtype":"m.text"});
+        this._twitter.create_user_timeline(event.sender,profile);
       }).catch(err => {
         intent.sendMessage(event.room_id,{"body":"We couldn't verify this PIN :(. Maybe you typed it wrong or you might need to request it again.","msgtype":"m.text"});
         log.error("Handler.AccountServices","OAuth Access Token Failed:%s", err);
@@ -84,7 +86,7 @@ AccountServices.prototype._oauth_getAccessToken = function (pin,client_data,id) 
             return;
           }
           this._storage.set_client_data(id,profile.id,client_data);
-          resolve();
+          resolve(profile);
         });
       });
     }

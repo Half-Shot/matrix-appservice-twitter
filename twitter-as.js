@@ -10,7 +10,8 @@ var TwitterRoomHandler = require("./src/TwitterRoomHandler.js").TwitterRoomHandl
 var AccountServices = require("./src/AccountServices.js").AccountServices;
 var TimelineHandler = require("./src/TimelineHandler.js").TimelineHandler;
 var HashtagHandler = require("./src/HashtagHandler.js").HashtagHandler;
-//var DirectMessageHandler = require("./src/DirectMessageHandler.js").DirectMessageHandler;
+var DirectMessageHandler = require("./src/DirectMessageHandler.js").DirectMessageHandler;
+
 var TwitterDB = require("./src/TwitterDB.js").TwitterDB;
 
 var util    = require('./src/util.js');
@@ -48,8 +49,10 @@ new Cli({
                 onEvent: (request, context) => { troomstore.passEvent(request,context); },
                 onAliasQuery: (alias, aliasLocalpart) => { return troomstore.processAliasQuery(alias,aliasLocalpart); },
                 onLog: function(line, isError){
-                  if(isError){ // Make logging less verbose
-                    log.error("matrix-appservice-bridge",line);
+                  if(isError){
+                    if(line.indexOf("M_USER_IN_USE") == -1){//QUIET!
+                        log.error("matrix-appservice-bridge",line);
+                    }
                   }
                   /*else{
                     console.log(line);
@@ -62,14 +65,14 @@ new Cli({
 
         var tstorage = new TwitterDB('twitter.db');
         tstorage.init();
-        
+
         twitter = new MatrixTwitter(bridge, config, tstorage);
         troomstore = new TwitterRoomHandler(bridge, config,
           {
-            services: new AccountServices(bridge, config.app_auth, tstorage),
+            services: new AccountServices(bridge, config.app_auth, tstorage, twitter),
             timeline: new TimelineHandler(bridge, twitter),
             hashtag: new HashtagHandler(bridge, twitter),
-            //directmessage: new DirectMessageHandler(bridge,twitter)
+            directmessage: new DirectMessageHandler(bridge,twitter)
           }
         );
 
