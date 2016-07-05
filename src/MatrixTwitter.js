@@ -226,6 +226,7 @@ MatrixTwitter.prototype._get_twitter_client = function(sender) {
             //TODO: Possibly find a way to get another key.
           }
           client.profile = profile;
+          client.last_auth = ts;
           this._update_user_timeline_profile(profile);
           resolve(client);
         });
@@ -289,13 +290,13 @@ MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body,ext
 
     status.status = status.status.substr(0,140);
 
+    this.processed_tweets.push(remote.roomId,status.status);
     client.post("statuses/update",status,(error,tweet) => {
       if(error){
         log.error("Twitter","Failed to send tweet. %s",error);
         return;
       }
       var id = sender.getId();
-      this.processed_tweets.push(remote.roomId,tweet.id_str);
       log.info("Twitter","Tweet sent from %s!",id);
     });
   }).catch(err =>{
@@ -523,12 +524,12 @@ MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
 
       this._update_user_timeline_profile(tweet.user);
 
-      if(this.processed_tweets.contains(roomid,tweet.id_str)){
+      if(this.processed_tweets.contains(roomid,tweet.text)){
         log.info("Twitter","Repeated tweet detected, not processing");
         return;
       }
 
-      this.processed_tweets.push(roomid,tweet.id_str);
+      this.processed_tweets.push(roomid,tweet.text);
       this._push_to_msg_queue(muser,roomid,tweet,type);
       return;
 
