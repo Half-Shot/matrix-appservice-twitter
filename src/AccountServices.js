@@ -46,6 +46,12 @@ AccountServices.prototype.processMessage = function (event, request, context){
       intent.sendMessage(event.room_id,{"body":"We are unable to process your request at this time.","msgtype":"m.text"});
     });
   }
+  else if(event.content.body == "unlink account"){
+    this._storage.remove_client_data(event.sender);
+    this._storage.remove_timeline_room(event.sender);
+    this._twitter.detach_user_stream(event.sender);
+    intent.sendMessage(event.room_id,{"body":"Your account (if it was linked) is now unlinked from Matrix.","msgtype":"m.text"});
+  }
   else if(isNumber(event.content.body)){
     this._storage.get_client_data(event.sender).then((client_data) => {
       var pin = event.content.body;
@@ -57,6 +63,7 @@ AccountServices.prototype.processMessage = function (event, request, context){
       this._oauth_getAccessToken(pin,client_data,event.sender).then((profile) => {
         intent.sendMessage(event.room_id,{"body":"All good. You should now be able to use your Twitter account on Matrix.","msgtype":"m.text"});
         this._twitter.create_user_timeline(event.sender,profile);
+        this._twitter.attach_user_stream(event.sender);
       }).catch(err => {
         intent.sendMessage(event.room_id,{"body":"We couldn't verify this PIN :(. Maybe you typed it wrong or you might need to request it again.","msgtype":"m.text"});
         log.error("Handler.AccountServices","OAuth Access Token Failed:%s", err);
