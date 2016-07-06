@@ -17,7 +17,7 @@ var TwitterDB = require("./src/TwitterDB.js").TwitterDB;
 var util    = require('./src/util.js');
 
 var twitter;
-var troomstore;
+var room_handler;
 
 
 new Cli({
@@ -46,8 +46,8 @@ new Cli({
             registration: "twitter-registration.yaml",
             controller: {
                 onUserQuery: userQuery,
-                onEvent: (request, context) => { troomstore.passEvent(request,context); },
-                onAliasQuery: (alias, aliasLocalpart) => { return troomstore.processAliasQuery(alias,aliasLocalpart); },
+                onEvent: (request, context) => { room_handler.passEvent(request,context); },
+                onAliasQuery: (alias, aliasLocalpart) => { return room_handler.processAliasQuery(alias,aliasLocalpart); },
                 onLog: function(line, isError){
                   if(isError){
                     if(line.indexOf("M_USER_IN_USE") == -1){//QUIET!
@@ -67,7 +67,7 @@ new Cli({
         tstorage.init();
 
         twitter = new MatrixTwitter(bridge, config, tstorage);
-        troomstore = new TwitterRoomHandler(bridge, config,
+        room_handler = new TwitterRoomHandler(bridge, config,
           {
             services: new AccountServices(bridge, config.app_auth, tstorage, twitter),
             timeline: new TimelineHandler(bridge, twitter),
@@ -82,14 +82,12 @@ new Cli({
           return bridge.loadDatabases();
         }).then(() => {
           roomstore = bridge.getRoomStore();
-
           tstorage.get_linked_user_ids().then(ids =>{
             ids.forEach((value) => {
               twitter.attach_user_stream(value);
             });
           });
-
-          return roomstore.getRemoteRooms({});
+          return roomstore.getEntriesByMatrixRoomData({});
         }).then((rooms) => {
           rooms.forEach((rroom, i, a) => {
             if (rroom.data.twitter_type) {
