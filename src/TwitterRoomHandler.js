@@ -8,9 +8,10 @@
 */
 var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 var log = require('npmlog');
+var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
 var TwitterRoomHandler = function (bridge, config, handlers) {
-  this._bridge = bridge;
+  TwitterHandler.call(bridge);
   this.handlers = handlers; // 'service' handler
 }
 
@@ -46,7 +47,7 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
   if (event.type == "m.room.member" && event.membership == "invite"){
     this.processInvite(event,request,context);
   }
-  
+
   if(remote){
     if(event.type == "m.room.message"){
       if(remote.data.twitter_type == "service"){

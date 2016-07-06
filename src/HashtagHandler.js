@@ -1,14 +1,10 @@
 var log  = require('npmlog');
 var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
+var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
 var HashtagHandler = function (bridge, twitter) {
-  this._bridge = bridge;
+  TwitterHandler.call(this,bridge);
   this.twitter = twitter;
-}
-
-
-HashtagHandler.prototype.processInvite = function (event, request, context) {
-  return;//No invites
 }
 
 HashtagHandler.prototype.processMessage = function (event, request, context) {
@@ -28,11 +24,10 @@ HashtagHandler.prototype.processEvent = function (event, request, context) {
 HashtagHandler.prototype.processAliasQuery = function(name){
   log.info("Handler.Hashtag","Got alias request");
   var botID = this._bridge.getBot().getUserId();
-  
+
   var remote = new RemoteRoom("hashtag_" + name);
   remote.set("twitter_type", "hashtag");
-  this._bridge.getRoomStore().setRemoteRoom(remote);
-  
+
   opts = {
       visibility: "public",
       room_alias_name: "twitter_#"+name,

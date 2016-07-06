@@ -4,8 +4,10 @@ var Buffer  = require("buffer").Buffer;
 var RemoteRoom  = require("matrix-appservice-bridge").RemoteRoom;
 var MatrixRoom  = require("matrix-appservice-bridge").MatrixRoom;
 
+var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
+
 var TimelineHandler = function (bridge, twitter) {
-  this._bridge = bridge;
+  TwitterHandler.call(this,bridge);
   this.twitter = twitter;
 }
 

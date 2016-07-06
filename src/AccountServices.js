@@ -3,11 +3,12 @@ var RemoteUser = require("matrix-appservice-bridge").RemoteUser;
 var Twitter    = require('twitter');
 var log        = require('npmlog');
 var OAuth      = require('oauth');
+var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
 
 
 var AccountServices = function (bridge, app_auth, storage, twitter) {
-  this._bridge = bridge;
+  TwitterHandler.call(this,bridge);
   this._app_auth = app_auth;
   this._storage = storage;
   this._twitter = twitter;

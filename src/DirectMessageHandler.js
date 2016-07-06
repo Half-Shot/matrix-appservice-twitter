@@ -1,8 +1,9 @@
 var log  = require('npmlog');
 var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
+var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
 var DirectMessage = function (bridge, twitter) {
-  this._bridge = bridge;
+  TwitterHandler.call(this,bridge);
   this.twitter = twitter;
 }
 
@@ -29,34 +30,11 @@ DirectMessage.prototype.processEvent = function (event, request, context) {
 }
 
 DirectMessage.prototype.processAliasQuery = function(name){
+  //TODO: Support initiating DMs to users.
+  // We might decide to to this via directly PMing a user.
   log.info("Handler.DirectMessage","Got alias request");
   console.log(name);
   return null;
-  // var botID = this._bridge.getBot().getUserId();
-  //
-  // var remote = new RemoteRoom("hashtag_" + name);
-  // remote.set("twitter_type", "hashtag");
-  // this._bridge.getRoomStore().setRemoteRoom(remote);
-  //
-  // opts = {
-  //     visibility: "public",
-  //     room_alias_name: "twitter_#"+name,
-  //     name: "[Twitter] #"+name,
-  //     topic: "Twitter feed for #"+name,
-  //     initial_state: [
-  //         {
-  //             "type": "m.room.join_rules",
-  //             "content": {
-  //                 "join_rule": "public"
-  //             },
-  //             "state_key": ""
-  //         }
-  //     ]
-  // };
-  // return {
-  //     creationOpts: opts,
-  //     remote: remote
-  // };
 }
 
 module.exports = {
