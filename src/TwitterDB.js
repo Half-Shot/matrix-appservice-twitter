@@ -238,6 +238,36 @@ TwitterDB.prototype.set_timeline_room = function(user_id,room_id){
   });
 }
 
+TwitterDB.prototype.remove_timeline_room = function(user_id){
+  this.db.run(
+    `
+    DELETE FROM  timeline_room
+    WHERE timeline_room.user_id = $user_id;
+    `
+  ,{
+    $user_id:user_id
+  },(err) =>{
+    if(err != null){
+      log.error("TwitDB","Error deleting timeline room for user: %s",err);
+    }
+  });
+}
+
+TwitterDB.prototype.remove_client_data = function(user_id){
+  this.db.run(
+    `
+    DELETE FROM twitter_account
+    WHERE twitter_account.user_id = $user_id;
+    `
+  ,{
+    $user_id:user_id
+  },(err) =>{
+    if(err != null){
+      log.error("TwitDB","Error deleting client data for user: %s",err);
+    }
+  });
+}
+
 TwitterDB.prototype.get_dm_room = function(users){
   log.info("TwitDB","Retrieving dm room: %s",users);
   return new Promise((resolve,reject) =>{
