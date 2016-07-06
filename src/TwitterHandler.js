@@ -1,7 +1,15 @@
 var log = require('npmlog');
 
-var TwitterHandler = function (bridge) {
+var TwitterHandler = function (bridge, roomType, aliasPrefix) {
   this._bridge = bridge;
+  this.aliasPrefix = "";
+  this.roomType = "";
+  if(typeof aliasPrefix == "string"){
+    this.aliasPrefix = aliasPrefix;
+  }
+  if(typeof roomType == "string"){
+    this.roomType = roomType;
+  }
 }
 
 TwitterHandler.prototype.processInvite = function (event, request, context){

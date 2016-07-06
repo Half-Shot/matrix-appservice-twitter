@@ -13,16 +13,19 @@ HashtagHandler.prototype.processMessage = function (event, request, context) {
 
 HashtagHandler.prototype.processEvent = function (event, request, context) {
   if(event.type == "m.room.aliases" && event.sender.startsWith("@twitbot")){
-    this.twitter.add_hashtag_feed(
-      context.rooms.remote.roomId.substr("hashtag_".length),
-      context.rooms.matrix,
-      context.rooms.remote
-    );
+    console.log(event)
+      this._bridge.getRoomStore().getEntriesByMatrixId(context.rooms.matrix.getId()).then(entries =>{
+      console.log(entries);
+      this.twitter.add_hashtag_feed(
+        context.rooms.remote.roomId.substr("hashtag_".length),
+        entries[0]
+      );
+    });
   }
 }
 
 HashtagHandler.prototype.processAliasQuery = function(name){
-  log.info("Handler.Hashtag","Got alias request");
+  log.info("Handler.Hashtag","Got alias request ''%s'",name);
   var botID = this._bridge.getBot().getUserId();
 
   var remote = new RemoteRoom("hashtag_" + name);

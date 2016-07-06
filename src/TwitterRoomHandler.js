@@ -10,15 +10,15 @@ var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 var log = require('npmlog');
 var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
-var TwitterRoomHandler = function (bridge, config, handlers) {
-  TwitterHandler.call(bridge);
+var TwitterRoomHandler = function (bridge, handlers) {
+  this._bridge = bridge;
   this.handlers = handlers; // 'service' handler
 }
 
 TwitterRoomHandler.prototype.processInvite = function (event,request, context){
   var remote = context.rooms.remote;
   var intent = this._bridge.getIntent();
-
+  console.log(context);
   if(remote){
     var rtype = remote.data.twitter_type;
     if(rtype == "timeline"){
@@ -37,7 +37,7 @@ TwitterRoomHandler.prototype.processInvite = function (event,request, context){
     return;
   }
   log.info("RoomHandler","Got an invite to something we cannot accept.");
-  console.warn("Event data: ", event);
+  log.warn("RoomHandler","Event data: ", event);
   //intent.leave(event.room_id);
 }
 
@@ -47,7 +47,6 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
   if (event.type == "m.room.member" && event.membership == "invite"){
     this.processInvite(event,request,context);
   }
-
   if(remote){
     if(event.type == "m.room.message"){
       if(remote.data.twitter_type == "service"){
@@ -87,7 +86,7 @@ TwitterRoomHandler.prototype.processAliasQuery = function(alias, aliasLocalpart)
   else if(type[0] == '#') { //Hashtag
     return this.handlers.hashtag.processAliasQuery(part);
   }
-  /*else if(type == 'DM') { //Hashtag
+  /*else if(type == 'DM') {
     return this.handlers.directmessage.processAliasQuery(part.substr(1));
   }*/
   else {

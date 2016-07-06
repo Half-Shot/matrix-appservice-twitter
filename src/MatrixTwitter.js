@@ -35,6 +35,8 @@ var MatrixTwitter = function (bridge, config, storage) {
   this.hashtag_list = [];
   this.hashtag_queue = [];
 
+  this.user_streams = {};
+
   this.processed_tweets = new ProcessedTweetList(256,32);  //This will contain all the tweet IDs of things we don't want to repeat.
   this.sent_dms = new ProcessedTweetList(1,1);  //This will contain the body of the DM posted to a room to avoid reposting it.
   this.msg_queue = [];
@@ -235,75 +237,6 @@ MatrixTwitter.prototype._get_twitter_client = function(sender) {
   });
 }
 
-MatrixTwitter.prototype.upload_media = function(sender,data){
-  return new Promise( (resolve,reject) => {
-      this._get_twitter_client(sender.getId()).then((client) => {
-        client.post("media/upload",{media:data}, (error, media, response) => {
-        if(error){
-          log.error("Twitter",error);
-          reject("Failed to upload media");
-        }
-        resolve(media.media_id_string);
-      });
-    })
-  });
-}
-
-
-
-MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body,extras){
-  var type = remote.get("twitter_type");
-  if(!["timeline","hashtag","user_timeline"].includes(type)){
-    log.error("Twitter","Twitter type was wrong (%s) ",type)
-    return;//Where am I meant to send it :(
-  }
-
-  var client;
-
-  return this._get_twitter_client(sender.getId()).then((c) => {
-    client = c;
-    if(type == "timeline"){
-      var timelineID = remote.getId().substr("timeline_".length);
-      log.info("Twitter","Trying to tweet " + timelineID);
-      return this.get_user_by_id(timelineID);
-    }
-  }).then(tuser => {
-    var status = {status:body};
-    if(type == "timeline"){
-      var name = "@"+tuser.screen_name;
-      if(!body.startsWith(name) && client.profile.screen_name != tuser.screen_name){
-        status.status = (name + " " + body);
-      }
-    }
-    else if(type == "hashtag"){
-      var htag = "#" + remote.roomId.substr("hashtag_".length);
-      if(!body.toLowerCase().includes(htag.toLowerCase())){
-        status.status = (htag + " " + body);
-      }
-    }
-
-    if(extras !== undefined){
-      if(extras.hasOwnProperty("media")){
-        status.media_ids = extras.media.join(',');
-      }
-    }
-
-    status.status = status.status.substr(0,140);
-
-    this.processed_tweets.push(remote.roomId,status.status);
-    client.post("statuses/update",status,(error,tweet) => {
-      if(error){
-        log.error("Twitter","Failed to send tweet. %s",error);
-        return;
-      }
-      var id = sender.getId();
-      log.info("Twitter","Tweet sent from %s!",id);
-    });
-  }).catch(err =>{
-    log.error("Twitter","Failed to send tweet. %s",err);
-  });
-}
-
 MatrixTwitter.prototype._get_user_from_twitter = function(data) {
   return new Promise((resolve,reject) => {
     this.app_twitter.get('users/show', data, (error, user, response) => {
@@ -344,38 +277,6 @@ MatrixTwitter.prototype.get_user = function(name) {
 }
 
 /*
-  Add a user's timeline to the timeline processor. Tweets will be automatically send to
-  the given room.
-*/
-MatrixTwitter.prototype.add_timeline = function(userid, localroom, remoteroom) {
-    var obj = {
-        "user_id": userid,
-        "local": localroom,
-        "remote": remoteroom
-    };
-    this.timeline_list.push(obj);
-    this.timeline_queue.push(obj);
-    log.info('Twitter',"Added Timeline: %s",userid);
-}
-
-MatrixTwitter.prototype.remove_timeline = function(userid){
-  const tlfind = (tline) => { tline.user_id == userid };
-  this.timeline_list  = this.timeline_list.splice(this.timeline_list.findIndex(tlfind),1);
-  this.timeline_queue = this.timeline_queue.splice(this.timeline_queue.findIndex(tlfind),1);
-}
-
-MatrixTwitter.prototype.stop_timeline = function() {
-    if (this.timeline_intervalID) {
-        clearInterval(this.timeline_intervalID);
-        this.timeline_intervalID = null;
-    }
-}
-
-MatrixTwitter.prototype.start_timeline = function() {
-    this.timeline_intervalID = setInterval(() => {this._process_timeline();}, this.timeline_period);
-}
-
-/*
   This function will fill the content structure for a new matrix message
   for a given tweet.
 */
@@ -404,6 +305,7 @@ MatrixTwitter.prototype._process_head_of_msg_queue = function(){
     }
   }
 }
+
 
 MatrixTwitter.prototype._push_to_msg_queue = function(muser,roomid,tweet,type) {
   var time = Date.parse(tweet.created_at);
@@ -455,26 +357,8 @@ MatrixTwitter.prototype._push_to_msg_queue = function(muser,roomid,tweet,type) {
 
     this.msg_queue.push(msgs);
   }).catch(reason =>{
-    log.error("Twitter.")
+    log.error("Twitter","Failed to submit tweet to queue, reason: %s",reason);
   });
-}
-
-//Check user display name
-//TODO: Check avatar. Probably with a stored key
-MatrixTwitter.prototype._get_matrix_twitter_user = function(twitter_user){
-
-  // var cli = intent.getClient();
-  // var current_user = cli.getUserIdLocalpart() + ":" + this._bridge.opts.domain;
-  // console.log(current_user);
-  // cli.getProfileInfo(current_user,'displayname').then(info =>{
-  //   console.log(info);
-  //   var disp = tweet.user.name + " (@" + tweet.user.screen_name + ")";
-  //   if(info.displayname != disp){
-  //     intent.setDisplayName(disp);
-  //   }
-  // }).catch(err => {
-  //   log.error("Twitter",err);
-  // });
 }
 
 /*
@@ -536,115 +420,6 @@ MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
     });
 }
 
-/*
-  Internal function to process the timeline queue.
-*/
-MatrixTwitter.prototype._process_timeline = function(self) {
-    if (this.timeline_queue.length < 1) {
-        return;
-    }
-
-    var tline = this.timeline_queue.shift();
-    var id = tline.remote.getId().substr("@twitter_".length);
-
-    var req = {
-        user_id: id,
-        count: 3
-    };
-    var since = tline.remote.get("twitter_since");
-    if (since != undefined) {
-        req.since_id = since;
-    }
-
-    this.app_twitter.get('statuses/user_timeline', req, (error, feed, response) => {
-        if(error){
-          log.error("Twitter","_process_timeline: GET /statuses/user_timeline returned: %s", error.msg);
-          return;
-        }
-        if (feed.length > 0) {
-            if(this.msg_queue_intervalID != null){
-              clearInterval(this.msg_queue_intervalID);
-              this.msg_queue_intervalID = null;
-            }
-            tline.remote.set("twitter_since", feed[0].id_str);
-            var promises = [];
-            feed.reverse().forEach((item) => {
-                promises.push(this.process_tweet(tline.local.roomId, item, TWEET_REPLY_MAX_DEPTH));
-            });
-            Promise.all(promises).then(() =>{
-              this._bridge.getRoomStore().setRemoteRoom(tline.remote);
-              this.msg_queue_intervalID = setInterval(() => {this._process_head_of_msg_queue();}, TWITTER_MSG_QUEUE_INTERVAL_MS);
-            });
-
-        }
-    });
-    this.timeline_queue.push(tline);
-}
-
-MatrixTwitter.prototype.start_hashtag = function(){
-  this.hashtag_intervalID = setInterval(() => {this._process_hashtag_feed();}, this.hashtag_period);
-}
-
-MatrixTwitter.prototype.stop_hashtag = function(){
-    if (this.hashtag_intervalID) {
-        clearInterval(this.hashtag_intervalID);
-        this.hashtag_intervalID = null;
-    }
-}
-
-MatrixTwitter.prototype.add_hashtag_feed = function(hashtag,localroom,remoteroom){
-    var obj = {
-        "hashtag": hashtag,
-        "local": localroom,
-        "remote": remoteroom
-    };
-    this.hashtag_list.push(obj);
-    this.hashtag_queue.push(obj);
-    log.info('Twitter',"Added Hashtag Feed: %s",hashtag);
-}
-
-MatrixTwitter.prototype.remove_hashtag_feed = function(hashtag,localroom,remoteroom){
-  const htfind = (feed) => { feed.hashtag == hashtag };
-  this.hashtag_list  = this.hashtag_list.splice( this.hashtag_list.findIndex(tlfind) ,1);
-  this.hashtag_queue = this.hashtag_queue.splice(this.hashtag_queue.findIndex(tlfind),1);
-}
-
-MatrixTwitter.prototype._process_hashtag_feed = function(){
-  if (this.hashtag_queue.length < 1) {
-      return;
-  }
-
-
-  var feed = this.hashtag_queue.shift();
-  var req = {
-    q: "%23"+feed.hashtag,
-    result_type: 'recent'
-  };
-
-
-  var since = feed.remote.get("twitter_since");
-  if (since != undefined) {
-      req.since_id = since;
-  }
-
-  this.app_twitter.get('search/tweets', req, (error, results, response) => {
-      if(error){
-        log.error("Twitter","_process_timeline: GET /statuses/user_timeline returned: %s", error);
-        return;
-      }
-      if(results.statuses.length > 0){
-        feed.remote.set("twitter_since", results.search_metadata.max_id_str);
-        this._bridge.getRoomStore().setRemoteRoom(feed.remote);
-      }
-
-      results.statuses.reverse().forEach((item) => {
-          this.process_tweet(feed.local.roomId, item, 0);
-      });
-  });
-  this.hashtag_queue.push(feed);
-}
-//
-
 MatrixTwitter.prototype.send_matrix_event_as_tweet = function(event,user,room){
   if(user == null){
     log.warn("Twitter","User tried to send a tweet without being known by the AS.");
@@ -673,7 +448,208 @@ MatrixTwitter.prototype.send_matrix_event_as_tweet = function(event,user,room){
   }
 }
 
+MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body,extras){
+  var type = remote.get("twitter_type");
+  if(!["timeline","hashtag","user_timeline"].includes(type)){
+    log.error("Twitter","Twitter type was wrong (%s) ",type)
+    return;//Where am I meant to send it :(
+  }
+
+  var client;
+
+  return this._get_twitter_client(sender.getId()).then((c) => {
+    client = c;
+    if(type == "timeline"){
+      var timelineID = remote.getId().substr("timeline_".length);
+      log.info("Twitter","Trying to tweet " + timelineID);
+      return this.get_user_by_id(timelineID);
+    }
+  }).then(tuser => {
+    var status = {status:body};
+    if(type == "timeline"){
+      var name = "@"+tuser.screen_name;
+      if(!body.startsWith(name) && client.profile.screen_name != tuser.screen_name){
+        status.status = (name + " " + body);
+      }
+    }
+    else if(type == "hashtag"){
+      var htag = "#" + remote.roomId.substr("hashtag_".length);
+      if(!body.toLowerCase().includes(htag.toLowerCase())){
+        status.status = (htag + " " + body);
+      }
+    }
+
+    if(extras !== undefined){
+      if(extras.hasOwnProperty("media")){
+        status.media_ids = extras.media.join(',');
+      }
+    }
+
+    status.status = status.status.substr(0,140);
+
+    this.processed_tweets.push(remote.roomId,status.status);
+    client.post("statuses/update",status,(error,tweet) => {
+      if(error){
+        log.error("Twitter","Failed to send tweet. %s",error);
+        return;
+      }
+      var id = sender.getId();
+      log.info("Twitter","Tweet sent from %s!",id);
+    });
+  }).catch(err =>{
+    log.error("Twitter","Failed to send tweet. %s",err);
+  });
+}
+
+/*
+  Timeline functions
+*/
+
+MatrixTwitter.prototype._process_timeline = function() {
+    if (this.timeline_queue.length < 1) {
+        return;
+    }
+
+
+    var tline = this.timeline_queue.shift();
+    var id = tline.entry.remote.getId().substr("@twitter_".length);
+
+    var req = {
+        user_id: id,
+        count: 3
+    };
+    var since = tline.entry.remote.get("twitter_since");
+    if (since != undefined) {
+        req.since_id = since;
+    }
+
+    this.app_twitter.get('statuses/user_timeline', req, (error, feed, response) => {
+        if(error){
+          log.error("Twitter","_process_timeline: GET /statuses/user_timeline returned: %s", error.msg);
+          return;
+        }
+        if (feed.length > 0) {
+            if(this.msg_queue_intervalID != null){
+              clearInterval(this.msg_queue_intervalID);
+              this.msg_queue_intervalID = null;
+            }
+            tline.entry.remote.set("twitter_since", feed[0].id_str);
+            var promises = [];
+            feed.reverse().forEach((item) => {
+                promises.push(this.process_tweet(tline.entry.matrix.roomId, item, TWEET_REPLY_MAX_DEPTH));
+            });
+            Promise.all(promises).then(() =>{
+              this._bridge.getRoomStore().upsertEntry(tline.entry);
+              this.msg_queue_intervalID = setInterval(() => {this._process_head_of_msg_queue();}, TWITTER_MSG_QUEUE_INTERVAL_MS);
+            });
+
+        }
+    });
+    this.timeline_queue.push(tline);
+}
+
+/*
+  Add a user's timeline to the timeline processor. Tweets will be automatically send to
+  the given room.
+*/
+MatrixTwitter.prototype.add_timeline = function(userid, entry) {
+    var obj = {
+        "user_id": userid,
+        "entry":entry
+    };
+    this.timeline_list.push(obj);
+    this.timeline_queue.push(obj);
+    log.info('Twitter',"Added Timeline: %s",userid);
+}
+
+MatrixTwitter.prototype.remove_timeline = function(userid){
+  const tlfind = (tline) => { tline.user_id == userid };
+  this.timeline_list  = this.timeline_list.splice(this.timeline_list.findIndex(tlfind),1);
+  this.timeline_queue = this.timeline_queue.splice(this.timeline_queue.findIndex(tlfind),1);
+}
+
+MatrixTwitter.prototype.stop_timeline = function() {
+    if (this.timeline_intervalID) {
+        clearInterval(this.timeline_intervalID);
+        this.timeline_intervalID = null;
+    }
+}
+
+MatrixTwitter.prototype.start_timeline = function() {
+    this.timeline_intervalID = setInterval(() => {this._process_timeline();}, this.timeline_period);
+}
+
+/*
+  Hashtag functions
+*/
+
+MatrixTwitter.prototype.start_hashtag = function(){
+  this.hashtag_intervalID = setInterval(() => {this._process_hashtag_feed();}, this.hashtag_period);
+}
+
+MatrixTwitter.prototype.stop_hashtag = function(){
+    if (this.hashtag_intervalID) {
+        clearInterval(this.hashtag_intervalID);
+        this.hashtag_intervalID = null;
+    }
+}
+
+MatrixTwitter.prototype.add_hashtag_feed = function(hashtag,entry){
+    var obj = {
+        "hashtag": hashtag,
+        "entry": entry
+    };
+    this.hashtag_list.push(obj);
+    this.hashtag_queue.push(obj);
+    log.info('Twitter',"Added Hashtag Feed: %s",hashtag);
+}
+
+MatrixTwitter.prototype.remove_hashtag_feed = function(hashtag,localroom,remoteroom){
+  const htfind = (feed) => { feed.hashtag == hashtag };
+  this.hashtag_list  = this.hashtag_list.splice( this.hashtag_list.findIndex(tlfind) ,1);
+  this.hashtag_queue = this.hashtag_queue.splice(this.hashtag_queue.findIndex(tlfind),1);
+}
+
+MatrixTwitter.prototype._process_hashtag_feed = function(){
+  if (this.hashtag_queue.length < 1) {
+      return;
+  }
+
+  var feed = this.hashtag_queue.shift();
+  var req = {
+    q: "%23"+feed.hashtag,
+    result_type: 'recent'
+  };
+  var since = feed.entry.remote.get("twitter_since");
+  if (since != undefined) {
+      req.since_id = since;
+  }
+
+  this.app_twitter.get('search/tweets', req, (error, results, response) => {
+      if(error){
+        log.error("Twitter","_process_timeline: GET /statuses/user_timeline returned: %s", error);
+        return;
+      }
+      if(results.statuses.length > 0){
+        feed.entry.remote.set("twitter_since", results.search_metadata.max_id_str);
+        this._bridge.getRoomStore().upsertEntry(feed.entry);
+      }
+
+      results.statuses.reverse().forEach((item) => {
+          this.process_tweet(feed.entry.matrix.roomId, item, 0);
+      });
+  });
+  this.hashtag_queue.push(feed);
+}
+
+/*
+  User Stream functions
+*/
+
 MatrixTwitter.prototype.attach_user_stream = function(ruser){
+  if(this.user_streams.hasOwnProperty(user)){
+    log.warn("Twitter","Not attaching stream since we already have one connected!");
+  }
   return this._get_twitter_client(ruser).then((c) => {
     var stream = c.stream('user', {with: "followings"});
     log.info("Twitter","Attached stream for " + ruser);
@@ -690,13 +666,21 @@ MatrixTwitter.prototype.attach_user_stream = function(ruser){
         console.log
       }
     });
-
     stream.on('error', function(error) {
      log.error("Twitter","Stream gave an error %s",error);
     });
+    this.user_streams[ruser] = stream;
   }).catch(reason =>{
-    log.warn("Couldn't attach user stream for %s : %s",ruser,reason);
+    log.warn("Twitter","Couldn't attach user stream for %s : %s",ruser,reason);
   });
+}
+
+MatrixTwitter.prototype.detach_user_stream = function(user){
+log.info("Twitter","Detached stream for " + user);
+  if(this.user_streams.hasOwnProperty(user)){
+    this.user_streams[user].destroy();
+    delete this.user_streams[user];
+  }
 }
 
 MatrixTwitter.prototype.create_user_timeline = function(user,profile){
@@ -728,8 +712,6 @@ MatrixTwitter.prototype.create_user_timeline = function(user,profile){
         var rroom = new RemoteRoom("tl_"+user);
         rroom.set("twitter_type","user_timeline");
         rroom.set("twitter_owner",user);
-        this._bridge.getRoomStore().setMatrixRoom(mroom);
-        this._bridge.getRoomStore().setRemoteRoom(rroom);
         this._bridge.getRoomStore().linkRooms(mroom,rroom);
         this.storage.set_timeline_room(user,room.room_id);
       });
@@ -758,7 +740,7 @@ MatrixTwitter.prototype._create_dm_room = function(msg,users){
       "@twitter_" + msg.recipient_id_str + ":" + this._bridge.opts.domain
     ]);
     for(var user_id of user_ids){
-      if(user_id != null){
+      if(user_id != null){stop_user_stream
         invitees.add(user_id);
       }
     }
@@ -812,8 +794,6 @@ MatrixTwitter.prototype._process_incoming_dm = function(msg){
       var rroom = new RemoteRoom("dm_"+users);
       rroom.set("twitter_type","dm");
 
-      this._bridge.getRoomStore().setMatrixRoom(mroom);
-      this._bridge.getRoomStore().setRemoteRoom(rroom);
       this._bridge.getRoomStore().linkRooms(mroom,rroom);
 
       this._put_dm_in_room(room.room_id,msg);

@@ -85,7 +85,6 @@ TimelineHandler.prototype.processAliasQuery = function(alias){
 */
 
 TimelineHandler.prototype._constructTimelineRoom = function(user, alias) {
-    console.log(user);
     var botID = this._bridge.getBot().getUserId();
 
     var roomOwner = "@twitter_" + user.id_str + ":" + this._bridge.opts.domain;
@@ -96,7 +95,6 @@ TimelineHandler.prototype._constructTimelineRoom = function(user, alias) {
     var remote = new RemoteRoom("timeline_" + user.id_str);
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", roomOwner);
-    this._bridge.getRoomStore().setRemoteRoom(remote);
 
     opts = {
         visibility: "public",

@@ -1,9 +1,12 @@
 var log     = require('npmlog');
+var yaml    = require("js-yaml");
+var fs      = require("fs");
 
 var Cli         = require("matrix-appservice-bridge").Cli;
 var Bridge      = require("matrix-appservice-bridge").Bridge;
 var RemoteUser  = require("matrix-appservice-bridge").RemoteUser;
 var AppServiceRegistration = require("matrix-appservice-bridge").AppServiceRegistration;
+var ClientFactory = require("matrix-appservice-bridge").ClientFactory;
 
 var MatrixTwitter = require("./src/MatrixTwitter.js").MatrixTwitter;
 var TwitterRoomHandler = require("./src/TwitterRoomHandler.js").TwitterRoomHandler;
@@ -40,10 +43,28 @@ new Cli({
         callback(reg);
     },
     run: function(port, config) {
+
+        //Read registration file
+
+        var regObj = yaml.safeLoad(fs.readFileSync("twitter-registration.yaml", 'utf8'));
+        regObj = AppServiceRegistration.fromObject(regObj);
+        if (regObj === null) {
+            throw new Error("Failed to parse registration file");
+        }
+
+        var clientFactory = new ClientFactory(
+          {
+            sdk:require("matrix-js-sdk"),
+            url: config.bridge.homeserverUrl,
+            token:regObj.as_token,
+            appServiceUserId: "@" + regObj.sender_localpart + ":" + config.bridge.domain
+          }
+        );
+
         bridge = new Bridge({
             homeserverUrl: config.bridge.homeserverUrl,
             domain: config.bridge.domain,
-            registration: "twitter-registration.yaml",
+            registration: regObj,
             controller: {
                 onUserQuery: userQuery,
                 onEvent: (request, context) => { room_handler.passEvent(request,context); },
@@ -54,11 +75,10 @@ new Cli({
                         log.error("matrix-appservice-bridge",line);
                     }
                   }
-                  /*else{
-                    console.log(line);
-                  }*/
                 }
-            }
+            },
+            // Fix to use our own JS SDK due to a bug in 0.4.1
+            clientFactory: clientFactory
         });
         log.info("AppServ","Matrix-side listening on port %s", port);
         //Setup twitter
@@ -67,7 +87,7 @@ new Cli({
         tstorage.init();
 
         twitter = new MatrixTwitter(bridge, config, tstorage);
-        room_handler = new TwitterRoomHandler(bridge, config,
+        room_handler = new TwitterRoomHandler(bridge,
           {
             services: new AccountServices(bridge, config.app_auth, tstorage, twitter),
             timeline: new TimelineHandler(bridge, twitter),
@@ -81,30 +101,23 @@ new Cli({
           bridge.run(port, config);
           return bridge.loadDatabases();
         }).then(() => {
-          roomstore = bridge.getRoomStore();
+          roomstore = bridge.getRoomStore();//changed
           tstorage.get_linked_user_ids().then(ids =>{
             ids.forEach((value) => {
               twitter.attach_user_stream(value);
             });
           });
           return roomstore.getEntriesByMatrixRoomData({});
-        }).then((rooms) => {
-          rooms.forEach((rroom, i, a) => {
-            if (rroom.data.twitter_type) {
-                roomstore.getLinkedMatrixRooms(rroom.roomId).then((room) => {
-                  if(room.length > 0){
-                    if(rroom.data.twitter_type == 'timeline'){
-                      twitter.add_timeline(rroom.data.twitter_user, room[0], rroom);
-                    }
-                    else if(rroom.data.twitter_type == 'hashtag') {
-                      twitter.add_hashtag_feed(rroom.roomId.substr("hashtag_".length),room[0],rroom);
-                    }
-                  }
-                  else{
-                    log.error("Orphan remote timeline room with no matrix link :(");
-                  }
-                    //Send the userid and roomid to the twitter stack for processing.
-                });
+        }).then((entries) => {
+          entries.forEach((entry, i, a) => {
+            if (entry.remote.data.hasOwnProperty('twitter_type')) {
+              var type = entry.remote.data.twitter_type;
+              if(type == 'timeline'){
+                twitter.add_timeline(entry.remote.data.twitter_user, entry);
+              }
+              else if(type == 'hashtag') {
+                twitter.add_hashtag_feed(entry.remote.roomId.substr("hashtag_".length), entry);
+              }
             }
           });
         });
