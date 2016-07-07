@@ -5,13 +5,18 @@ var Buffer  = require("buffer").Buffer;
 var log     = require('npmlog');
 var mime    = require('mime');
 
-
-/*
-  This function will take a URL, upload it to Matrix and return the corresponding
-  MXC url in a Promise. The content will be uploaded on the users behalf using
-  the ID, or the AS bot if set to null.
+/**
+  Utility module for regularly used functions.
 */
 
+/**
+ * downloadFile - This function will take a URL, upload it to Matrix and return
+ * the corresponding MXC url in a Promise. The content will be uploaded on the
+ * users behalf using the ID, or the AS bot if set to null.
+ *
+ * @param  {string} url      The URL to be downloaded from.
+ * @return {Promise<Buffer>} A promise that will return a buffer with the data.
+ */
 function downloadFile(url){
   return new Promise((resolve, reject) => {
 
@@ -43,8 +48,21 @@ function downloadFile(url){
   });
 }
 
-function uploadContentFromUrl(bridge, url, id = null, name = null) {
+
+/**
+ * uploadContentFromUrl - Upload content from a given URL to the homeserver
+ * and return a MXC URL.
+ *
+ * @param  {type} bridge      The bridge object of this application
+ * @param  {type} url         The URL to be downloaded from.
+ * @param  {type} [id]        Either the ID of the uploader, or a Intent object
+ * @param  {type} [name]      Name of the file. Will use the URL filename otherwise.
+ * @return {Promise<string>}  Promise resolving with a MXC URL.
+ */
+function uploadContentFromUrl(bridge, url, id, name) {
     var contenttype;
+    id = id || null;
+    name name || null;
     return new Promise((resolve, reject) => {
 
         if(url.startsWith("https")){

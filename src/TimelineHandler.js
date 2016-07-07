@@ -3,11 +3,18 @@ var Buffer  = require("buffer").Buffer;
 
 var RemoteRoom  = require("matrix-appservice-bridge").RemoteRoom;
 var MatrixRoom  = require("matrix-appservice-bridge").MatrixRoom;
-
 var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
+/**
+ * TimelineHandler - Handler for timeline room creation and messaging
+ * @class
+ * @extends {external:TwitterHandler}
+ *
+ * @param  {MatrixTwitter}   twitter
+ * @param  {matrix-appservice-bridge.Bridge}   bridge
+ */
 var TimelineHandler = function (bridge, twitter) {
-  TwitterHandler.call(this,bridge);
+  TwitterHandler.call(this,bridge,"@","timeline");
   this.twitter = twitter;
 }
 
@@ -40,18 +47,18 @@ TimelineHandler.prototype.processInvite = function (event, request, context) {
 
           if (context.rooms.remote != null)
           {
-              this.twitter.add_timeline(event.state_key, context.rooms.matrix, context.rooms.remote);
+              this._bridge.getRoomStore().getEntriesByMatrixId(context.rooms.matrix.getId()).then(entries =>{
+                this.twitter.add_timeline(
+                  event.state_key
+                  entries[0]
+                );
+              });
               return;
           }
           log.warn("Handler.Timeline","Couldn't find the remote room for this timeline.");
       }
       else if(event.membership == "leave"){
         log.warn("Handler.Timeline", event.sender + " left " + event.room_id);
-
-        //var users = getRoomMembers(event.room_id);
-        //for(var user of users){
-        //  console.log(user);
-        //}
       }
     }
 }
@@ -63,7 +70,7 @@ TimelineHandler.prototype.processMessage = function (event, request, context) {
 TimelineHandler.prototype.processAliasQuery = function(alias){
   //Create the room
   log.info("Handler.TimelineHandler","Looking up " + alias);
-  return this.twitter.get_user(alias).then((tuser) => {
+  return this.twitter.get_user_by_screenname(alias).then((tuser) => {
       if (tuser != null) {
           if (!tuser.protected) {
               return this._constructTimelineRoom(tuser, alias);

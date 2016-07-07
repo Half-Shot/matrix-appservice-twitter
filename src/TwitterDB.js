@@ -1,6 +1,12 @@
 var SQLite3 = require('sqlite3').verbose();
 var log = require('npmlog');
 
+
+/**
+ * TwitterDB - Stores data for specific users and data not specific to rooms.
+ * @class
+ * @param  {string} filepath Location of the SQLite database file.
+ */
 var TwitterDB = function(filepath){
   this.db = new SQLite3.Database(filepath,(err) => {
     if(err){
@@ -9,6 +15,11 @@ var TwitterDB = function(filepath){
   });
 }
 
+
+/**
+ * TwitterDB.prototype.init - Checks the database has all the tables needed.
+ * @function
+ */
 TwitterDB.prototype.init = function() {
   log.info("TwitDB","Starting DB Init");
   this._create_profile_cache();
@@ -45,6 +56,19 @@ TwitterDB.prototype.get_profile_by_id = function(id){
   });
 }
 
+/**
+ @typedef TwitterDBProfile
+ @type {Object}
+ @property {object} profile   A complete record of a twitter users profile.
+ @property {number} timestamp The last time the record was updated.
+ */
+
+/**
+ * TwitterDB.prototype.get_profile_by_name - Get a Twitter profile by the
+ * screenname of a user.
+ * @function
+ * @returns {Promise<TwitterDBProfile>}
+ */
 TwitterDB.prototype.get_profile_by_name = function(name){
   return new Promise((resolve,reject) => {
     this.db.get(
@@ -73,6 +97,15 @@ TwitterDB.prototype.get_profile_by_name = function(name){
   });
 }
 
+/**
+ * TwitterDB.prototype.set_twitter_profile - Insert/Update a Twitter profile
+ * into the database.
+ * @function
+ * @param  {type} id          Twitter ID of the profile.
+ * @param  {string} name      screenname of the profile.
+ * @param  {object} data      The profile data.
+ * @param  {number} timestamp The time when this data was *fetched*.
+ */
 TwitterDB.prototype.set_twitter_profile = function(id,name,data,timestamp){
   this.db.run(
     `

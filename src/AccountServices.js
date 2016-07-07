@@ -7,8 +7,23 @@ var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
 
 
+/**
+ * Construct a AccountServices.
+ * This class is a handler for conversation between users and the bridge bot to
+ * link accounts together
+ *
+ * @class
+ * @extends {external:TwitterHandler}
+ *
+ * @param  {matrix-appservice-bridge.Bridge}   bridge
+ * @param  app_auth OAuth authentication information
+ * @param  app_auth.consumer_key Twitter consumer key
+ * @param  app_auth.consumer_secret Twitter consumer secret
+ * @param  {TwitterDB}       storage
+ * @param  {MatrixTwitter}   twitter
+ */
 var AccountServices = function (bridge, app_auth, storage, twitter) {
-  TwitterHandler.call(this,bridge);
+  TwitterHandler.call(this,bridge,null,"service");
   this._app_auth = app_auth;
   this._storage = storage;
   this._twitter = twitter;

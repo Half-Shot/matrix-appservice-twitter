@@ -1,7 +1,16 @@
+/**
+ * ProcessedTweetList - Stores tweets/dms by room_id so we don't accidentally
+ * repeat any messages. Please note that the cache and slice size values ar
+ * per room, not the total size of all the rooms.
+ *
+ * @class
+ * @param  {number} cacheSize How many messages to store before cleanup occurs
+ * @param  {number} sliceSize On cleanup, how many messages will be kept
+ */
 var ProcessedTweetList = function(cacheSize,sliceSize){
     this._internalArray = {};
-    this._cacheSize = cacheSize;
-    this._sliceSize = sliceSize;
+    this._cacheSize = cacheSize || 128;
+    this._sliceSize = sliceSize || 16;
 }
 
 ProcessedTweetList.prototype.push = function(room_id,tweet_id){

@@ -2,6 +2,13 @@ var log  = require('npmlog');
 var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
+/**
+ * DirectMessage - Handler for direct messages sent from users to the appservice
+ * @class
+ * @extends {external:TwitterHandler}
+ * @param  {MatrixTwitter}   twitter
+ * @param  {matrix-appservice-bridge.Bridge}   bridge
+ */
 var DirectMessage = function (bridge, twitter) {
   TwitterHandler.call(this,bridge);
   this.twitter = twitter;

@@ -2,26 +2,22 @@ var log     = require('npmlog');
 var yaml    = require("js-yaml");
 var fs      = require("fs");
 
-var Cli         = require("matrix-appservice-bridge").Cli;
-var Bridge      = require("matrix-appservice-bridge").Bridge;
-var RemoteUser  = require("matrix-appservice-bridge").RemoteUser;
+var Cli                    = require("matrix-appservice-bridge").Cli;
+var Bridge                 = require("matrix-appservice-bridge").Bridge;
+var RemoteUser             = require("matrix-appservice-bridge").RemoteUser;
 var AppServiceRegistration = require("matrix-appservice-bridge").AppServiceRegistration;
-var ClientFactory = require("matrix-appservice-bridge").ClientFactory;
+var ClientFactory          = require("matrix-appservice-bridge").ClientFactory;
 
-var MatrixTwitter = require("./src/MatrixTwitter.js").MatrixTwitter;
-var TwitterRoomHandler = require("./src/TwitterRoomHandler.js").TwitterRoomHandler;
-var AccountServices = require("./src/AccountServices.js").AccountServices;
-var TimelineHandler = require("./src/TimelineHandler.js").TimelineHandler;
-var HashtagHandler = require("./src/HashtagHandler.js").HashtagHandler;
+var MatrixTwitter        = require("./src/MatrixTwitter.js").MatrixTwitter;
+var TwitterRoomHandler   = require("./src/TwitterRoomHandler.js").TwitterRoomHandler;
+var AccountServices      = require("./src/AccountServices.js").AccountServices;
+var TimelineHandler      = require("./src/TimelineHandler.js").TimelineHandler;
+var HashtagHandler       = require("./src/HashtagHandler.js").HashtagHandler;
 var DirectMessageHandler = require("./src/DirectMessageHandler.js").DirectMessageHandler;
-
-var TwitterDB = require("./src/TwitterDB.js").TwitterDB;
-
-var util    = require('./src/util.js');
+var TwitterDB            = require("./src/TwitterDB.js").TwitterDB;
+var util                 = require('./src/util.js');
 
 var twitter;
-var room_handler;
-
 
 new Cli({
     registrationPath: "twitter-registration.yaml",
@@ -39,7 +35,8 @@ new Cli({
         reg.addRegexPattern("users", "@twitter_.*", true);
         reg.addRegexPattern("aliases", "#twitter_@.*", true);
         reg.addRegexPattern("aliases", "#twitter_#.*", true);
-        reg.addRegexPattern("aliases", "#twitter_DM.*", true);
+        /* Currently not in use */
+        //reg.addRegexPattern("aliases", "#twitter_DM.*", true);
         callback(reg);
     },
     run: function(port, config) {
@@ -51,6 +48,8 @@ new Cli({
         if (regObj === null) {
             throw new Error("Failed to parse registration file");
         }
+
+        var room_handler;
 
         var clientFactory = new ClientFactory(
           {
@@ -124,8 +123,15 @@ new Cli({
     }
 }).run();
 
+
+/**
+ * userQuery - Handler for user queries made by the homeserver.
+ *
+ * @param  {type}   The userid being queried.
+ * @return {Promise}            Promise to be resolved by the appservice.
+ */
 function userQuery(queriedUser) {
-  return twitter.get_user_by_id(queriedUser.localpart.substr("twitter_".length)).then( (twitter_user) => {
+  return twitter.get_profile_by_id(queriedUser.localpart.substr("twitter_".length)).then( (twitter_user) => {
     /* Even users with a default avatar will still have an avatar url set.
        This *should* always work. */
     return util.uploadContentFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((uri) => {

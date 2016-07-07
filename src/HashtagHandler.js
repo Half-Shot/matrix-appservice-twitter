@@ -2,8 +2,16 @@ var log  = require('npmlog');
 var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
+/**
+ * HashtagHandler - Handler for hashtag room creation and messaging
+ * @class
+ * @extends {external:TwitterHandler}
+ *
+ * @param  {MatrixTwitter}   twitter
+ * @param  {matrix-appservice-bridge.Bridge}   bridge
+ */
 var HashtagHandler = function (bridge, twitter) {
-  TwitterHandler.call(this,bridge);
+  TwitterHandler.call(this,bridge,"#","hashtag");
   this.twitter = twitter;
 }
 
@@ -15,7 +23,6 @@ HashtagHandler.prototype.processEvent = function (event, request, context) {
   if(event.type == "m.room.aliases" && event.sender.startsWith("@twitbot")){
     console.log(event)
       this._bridge.getRoomStore().getEntriesByMatrixId(context.rooms.matrix.getId()).then(entries =>{
-      console.log(entries);
       this.twitter.add_hashtag_feed(
         context.rooms.remote.roomId.substr("hashtag_".length),
         entries[0]

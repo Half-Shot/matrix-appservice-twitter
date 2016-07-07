@@ -15,10 +15,18 @@ const TWITTER_CLIENT_INTERVAL_MS    = 60000;
 const TWITTER_MSG_QUEUE_INTERVAL_MS = 1500;
 const TWEET_REPLY_MAX_DEPTH = 3;
 
-/*
-  We pass in the full configuration to the constructor since eventually other
-  settings will be placed into config (for flags and other forms of auth).
-*/
+
+/**
+ * MatrixTwitter - This class handles the connections between the Twitter API
+ * and the bridge.
+ * @class
+ * @param  {matrix-appservice-bridge.Bridge} bridge
+ * @param  config. Bridge configuration (currently only make use of the auth
+*  information)
+ * @param  config.app_auth.consumer_key Twitter consumer key
+ * @param  config.app_auth.consumer_secret Twitter consumer secret
+ * @param  {TwitterDB}       storage
+ */
 var MatrixTwitter = function (bridge, config, storage) {
   this.app_auth = config.app_auth;
   this.app_twitter = null;
@@ -45,8 +53,15 @@ var MatrixTwitter = function (bridge, config, storage) {
   this.tweet_event_cache = {};
 };
 
+
+/**
+ * MatrixTwitter.prototype.start - Starts the timers for polling the API and
+ * authenticates the application with Twitter.
+ * @function
+ * @return {Promise}  A promise that returns when authentication succeeds.
+ */
 MatrixTwitter.prototype.start = function(){
-  return this.get_bearer_token().then((token) => {
+  return this._get_bearer_token().then((token) => {
     this.app_auth.bearer_token = token;
     log.info('Twitter','Retrieved token');
     this.app_twitter = new Twitter(this.app_auth);
@@ -104,7 +119,7 @@ MatrixTwitter.prototype._get_bearer_http = function () {
   });
 }
 
-MatrixTwitter.prototype.get_bearer_token = function () {
+MatrixTwitter.prototype._get_bearer_token = function () {
   return new Promise((resolve,reject) => {
     fs.readFile('bearer.tok',{encoding:'utf-8'}, (err, content) => {
       if(err){
@@ -237,11 +252,11 @@ MatrixTwitter.prototype._get_twitter_client = function(sender) {
   });
 }
 
-MatrixTwitter.prototype._get_user_from_twitter = function(data) {
+MatrixTwitter.prototype._get_user = function(data) {
   return new Promise((resolve,reject) => {
     this.app_twitter.get('users/show', data, (error, user, response) => {
         if (error) {
-            log.error('Twitter',"get_user_by_id: GET /users/show returned: ", error);
+            log.error('Twitter',"get_profile_by_id: GET /users/show returned: ", error);
             reject(error);
         }
         this._update_user_timeline_profile(user);
@@ -250,7 +265,15 @@ MatrixTwitter.prototype._get_user_from_twitter = function(data) {
   });
 }
 
-MatrixTwitter.prototype.get_user_by_id = function(id) {
+/**
+ * MatrixTwitter.prototype.get_profile_by_id - Get a Twitter profile by a users
+ * Twitter ID.
+ *
+ * @param  {number} id Twitter Id
+ * @return {Promise<TwitterProfile>} A promise containing the Twitter profile
+ * to be returned. See https://dev.twitter.com/rest/reference/get/users/show
+ */
+MatrixTwitter.prototype.get_profile_by_id = function(id) {
   log.info("Twitter","Looking up T" + id);
   var ts = new Date().getTime();
   return this.storage.get_profile_by_id(id).then((profile)=>{
@@ -259,11 +282,20 @@ MatrixTwitter.prototype.get_user_by_id = function(id) {
         return profile.profile;
       }
     }
-    return this._get_user_from_twitter({user_id:id});
+    return this._get_user({user_id:id});
   });
 }
 
-MatrixTwitter.prototype.get_user = function(name) {
+/**
+ * MatrixTwitter.prototype.get_user_by_screenname - Get a Twitter profile by a
+ * users screen name.
+ * @param  {number} id Twitter Screen name
+ * @return {Promise<TwitterProfile>} A promise containing the Twitter profile
+ * to be returned. See {@link}
+ *
+ * @see {@link https://dev.twitter.com/rest/reference/get/users/show}
+ */
+MatrixTwitter.prototype.get_user_by_screenname = function(name) {
   log.info("Twitter","Looking up @" + name);
   var ts = new Date().getTime();
   return this.storage.get_profile_by_name(name).then((profile)=>{
@@ -272,14 +304,18 @@ MatrixTwitter.prototype.get_user = function(name) {
         return profile.profile;
       }
     }
-    return this._get_user_from_twitter({screen_name:name});
+    return this._get_user({screen_name:name});
   });
 }
 
-/*
-  This function will fill the content structure for a new matrix message
-  for a given tweet.
-*/
+/**
+ * MatrixTwitter.prototype.tweet_to_matrix_content - This function will fill
+ * the content structure for a new matrix message for a given tweet.
+ *
+ * @param  {type} tweet The tweet object from the Twitter API
+ * @param  {type} type  The 'msgtype' of a message.
+ * @return {object}     The content of a Matrix 'm.room.message' event.
+ */
 MatrixTwitter.prototype.tweet_to_matrix_content = function(tweet, type) {
     return {
         "body": new HTMLDecoder().decode(tweet.text),
@@ -362,14 +398,26 @@ MatrixTwitter.prototype._push_to_msg_queue = function(muser,roomid,tweet,type) {
 }
 
 /*
-  Process a given tweet (including resolving any parent tweets), and
-  submit it to the given room. This function is recursive, limited to the depth
-  set.
-  roomid - Matrix Room ID of the room that we are processing.
+
+  roomid -
   depth - The maximum depth of the tweet chain (replies to replies) to be traversed.
   Set this to how deep you wish to traverse and it will be decreased when the
   function calls itself.
 */
+
+
+/**
+ * MatrixTwitter.prototype.process_tweet - Process a given tweet (including
+ * resolving any parent tweets), and submit it to the given room. This function
+ * is recursive, limited to the depth set.
+ *
+ * @param  {type} roomid Matrix Room ID of the room that we are processing.
+ * @param  {type} tweet  description
+ * @param  {type} depth  The maximum depth of the tweet chain (replies to
+ * replies) to be traversed. Set this to how deep you wish to traverse and it
+ * will be decreased when the function calls itself.
+ * @return {Promise[]]}  A promise that resolves once the tweet has been queued.
+ */
 MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
     depth--;
     var muser = "@twitter_" + tweet.user.id_str + ":" + this._bridge.opts.domain;
@@ -420,6 +468,15 @@ MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
     });
 }
 
+/**
+ * MatrixTwitter.prototype.send_matrix_event_as_tweet - Takes a message event
+ * from a room and tries to identify the sender and the correct format before
+ * processing it in {@see send_tweet_to_timeline}.
+ *
+ * @param  {type}               event Matrix event data
+ * @param  {extenal:MatrixUser} user  The user who sent the event.
+ * @param  {extenal:RemoteRoom} room  The remote room that got the message.
+ */
 MatrixTwitter.prototype.send_matrix_event_as_tweet = function(event,user,room){
   if(user == null){
     log.warn("Twitter","User tried to send a tweet without being known by the AS.");
@@ -448,6 +505,16 @@ MatrixTwitter.prototype.send_matrix_event_as_tweet = function(event,user,room){
   }
 }
 
+
+/**
+ * MatrixTwitter.prototype.send_tweet_to_timeline - Send
+ *
+ * @param  {extenal:RemoteRoom} remote  The remote room that got the message.
+ * @param  {extenal:MatrixUser} sender  The user who sent the event.
+ * @param  {string}             body    The message content.
+ * @param  extras                       Extra information to send with the tweet.
+ * @param  {string[]} extras.media      Media files to attach to the tweet.
+ */
 MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body,extras){
   var type = remote.get("twitter_type");
   if(!["timeline","hashtag","user_timeline"].includes(type)){
@@ -462,7 +529,7 @@ MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body,ext
     if(type == "timeline"){
       var timelineID = remote.getId().substr("timeline_".length);
       log.info("Twitter","Trying to tweet " + timelineID);
-      return this.get_user_by_id(timelineID);
+      return this.get_profile_by_id(timelineID);
     }
   }).then(tuser => {
     var status = {status:body};
@@ -548,10 +615,14 @@ MatrixTwitter.prototype._process_timeline = function() {
     this.timeline_queue.push(tline);
 }
 
-/*
-  Add a user's timeline to the timeline processor. Tweets will be automatically send to
-  the given room.
-*/
+/**
+ * MatrixTwitter.prototype.add_timeline - Add a user's timeline to the timeline
+ * processor. Tweets will be automatically send to the given room.
+ *
+ * @param  {string} userid The Matrix user_id of the timeline owner. This would
+ *                         be a bridge user.
+ * @param  {external:Entry} entry The entry for a room in the RoomBridgeStore.
+ */
 MatrixTwitter.prototype.add_timeline = function(userid, entry) {
     var obj = {
         "user_id": userid,
@@ -562,12 +633,25 @@ MatrixTwitter.prototype.add_timeline = function(userid, entry) {
     log.info('Twitter',"Added Timeline: %s",userid);
 }
 
+
+/**
+ * MatrixTwitter.prototype.remove_timeline - Remove a timeline from being
+ * processed.
+ *
+ * @param  {type} userid The Matrix user_id of the timeline owner. This would
+ *                       be a bridge user.
+ */
 MatrixTwitter.prototype.remove_timeline = function(userid){
   const tlfind = (tline) => { tline.user_id == userid };
   this.timeline_list  = this.timeline_list.splice(this.timeline_list.findIndex(tlfind),1);
   this.timeline_queue = this.timeline_queue.splice(this.timeline_queue.findIndex(tlfind),1);
 }
 
+
+/**
+ * MatrixTwitter.prototype.stop_timeline - Stop the timeline timer so that
+ * timelines are no longer processed.
+ */
 MatrixTwitter.prototype.stop_timeline = function() {
     if (this.timeline_intervalID) {
         clearInterval(this.timeline_intervalID);
@@ -575,6 +659,11 @@ MatrixTwitter.prototype.stop_timeline = function() {
     }
 }
 
+
+/**
+ * MatrixTwitter.prototype.start_timeline - Start the timeline timer so that
+ * timelines will be processed in turn.
+ */
 MatrixTwitter.prototype.start_timeline = function() {
     this.timeline_intervalID = setInterval(() => {this._process_timeline();}, this.timeline_period);
 }
@@ -583,10 +672,19 @@ MatrixTwitter.prototype.start_timeline = function() {
   Hashtag functions
 */
 
+
+/**
+ * MatrixTwitter.prototype.start_hashtag - Start the hashtag timer so that
+ * hashtags are processed in turn.
+ */
 MatrixTwitter.prototype.start_hashtag = function(){
   this.hashtag_intervalID = setInterval(() => {this._process_hashtag_feed();}, this.hashtag_period);
 }
 
+/**
+ * MatrixTwitter.prototype.stop_hashtag - Stop the hashtag timer so that
+ * hashtags are no longer processed.
+ */
 MatrixTwitter.prototype.stop_hashtag = function(){
     if (this.hashtag_intervalID) {
         clearInterval(this.hashtag_intervalID);
@@ -594,6 +692,13 @@ MatrixTwitter.prototype.stop_hashtag = function(){
     }
 }
 
+
+/**
+ * MatrixTwitter.prototype.add_hashtag_feed - Add a hashtag to be processed.
+ *
+ * @param  {string} hashtag The hasgtag to add (without the #).
+ * @param  {external:Entry} entry The entry for a room in the RoomBridgeStore.
+ */
 MatrixTwitter.prototype.add_hashtag_feed = function(hashtag,entry){
     var obj = {
         "hashtag": hashtag,
@@ -604,7 +709,14 @@ MatrixTwitter.prototype.add_hashtag_feed = function(hashtag,entry){
     log.info('Twitter',"Added Hashtag Feed: %s",hashtag);
 }
 
-MatrixTwitter.prototype.remove_hashtag_feed = function(hashtag,localroom,remoteroom){
+
+/**
+ * MatrixTwitter.prototype.remove_hashtag_feed - Remove a hashtag so that it
+ * will no longer be processed.
+ *
+ * @param  {string} hashtag The hasgtag to remove (without the #).
+ */
+MatrixTwitter.prototype.remove_hashtag_feed = function(hashtag){
   const htfind = (feed) => { feed.hashtag == hashtag };
   this.hashtag_list  = this.hashtag_list.splice( this.hashtag_list.findIndex(tlfind) ,1);
   this.hashtag_queue = this.hashtag_queue.splice(this.hashtag_queue.findIndex(tlfind),1);
@@ -646,13 +758,21 @@ MatrixTwitter.prototype._process_hashtag_feed = function(){
   User Stream functions
 */
 
-MatrixTwitter.prototype.attach_user_stream = function(ruser){
+
+/**
+ * MatrixTwitter.prototype.attach_user_stream - Start reading live updates from
+ * a Twitter User Stream.
+ *
+ * @param  {string} user The user's matrix ID.
+ * @return {Promise}   A Promise that will resolve with the operation completes.
+ */
+MatrixTwitter.prototype.attach_user_stream = function(user){
   if(this.user_streams.hasOwnProperty(user)){
     log.warn("Twitter","Not attaching stream since we already have one connected!");
   }
-  return this._get_twitter_client(ruser).then((c) => {
+  return this._get_twitter_client(user).then((c) => {
     var stream = c.stream('user', {with: "followings"});
-    log.info("Twitter","Attached stream for " + ruser);
+    log.info("Twitter","Attached stream for " + user);
     stream.on('data',  (data) => {
       if(data.hasOwnProperty("direct_message")){
         this._process_incoming_dm(data.direct_message);
@@ -661,7 +781,7 @@ MatrixTwitter.prototype.attach_user_stream = function(ruser){
         log.warn("Twitter.UserStream","%s : %s",data.warning.code,data.warning.message);
       }
       else if (data.hasOwnProperty("id")){ //Yeah..the only way to know if it's a tweet is to check if the ID field is set at the root level.
-        this._push_to_user_timeline(ruser,data);
+        this._push_to_user_timeline(user,data);
         //console.log(data);
         console.log
       }
@@ -669,12 +789,18 @@ MatrixTwitter.prototype.attach_user_stream = function(ruser){
     stream.on('error', function(error) {
      log.error("Twitter","Stream gave an error %s",error);
     });
-    this.user_streams[ruser] = stream;
+    this.user_streams[user] = stream;
   }).catch(reason =>{
-    log.warn("Twitter","Couldn't attach user stream for %s : %s",ruser,reason);
+    log.warn("Twitter","Couldn't attach user stream for %s : %s",user,reason);
   });
 }
 
+/**
+ * MatrixTwitter.prototype.detach_user_stream - Stop reading updates about a
+ * user.
+ *
+ * @param  {string} user The user's matrix ID.
+ */
 MatrixTwitter.prototype.detach_user_stream = function(user){
 log.info("Twitter","Detached stream for " + user);
   if(this.user_streams.hasOwnProperty(user)){
@@ -683,9 +809,18 @@ log.info("Twitter","Detached stream for " + user);
   }
 }
 
+
+/**
+ * MatrixTwitter.prototype.create_user_timeline - If a room does not exist for
+ * a matrix user's personal timeline, it will be created here.
+ *
+ * @param  {string} user The user's matrix ID.
+ * @param  {object}      The user's Twitter profile.
+ * @return {Promise}     A promise that returns once the operation has completed.
+ */
 MatrixTwitter.prototype.create_user_timeline = function(user,profile){
   //Check if room exists.
-  this.storage.get_timeline_room(user).then(value =>{
+  return this.storage.get_timeline_room(user).then(value =>{
     if(value == null){
       var intent = this._get_intent(profile.id_str);
       //Create the room
@@ -810,10 +945,21 @@ MatrixTwitter.prototype._put_dm_in_room = function(room_id,msg){
   intent.sendMessage(room_id, {"msgtype":"m.text","body":msg.text});
 }
 
+
+/**
+ * MatrixTwitter.prototype.send_dm - Send a DM on the users behalf. The room_id
+ * should be a DM room which has been set up for the user in advance.
+ *
+ * @param  {string} user_id    The user trying to send the message.
+ * @param  {string} room_id    The DM room that the message was sent from.
+ * @param  {string} text       The body text of the message.
+ * @return {Promise}           A promise that will resolve when the operation
+ * completes
+ */
 MatrixTwitter.prototype.send_dm = function(user_id,room_id,text){
   //Get the users from the room
   var users = "";
-  this.storage.get_users_from_dm_room(room_id).then(u =>{
+  return this.storage.get_users_from_dm_room(room_id).then(u =>{
     users = u;
     if(users == null){
       log.error("Twitter.DM","User (%s) tried to send a DM to (%s) but the room was not found in the DB. This shouldn't happen.",user_id,room_id);

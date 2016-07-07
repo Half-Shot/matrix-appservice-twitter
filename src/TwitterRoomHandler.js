@@ -10,6 +10,15 @@ var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 var log = require('npmlog');
 var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
+
+/**
+ * TwitterRoomHandler - The handler class to delegate which handler should Deal
+ * with which request.
+ * @class
+ * @param  {matrix-appservice-bridge.Bridge} bridge
+ * @param  {Object.<string,TwitterHandler>} handlers Handers to register for
+ * each type of room.
+ */
 var TwitterRoomHandler = function (bridge, handlers) {
   this._bridge = bridge;
   this.handlers = handlers; // 'service' handler
