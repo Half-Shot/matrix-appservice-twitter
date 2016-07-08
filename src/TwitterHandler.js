@@ -63,7 +63,6 @@ TwitterHandler.prototype.processEvent = function (event, request, context) {
   return;
 }
 
-
 /**
  * TwitterHandler.prototype.processAliasQuery - A request to this handler to
  * provision a room for the given name *after* the global alias prefix.
@@ -73,6 +72,19 @@ TwitterHandler.prototype.processEvent = function (event, request, context) {
  */
 TwitterHandler.prototype.processAliasQuery = function(name){
   log.warn("Handler","STUB processAliasQuery");
+  return;
+}
+
+
+/**
+ * TwitterHandler.prototype.onRoomCreated - The is called once a room provisoned
+ * by processAliasQuery has been created.
+
+ * @param  {string} alias
+ * @param  {external:RoomBridgeStore.Entry} entry description
+ */
+TwitterHandler.prototype.onRoomCreated = function(alias,entry){
+  log.warn("Handler","STUB onRoomCreated");
   return;
 }
 

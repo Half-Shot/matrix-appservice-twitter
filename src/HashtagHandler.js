@@ -15,20 +15,16 @@ var HashtagHandler = function (bridge, twitter) {
   this.twitter = twitter;
 }
 
-HashtagHandler.prototype.processMessage = function (event, request, context) {
-    this.twitter.send_matrix_event_as_tweet(event,context.senders.matrix,context.rooms.remote);
+HashtagHandler.prototype.onRoomCreated = function (alias,entry){
+  console.log(entry);
+  this.twitter.add_hashtag_feed(
+    entry.remote.getId().substr("hashtag_".length),
+    entry
+  );
 }
 
-HashtagHandler.prototype.processEvent = function (event, request, context) {
-  if(event.type == "m.room.aliases" && event.sender.startsWith("@twitbot")){
-    console.log(event)
-      this._bridge.getRoomStore().getEntriesByMatrixId(context.rooms.matrix.getId()).then(entries =>{
-      this.twitter.add_hashtag_feed(
-        context.rooms.remote.roomId.substr("hashtag_".length),
-        entries[0]
-      );
-    });
-  }
+HashtagHandler.prototype.processMessage = function (event, request, context) {
+    this.twitter.send_matrix_event_as_tweet(event,context.senders.matrix,context.rooms.remote);
 }
 
 HashtagHandler.prototype.processAliasQuery = function(name){

@@ -18,49 +18,28 @@ var TimelineHandler = function (bridge, twitter) {
   this.twitter = twitter;
 }
 
-TimelineHandler.prototype.processInvite = function (event, request, context) {
-  log.info("Handler.Timeline","Got invite for a timeline");
-  if (event.state_key.startsWith("@twitter_"))
-  { //We should prolly use a regex
-      if (event.membership == "invite")
-      {
-          var intent = this._bridge.getIntent(event.state_key);
-          intent.join(event.room_id);
 
-          //Set the avatar based on the 'owners' avatar.
-          intent.getClient().getProfileInfo(event.state_key, 'avatar_url').then((content) =>
-          {
+TimelineHandler.prototype.onRoomCreated = function(alias,entry){
+    var owner = entry.remote.data.twitter_user;
+    var intent = this._bridge.getIntent(owner);
+    intent.getClient().getProfileInfo(owner, 'avatar_url').then((content) =>
+    {
+        if (typeof content.avatar_url != "string")
+        {
+            log.error("Handler.Timeline","User", owner, "does not have an avatar set. This is unexpected.");
+            return;
+        }
+        log.info("Handler.Timeline","Set Room Avatar:", content.avatar_url);
+        intent.sendStateEvent(entry.matrix.getId(), "m.room.avatar", "",
+        {
+            "url": content.avatar_url
+        });
+    });
 
-              if (typeof content.avatar_url != "string")
-              {
-                  log.error("Handler.Timeline","User", event.state_key, "does not have an avatar set. This is unexpected.");
-                  console.log(content);
-                  return;
-              }
-
-              log.info("Handler.Timeline","Set Room Avatar:", content.avatar_url);
-              intent.sendStateEvent(event.room_id, "m.room.avatar", "",
-              {
-                  "url": content.avatar_url
-              });
-          });
-
-          if (context.rooms.remote != null)
-          {
-              this._bridge.getRoomStore().getEntriesByMatrixId(context.rooms.matrix.getId()).then(entries =>{
-                this.twitter.add_timeline(
-                  event.state_key
-                  entries[0]
-                );
-              });
-              return;
-          }
-          log.warn("Handler.Timeline","Couldn't find the remote room for this timeline.");
-      }
-      else if(event.membership == "leave"){
-        log.warn("Handler.Timeline", event.sender + " left " + event.room_id);
-      }
-    }
+    this.twitter.add_timeline(
+      entry.remote.data.twitter_user,
+      entry
+    );
 }
 
 TimelineHandler.prototype.processMessage = function (event, request, context) {
@@ -83,6 +62,7 @@ TimelineHandler.prototype.processAliasQuery = function(alias){
     log.error("Twitter","Couldn't create timeline room: ",reason);
   });
 }
+
 /*
   This will create a stream room for one user's timeline.
   Users who are not authenticated via OAuth will receive the default power of 0
@@ -90,7 +70,6 @@ TimelineHandler.prototype.processAliasQuery = function(alias){
   The owner of this stream will receive a 75
   The bot will have 100
 */
-
 TimelineHandler.prototype._constructTimelineRoom = function(user, alias) {
     var botID = this._bridge.getBot().getUserId();
 

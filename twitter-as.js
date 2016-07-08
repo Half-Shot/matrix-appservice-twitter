@@ -68,6 +68,7 @@ new Cli({
                 onUserQuery: userQuery,
                 onEvent: (request, context) => { room_handler.passEvent(request,context); },
                 onAliasQuery: (alias, aliasLocalpart) => { return room_handler.processAliasQuery(alias,aliasLocalpart); },
+                onAliasQueried: (alias, roomId) => { return room_handler.onRoomCreated(alias,roomId); },
                 onLog: function(line, isError){
                   if(isError){
                     if(line.indexOf("M_USER_IN_USE") == -1){//QUIET!
@@ -143,5 +144,6 @@ function userQuery(queriedUser) {
     });
   }).catch((error) => {
       log.error("UserQuery","Couldn't find the user.\nReason: %s",error);
+      return null;
   });
 }

@@ -256,8 +256,10 @@ MatrixTwitter.prototype._get_user = function(data) {
   return new Promise((resolve,reject) => {
     this.app_twitter.get('users/show', data, (error, user, response) => {
         if (error) {
-            log.error('Twitter',"get_profile_by_id: GET /users/show returned: ", error);
-            reject(error);
+            error = error[0];
+            log.error('Twitter',"get_profile_by_id: GET /users/show returned: %s %s",error.code, error.message);
+            reject(error.message);
+            return;
         }
         this._update_user_timeline_profile(user);
         resolve(user);

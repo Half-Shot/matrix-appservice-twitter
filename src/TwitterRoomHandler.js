@@ -26,28 +26,14 @@ var TwitterRoomHandler = function (bridge, handlers) {
 
 TwitterRoomHandler.prototype.processInvite = function (event,request, context){
   var remote = context.rooms.remote;
-  var intent = this._bridge.getIntent();
-  console.log(context);
-  if(remote){
-    var rtype = remote.data.twitter_type;
-    if(rtype == "timeline"){
-      this.handlers.timeline.processInvite(event,request, context);
-      return;
-    }
-    //TODO: Deal with an invite to an existing room.
-  }
-  else if(event.state_key.startsWith("@twitter") && event.state_key.endsWith(":"+this._bridge.opts.domain)){
-    return;//Invite to user that wasn't linked up. Ignoring.
-  }
-  else
+  if(remote == null
+     && event.sender != "@twitbot:localhost"
+     && event.state_key == "@twitbot:localhost")
   {
     //Services bot
     this.handlers.services.processInvite(event, request, context);
     return;
   }
-  log.info("RoomHandler","Got an invite to something we cannot accept.");
-  log.warn("RoomHandler","Event data: ", event);
-  //intent.leave(event.room_id);
 }
 
 TwitterRoomHandler.prototype.passEvent = function (request, context){
@@ -78,9 +64,6 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
       return;
     }
 
-    if(remote.data.twitter_type == "hashtag"){
-      this.handlers.hashtag.processEvent(event,request,context);
-    }
   }
   log.info("RoomHandler","Got message from a non-registered room.");
 }
@@ -102,6 +85,23 @@ TwitterRoomHandler.prototype.processAliasQuery = function(alias, aliasLocalpart)
     //Unknown
     return null;
   }
+}
+
+TwitterRoomHandler.prototype.onRoomCreated = function(alias,roomId){
+  var roomstore = this._bridge.getRoomStore();
+  roomstore.getEntriesByMatrixId(roomId).then(entries =>{
+    console.log(entries);
+    if(entries.length == 0){
+      log.error("RoomHandler","Got a onRoomCreated, but no remote is associated.");
+    }
+    var type = entries[0].remote.data.twitter_type
+    if(type == "timeline"){
+      this.handlers.timeline.onRoomCreated(alias,entries[0]);
+    }
+    else if(type == "hashtag"){
+      this.handlers.hashtag.onRoomCreated(alias,entries[0]);
+    }
+  });
 }
 
 module.exports = {
