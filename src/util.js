@@ -62,7 +62,7 @@ function downloadFile(url){
 function uploadContentFromUrl(bridge, url, id, name) {
     var contenttype;
     id = id || null;
-    name name || null;
+    name = name || null;
     return new Promise((resolve, reject) => {
 
         if(url.startsWith("https")){
