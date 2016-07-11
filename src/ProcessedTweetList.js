@@ -7,23 +7,23 @@
  * @param  {number} cacheSize How many messages to store before cleanup occurs
  * @param  {number} sliceSize On cleanup, how many messages will be kept
  */
-var ProcessedTweetList = function(cacheSize,sliceSize){
+var ProcessedTweetList = function(cacheSize, sliceSize){
     this._internalArray = {};
     this._cacheSize = cacheSize || 128;
     this._sliceSize = sliceSize || 16;
 }
 
-ProcessedTweetList.prototype.push = function(room_id,tweet_id){
+ProcessedTweetList.prototype.push = function(room_id, tweet_id){
   if(!this._internalArray.hasOwnProperty(room_id)){
     this._internalArray[room_id] = [];
   }
   this._internalArray[room_id].push(tweet_id);
   if(this._internalArray[room_id].length > this._cacheSize){
-    this._internalArray[room_id].splice(0,this._sliceSize);
+    this._internalArray[room_id].splice(0, this._sliceSize);
   }
 }
 
-ProcessedTweetList.prototype.contains = function(room_id,tweet_id){
+ProcessedTweetList.prototype.contains = function(room_id, tweet_id){
   if(!this._internalArray.hasOwnProperty(room_id)){
     return false;
   }

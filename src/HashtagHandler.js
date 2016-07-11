@@ -11,11 +11,11 @@ var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
  * @param  {matrix-appservice-bridge.Bridge}   bridge
  */
 var HashtagHandler = function (bridge, twitter) {
-  TwitterHandler.call(this,bridge,"#","hashtag");
+  TwitterHandler.call(this, bridge, "#", "hashtag");
   this.twitter = twitter;
 }
 
-HashtagHandler.prototype.onRoomCreated = function (alias,entry){
+HashtagHandler.prototype.onRoomCreated = function (alias, entry){
   this.twitter.add_hashtag_feed(
     entry.remote.getId().substr("hashtag_".length),
     entry
@@ -31,7 +31,7 @@ HashtagHandler.prototype.processMessage = function (event, request, context) {
 }
 
 HashtagHandler.prototype.processAliasQuery = function(name){
-  log.info("Handler.Hashtag","Got alias request ''%s'",name);
+  log.info("Handler.Hashtag", "Got alias request ''%s'", name);
 
   var remote = new RemoteRoom("hashtag_" + name);
   remote.set("twitter_type", "hashtag");

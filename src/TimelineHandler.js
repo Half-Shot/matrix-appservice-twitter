@@ -12,22 +12,22 @@ var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
  * @param  {matrix-appservice-bridge.Bridge}   bridge
  */
 var TimelineHandler = function (bridge, twitter) {
-  TwitterHandler.call(this,bridge,"@","timeline");
+  TwitterHandler.call(this, bridge, "@", "timeline");
   this.twitter = twitter;
 }
 
 
-TimelineHandler.prototype.onRoomCreated = function(alias,entry){
+TimelineHandler.prototype.onRoomCreated = function(alias, entry){
     var owner = entry.remote.data.twitter_user;
     var intent = this._bridge.getIntent(owner);
     intent.getClient().getProfileInfo(owner, 'avatar_url').then((content) =>
     {
         if (typeof content.avatar_url != "string")
         {
-            log.error("Handler.Timeline","User", owner, "does not have an avatar set. This is unexpected.");
+            log.error("Handler.Timeline", "User", owner, "does not have an avatar set. This is unexpected.");
             return;
         }
-        log.info("Handler.Timeline","Set Room Avatar:", content.avatar_url);
+        log.info("Handler.Timeline", "Set Room Avatar:", content.avatar_url);
         intent.sendStateEvent(entry.matrix.getId(), "m.room.avatar", "",
         {
             "url": content.avatar_url
@@ -41,23 +41,23 @@ TimelineHandler.prototype.onRoomCreated = function(alias,entry){
 }
 
 TimelineHandler.prototype.processMessage = function (event, request, context) {
-  this.twitter.send_matrix_event_as_tweet(event,context.senders.matrix,context.rooms.remote);
+  this.twitter.send_matrix_event_as_tweet(event, context.senders.matrix, context.rooms.remote);
 }
 
 TimelineHandler.prototype.processAliasQuery = function(alias){
   //Create the room
-  log.info("Handler.TimelineHandler","Looking up " + alias);
+  log.info("Handler.TimelineHandler", "Looking up " + alias);
   return this.twitter.get_user_by_screenname(alias).then((tuser) => {
       if (tuser != null) {
           if (!tuser.protected) {
               return this._constructTimelineRoom(tuser, alias);
           }
-          log.warn("Handler.Timeline",tuser.screen_name + " is a protected account, so we can't read from it.");
+          log.warn("Handler.Timeline", tuser.screen_name + " is a protected account, so we can't read from it.");
       }
-      log.warn("Handler.Timeline",tuser.screen_name + " was not found.");
+      log.warn("Handler.Timeline", tuser.screen_name + " was not found.");
 
   }).catch(reason =>{
-    log.error("Twitter","Couldn't create timeline room: ",reason);
+    log.error("Twitter", "Couldn't create timeline room: ", reason);
   });
 }
 

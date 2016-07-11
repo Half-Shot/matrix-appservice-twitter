@@ -34,7 +34,7 @@ var TwitterHandler = function (bridge, roomType, aliasPrefix) {
  */
  // eslint-disable-next-line no-unused-vars
 TwitterHandler.prototype.processInvite = function (event, request, context){
-  log.warn("Handler","STUB processInvite");
+  log.warn("Handler", "STUB processInvite");
   return;
 };
 
@@ -48,7 +48,7 @@ TwitterHandler.prototype.processInvite = function (event, request, context){
  */
  // eslint-disable-next-line no-unused-vars
 TwitterHandler.prototype.processMessage = function (event, request, context) {
-  log.warn("Handler","STUB processMessage");
+  log.warn("Handler", "STUB processMessage");
   return;
 }
 
@@ -62,7 +62,7 @@ TwitterHandler.prototype.processMessage = function (event, request, context) {
  */
  // eslint-disable-next-line no-unused-vars
 TwitterHandler.prototype.processEvent = function (event, request, context) {
-  log.warn("Handler","STUB processEvent");
+  log.warn("Handler", "STUB processEvent");
   return;
 }
 
@@ -75,7 +75,7 @@ TwitterHandler.prototype.processEvent = function (event, request, context) {
  */
  // eslint-disable-next-line no-unused-vars
 TwitterHandler.prototype.processAliasQuery = function(name){
-  log.warn("Handler","STUB processAliasQuery");
+  log.warn("Handler", "STUB processAliasQuery");
   return;
 }
 
@@ -88,8 +88,8 @@ TwitterHandler.prototype.processAliasQuery = function(name){
  * @param  {external:RoomBridgeStore.Entry} entry description
  */
  // eslint-disable-next-line no-unused-vars
-TwitterHandler.prototype.onRoomCreated = function(alias,entry){
-  log.warn("Handler","STUB onRoomCreated");
+TwitterHandler.prototype.onRoomCreated = function(alias, entry){
+  log.warn("Handler", "STUB onRoomCreated");
   return;
 }
 

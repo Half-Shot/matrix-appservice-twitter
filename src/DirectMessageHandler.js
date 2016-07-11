@@ -8,13 +8,13 @@ var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
  * @param  {matrix-appservice-bridge.Bridge}   bridge
  */
 var DirectMessage = function (bridge, twitter) {
-  TwitterHandler.call(this,bridge);
+  TwitterHandler.call(this, bridge);
   this.twitter = twitter;
 }
 
 DirectMessage.prototype.processMessage = function (event) {
     if(event.content.msgtype == "m.text"){
-      this.twitter.send_dm(event.sender,event.room_id,event.content.body);
+      this.twitter.send_dm(event.sender, event.room_id, event.content.body);
     }
 }
 
