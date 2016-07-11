@@ -6,9 +6,7 @@
                 provide general assistance.
 
 */
-var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 var log = require('npmlog');
-var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
 
 /**
@@ -90,7 +88,6 @@ TwitterRoomHandler.prototype.processAliasQuery = function(alias, aliasLocalpart)
 TwitterRoomHandler.prototype.onRoomCreated = function(alias,roomId){
   var roomstore = this._bridge.getRoomStore();
   roomstore.getEntriesByMatrixId(roomId).then(entries =>{
-    console.log(entries);
     if(entries.length == 0){
       log.error("RoomHandler","Got a onRoomCreated, but no remote is associated.");
     }

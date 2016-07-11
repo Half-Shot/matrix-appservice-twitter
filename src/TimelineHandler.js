@@ -1,8 +1,6 @@
 var log  = require('npmlog');
-var Buffer  = require("buffer").Buffer;
 
 var RemoteRoom  = require("matrix-appservice-bridge").RemoteRoom;
-var MatrixRoom  = require("matrix-appservice-bridge").MatrixRoom;
 var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
 /**
@@ -82,7 +80,7 @@ TimelineHandler.prototype._constructTimelineRoom = function(user, alias) {
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", roomOwner);
 
-    opts = {
+    var opts = {
         visibility: "public",
         room_alias_name: "twitter_@"+alias,
         name: "[Twitter] " + user.name,

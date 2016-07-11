@@ -18,6 +18,7 @@ var TwitterDB            = require("./src/TwitterDB.js").TwitterDB;
 var util                 = require('./src/util.js');
 
 var twitter;
+var bridge;
 
 new Cli({
     registrationPath: "twitter-registration.yaml",
@@ -67,7 +68,9 @@ new Cli({
             controller: {
                 onUserQuery: userQuery,
                 onEvent: (request, context) => { room_handler.passEvent(request,context); },
-                onAliasQuery: (alias, aliasLocalpart) => { return room_handler.processAliasQuery(alias,aliasLocalpart); },
+                onAliasQuery: (alias, aliasLocalpart) => {
+                   return room_handler.processAliasQuery(alias,aliasLocalpart);
+                },
                 onAliasQueried: (alias, roomId) => { return room_handler.onRoomCreated(alias,roomId); },
                 onLog: function(line, isError){
                   if(isError){
@@ -109,7 +112,7 @@ new Cli({
           });
           return roomstore.getEntriesByMatrixRoomData({});
         }).then((entries) => {
-          entries.forEach((entry, i, a) => {
+          entries.forEach((entry) => {
             if (entry.remote.data.hasOwnProperty('twitter_type')) {
               var type = entry.remote.data.twitter_type;
               if(type == 'timeline'){

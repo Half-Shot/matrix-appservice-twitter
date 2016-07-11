@@ -20,12 +20,7 @@ var mime    = require('mime');
 function downloadFile(url){
   return new Promise((resolve, reject) => {
 
-    if(url.startsWith("https")){
-      var ht = https;
-    }
-    else {
-      var ht = http;
-    }
+    var ht = url.startsWith("https") ? https : http;
 
     ht.get((url), (res) => {
         var size = parseInt(res.headers["content-length"]);
@@ -65,12 +60,7 @@ function uploadContentFromUrl(bridge, url, id, name) {
     name = name || null;
     return new Promise((resolve, reject) => {
 
-        if(url.startsWith("https")){
-          var ht = https;
-        }
-        else {
-          var ht = http;
-        }
+        var ht = url.startsWith("https") ? https : http;
 
         ht.get((url), (res) => {
             if(res.headers.hasOwnProperty("content-type")){
@@ -110,8 +100,8 @@ function uploadContentFromUrl(bridge, url, id, name) {
         });
     }).then((response) => {
         var content_uri = JSON.parse(response).content_uri;
-        return content_uri;
         log.info("UploadContent","Media uploaded to %s", content_uri);
+        return content_uri;
     }).catch(function(reason) {
         log.error("UploadContent","Failed to get image from url:\n%s", reason)
     })

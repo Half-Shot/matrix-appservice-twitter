@@ -65,7 +65,9 @@ MatrixTwitter.prototype.start = function(){
     this.app_auth.bearer_token = token;
     log.info('Twitter','Retrieved token');
     this.app_twitter = new Twitter(this.app_auth);
-    this.msg_queue_intervalID = setInterval(() => {this._process_head_of_msg_queue();}, TWITTER_MSG_QUEUE_INTERVAL_MS);
+    this.msg_queue_intervalID = setInterval(() => {
+      this._process_head_of_msg_queue();
+    }, TWITTER_MSG_QUEUE_INTERVAL_MS);
 
     this.start_timeline();
     this.start_hashtag();
@@ -93,8 +95,11 @@ MatrixTwitter.prototype._get_bearer_http = function () {
             reject(error);
         } else if (response.statusCode !== 200){
             reject("Response to bearer token request returned non OK")
-            console.log("Body of response:",body);
-            console.log("Statuscode of respnse:",response.statusCode);
+            log.error("Twitter",
+              "Body of response:%s\nStatuscode of respnse:%s",
+              body,
+              response.statusCode
+            );
         } else {
             try {
                 var jsonresponse = JSON.parse(body);
@@ -108,8 +113,9 @@ MatrixTwitter.prototype._get_bearer_http = function () {
                     //Not waiting for callback since it is trivial to get a new token, and can be done async
                     resolve(jsonresponse.bearer_token);
                 } else {
-                    reject("Request to oauth2/post did not return the correct token type ('bearer'). This is weeeird.");
-                    console.log("Body of response:",body);
+                    reject("Request to oauth2/post did not return the correct" +
+                    "token type ('bearer'). This is weeeird.");
+                    log.error("Twitter","Body of response:%s", body);
                 }
             } catch (e) {
                 reject(e);
@@ -120,7 +126,7 @@ MatrixTwitter.prototype._get_bearer_http = function () {
 }
 
 MatrixTwitter.prototype._get_bearer_token = function () {
-  return new Promise((resolve,reject) => {
+  return new Promise((resolve) => {
     fs.readFile('bearer.tok',{encoding:'utf-8'}, (err, content) => {
       if(err){
         log.warn('Twitter',"Token file not found or unreadable. Requesting new token.");
@@ -137,22 +143,29 @@ MatrixTwitter.prototype._get_bearer_token = function () {
         consumer_secret: this.app_auth.consumer_secret,
         bearer_token: token
       };
-      this.app_twitter = new Twitter(auth).get('application/rate_limit_status', {}, (error,status,response) => {
-        if(response.statusCode == 401){
-          log.warn('Twitter',"Authentication with existing token failed. ");
-          fs.unlink('bearer.tok', (err) => {
-            resolve(this._get_bearer_http());
-          });
-        }
-        else if (response.statusCode == 200){
-            log.info('Twitter',"Existing token OK.");
-            resolve(token);
-        }
-        else {
-            log.error("Twitter",error);
-            reject("Unexpected response to application/rate_limit_status during bearer token validation. Bailing.");
-        }
-      });
+      this.app_twitter = new Twitter(auth).get(
+        'application/rate_limit_status',
+        {},
+        (error,status,response) => {
+          if(response.statusCode == 401){
+            log.warn('Twitter',"Authentication with existing token failed. ");
+            fs.unlink('bearer.tok', (err) => {
+              if(err){
+                  log.warn('Twitter',"Couldn't delete bearer.tok");
+              }
+              resolve(this._get_bearer_http());
+            });
+          }
+          else if (response.statusCode == 200){
+              log.info('Twitter',"Existing token OK.");
+              resolve(token);
+          }
+          else {
+              log.error("Twitter",error);
+              reject("Unexpected response to application/rate_limit_status " +
+              "during bearer token validation. Bailing.");
+          }
+        });
     });
   });
 }
@@ -181,7 +194,12 @@ MatrixTwitter.prototype._update_user_timeline_profile = function(profile){
       util.uploadContentFromUrl(this._bridge,profile.profile_image_url_https,intent).then((uri) =>{
         return intent.setAvatarUrl(uri);
       }).catch(err => {
-          log.error('Twitter',"Couldn't set new avatar for @%s because of %s",profile.screen_name,err);
+          log.error(
+            'Twitter',
+            "Couldn't set new avatar for @%s because of %s",
+            profile.screen_name,
+            err
+          );
       });
     }
     this.storage.set_twitter_profile(profile.id,profile.screen_name,profile,ts);
@@ -209,8 +227,8 @@ MatrixTwitter.prototype._get_twitter_client = function(sender) {
       }
 
       var ts = new Date().getTime();
-      var client;
       var id = creds.user_id;
+      var client;
       if(this.tclients.hasOwnProperty(id)){
         client = this.tclients[id];
         if(ts - client.last_auth < TWITTER_CLIENT_INTERVAL_MS){
@@ -222,7 +240,7 @@ MatrixTwitter.prototype._get_twitter_client = function(sender) {
         client.get("account/verify_credentials",(error,profile) => {
           if(error){
             log.info("Twitter","Credentials for " + id + " are no longer valid.");
-            console.log(error);
+            log.error("Twitter",error);
             delete this.tclients[id];//Invalidate it
             resolve(this._get_twitter_client(sender));
           }
@@ -233,12 +251,16 @@ MatrixTwitter.prototype._get_twitter_client = function(sender) {
         });
       }
       else {
-        var client = this._create_twitter_client(creds);
+        client = this._create_twitter_client(creds);
         this.tclients[id] = client;
         client.get("account/verify_credentials",(error,profile) => {
           if(error){
             delete this.tclients[id];//Invalidate it
-            log.error("Twitter","We couldn't authenticate with the supplied access token for " + id + ". Look into this.");
+            log.error(
+              "Twitter",
+              "We couldn't authenticate with the supplied access token for %s. Look into this.",
+              id
+            );
             reject("Twitter account could not be authenticated.");
             //TODO: Possibly find a way to get another key.
           }
@@ -254,10 +276,15 @@ MatrixTwitter.prototype._get_twitter_client = function(sender) {
 
 MatrixTwitter.prototype._get_user = function(data) {
   return new Promise((resolve,reject) => {
-    this.app_twitter.get('users/show', data, (error, user, response) => {
+    this.app_twitter.get('users/show', data, (error, user) => {
         if (error) {
             error = error[0];
-            log.error('Twitter',"get_profile_by_id: GET /users/show returned: %s %s",error.code, error.message);
+            log.error(
+              'Twitter',
+              "get_profile_by_id: GET /users/show returned: %s %s",
+              error.code,
+              error.message
+            );
             reject(error.message);
             return;
         }
@@ -423,7 +450,6 @@ MatrixTwitter.prototype._push_to_msg_queue = function(muser,roomid,tweet,type) {
 MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
     depth--;
     var muser = "@twitter_" + tweet.user.id_str + ":" + this._bridge.opts.domain;
-    var intent = this._bridge.getIntent(muser);
 
     var type = "m.text";
     if (tweet.in_reply_to_status_id_str != null) {
@@ -433,7 +459,8 @@ MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
 
     return new Promise( (resolve) => {
       if (tweet.in_reply_to_status_id_str != null && depth > 0) {
-          this.app_twitter.get('statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet, response) => {
+          this.app_twitter.get(
+            'statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet) => {
             if (!error) {
                 var promise = this.process_tweet(roomid, newtweet, depth)
                 if(promise != null){
@@ -496,7 +523,6 @@ MatrixTwitter.prototype.send_matrix_event_as_tweet = function(event,user,room){
     if(url.startsWith("mxc://")){
       url = this._bridge.opts.homeserverUrl + "/_matrix/media/r0/download/" + url.substr("mxc://".length);
     }
-    console.log(url);
     util.downloadFile(url).then((buffer) =>{
       return this.upload_media(user,buffer);
     }).then ((mediaId) => {
@@ -557,7 +583,7 @@ MatrixTwitter.prototype.send_tweet_to_timeline = function(remote,sender,body,ext
     status.status = status.status.substr(0,140);
 
     this.processed_tweets.push(remote.roomId,status.status);
-    client.post("statuses/update",status,(error,tweet) => {
+    client.post("statuses/update",status,(error) => {
       if(error){
         log.error("Twitter","Failed to send tweet. %s",error);
         return;
@@ -592,7 +618,7 @@ MatrixTwitter.prototype._process_timeline = function() {
         req.since_id = since;
     }
 
-    this.app_twitter.get('statuses/user_timeline', req, (error, feed, response) => {
+    this.app_twitter.get('statuses/user_timeline', req, (error, feed) => {
         if(error){
           log.error("Twitter","_process_timeline: GET /statuses/user_timeline returned: %s", error.msg);
           return;
@@ -609,7 +635,9 @@ MatrixTwitter.prototype._process_timeline = function() {
             });
             Promise.all(promises).then(() =>{
               this._bridge.getRoomStore().upsertEntry(tline.entry);
-              this.msg_queue_intervalID = setInterval(() => {this._process_head_of_msg_queue();}, TWITTER_MSG_QUEUE_INTERVAL_MS);
+              this.msg_queue_intervalID = setInterval(() => {
+                this._process_head_of_msg_queue();
+              }, TWITTER_MSG_QUEUE_INTERVAL_MS);
             });
 
         }
@@ -720,8 +748,8 @@ MatrixTwitter.prototype.add_hashtag_feed = function(hashtag,entry){
  */
 MatrixTwitter.prototype.remove_hashtag_feed = function(hashtag){
   const htfind = (feed) => { feed.hashtag == hashtag };
-  this.hashtag_list  = this.hashtag_list.splice( this.hashtag_list.findIndex(tlfind) ,1);
-  this.hashtag_queue = this.hashtag_queue.splice(this.hashtag_queue.findIndex(tlfind),1);
+  this.hashtag_list  = this.hashtag_list.splice( this.hashtag_list.findIndex(htfind) ,1);
+  this.hashtag_queue = this.hashtag_queue.splice(this.hashtag_queue.findIndex(htfind),1);
 }
 
 MatrixTwitter.prototype._process_hashtag_feed = function(){
@@ -739,7 +767,7 @@ MatrixTwitter.prototype._process_hashtag_feed = function(){
       req.since_id = since;
   }
 
-  this.app_twitter.get('search/tweets', req, (error, results, response) => {
+  this.app_twitter.get('search/tweets', req, (error, results) => {
       if(error){
         log.error("Twitter","_process_timeline: GET /statuses/user_timeline returned: %s", error);
         return;
@@ -784,8 +812,6 @@ MatrixTwitter.prototype.attach_user_stream = function(user){
       }
       else if (data.hasOwnProperty("id")){ //Yeah..the only way to know if it's a tweet is to check if the ID field is set at the root level.
         this._push_to_user_timeline(user,data);
-        //console.log(data);
-        console.log
       }
     });
     stream.on('error', function(error) {
@@ -867,8 +893,15 @@ MatrixTwitter.prototype._push_to_user_timeline = function(user,msg){
   });
 }
 
-MatrixTwitter.prototype._create_dm_room = function(msg,users){
-  log.info("Twitter.DM","Creating a new room for DMs from %s(%s) => %s(%s)",msg.sender_id_str,msg.sender_screen_name,msg.recipient_id_str,msg.recipient_screen_name);
+MatrixTwitter.prototype._create_dm_room = function(msg){
+  log.info(
+    "Twitter.DM",
+    "Creating a new room for DMs from %s(%s) => %s(%s)",
+    msg.sender_id_str,
+    msg.sender_screen_name,
+    msg.recipient_id_str,
+    msg.recipient_screen_name
+  );
   return Promise.all([
     this.storage.get_matrixid_from_twitterid(msg.sender_id_str),
     this.storage.get_matrixid_from_twitterid(msg.recipient_id_str)
@@ -877,14 +910,13 @@ MatrixTwitter.prototype._create_dm_room = function(msg,users){
       "@twitter_" + msg.recipient_id_str + ":" + this._bridge.opts.domain
     ]);
     for(var user_id of user_ids){
-      if(user_id != null){stop_user_stream
+      if(user_id != null){
         invitees.add(user_id);
       }
     }
     return [...invitees];
   }).then(invitees => {
     var intent = this._get_intent(msg.sender_id_str);
-    console.log(invitees);
     return intent.createRoom(
       {
         createAsClient:true,
@@ -925,7 +957,7 @@ MatrixTwitter.prototype._process_incoming_dm = function(msg){
       return;
     }
     //Create a new room.
-    return this._create_dm_room(msg,users).then(room => {
+    return this._create_dm_room(msg).then(room => {
       this.storage.add_dm_room(room.room_id,users);
       var mroom = new MatrixRoom(room.room_id);
       var rroom = new RemoteRoom("dm_"+users);
@@ -943,7 +975,13 @@ MatrixTwitter.prototype._process_incoming_dm = function(msg){
 
 MatrixTwitter.prototype._put_dm_in_room = function(room_id,msg){
   var intent = this._get_intent(msg.sender_id_str);
-  log.info("Twitter.DM","Recieved DM from %s(%s) => %s(%s)",msg.sender_id_str,msg.sender_screen_name,msg.recipient_id_str,msg.recipient_screen_name);
+  log.info(
+    "Twitter.DM",
+    "Recieved DM from %s(%s) => %s(%s)",
+    msg.sender_id_str,msg.sender_screen_name,
+    msg.recipient_id_str,
+    msg.recipient_screen_name
+  );
   intent.sendMessage(room_id, {"msgtype":"m.text","body":msg.text});
 }
 
@@ -964,17 +1002,27 @@ MatrixTwitter.prototype.send_dm = function(user_id,room_id,text){
   return this.storage.get_users_from_dm_room(room_id).then(u =>{
     users = u;
     if(users == null){
-      log.error("Twitter.DM","User (%s) tried to send a DM to (%s) but the room was not found in the DB. This shouldn't happen.",user_id,room_id);
+      log.error(
+        "Twitter.DM",
+        ("User (%s) tried to send a DM to (%s) but the room was not found in" +
+         + "the DB. This shouldn't happen."),
+        user_id,room_id
+      );
     }
     return this._get_twitter_client(user_id);
   }).then(client => {
     var otheruser = users.replace(client.profile.id_str,"");
-    log.info("Twitter.DM","Sending DM from %s(%s) => %s",client.profile.id_str,client.profile.screen_name,otheruser);
+    log.info(
+      "Twitter.DM",
+      "Sending DM from %s(%s) => %s",
+      client.profile.id_str,
+      client.profile.screen_name,
+      otheruser
+    );
     this.sent_dms.push(users,text);
-    client.post("direct_messages/new",{user_id:otheruser,text:text},(error,response) =>{
+    client.post("direct_messages/new",{user_id:otheruser,text:text},(error) =>{
       if(error){
-        log.error("Twitter.DM","direct_messages/new failed");
-        console.log(error);
+        log.error("Twitter.DM","direct_messages/new failed. Reason: %s",error);
       }
     });
   }).catch(reason =>{

@@ -32,6 +32,7 @@ var TwitterHandler = function (bridge, roomType, aliasPrefix) {
  * @param  {object} request The request itself.
  * @param  {object} context Context given by the appservice.
  */
+ // eslint-disable-next-line no-unused-vars
 TwitterHandler.prototype.processInvite = function (event, request, context){
   log.warn("Handler","STUB processInvite");
   return;
@@ -45,6 +46,7 @@ TwitterHandler.prototype.processInvite = function (event, request, context){
  * @param  {object} request The request itself.
  * @param  {object} context Context given by the appservice.
  */
+ // eslint-disable-next-line no-unused-vars
 TwitterHandler.prototype.processMessage = function (event, request, context) {
   log.warn("Handler","STUB processMessage");
   return;
@@ -58,6 +60,7 @@ TwitterHandler.prototype.processMessage = function (event, request, context) {
  * @param  {object} request The request itself.
  * @param  {object} context Context given by the appservice.
  */
+ // eslint-disable-next-line no-unused-vars
 TwitterHandler.prototype.processEvent = function (event, request, context) {
   log.warn("Handler","STUB processEvent");
   return;
@@ -70,6 +73,7 @@ TwitterHandler.prototype.processEvent = function (event, request, context) {
  * @param  {type} name The requested name *after* '#twitter_'
  * @return {ProvisionedRoom | Promise<ProvisionedRoom,Error>, null}
  */
+ // eslint-disable-next-line no-unused-vars
 TwitterHandler.prototype.processAliasQuery = function(name){
   log.warn("Handler","STUB processAliasQuery");
   return;
@@ -83,6 +87,7 @@ TwitterHandler.prototype.processAliasQuery = function(name){
  * @param  {string} alias
  * @param  {external:RoomBridgeStore.Entry} entry description
  */
+ // eslint-disable-next-line no-unused-vars
 TwitterHandler.prototype.onRoomCreated = function(alias,entry){
   log.warn("Handler","STUB onRoomCreated");
   return;

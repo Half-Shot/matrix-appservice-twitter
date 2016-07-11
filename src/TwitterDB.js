@@ -176,7 +176,7 @@ return new Promise((resolve,reject) =>{
   });
 }
 
-TwitterDB.prototype.get_linked_user_ids = function(id){
+TwitterDB.prototype.get_linked_user_ids = function(){
   return new Promise((resolve,reject) =>{
     this.db.all(
       `
@@ -429,7 +429,6 @@ TwitterDB.prototype._create_timeline_table = function(){
     function (err) {
       if(err){
         throw "Error creating 'twitter_account': "+err;
-        return;
       }
     }
   );

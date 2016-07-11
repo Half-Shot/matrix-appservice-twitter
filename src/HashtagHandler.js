@@ -16,7 +16,6 @@ var HashtagHandler = function (bridge, twitter) {
 }
 
 HashtagHandler.prototype.onRoomCreated = function (alias,entry){
-  console.log(entry);
   this.twitter.add_hashtag_feed(
     entry.remote.getId().substr("hashtag_".length),
     entry
@@ -24,17 +23,20 @@ HashtagHandler.prototype.onRoomCreated = function (alias,entry){
 }
 
 HashtagHandler.prototype.processMessage = function (event, request, context) {
-    this.twitter.send_matrix_event_as_tweet(event,context.senders.matrix,context.rooms.remote);
+    this.twitter.send_matrix_event_as_tweet(
+      event,
+      context.senders.matrix,
+      context.rooms.remote
+    );
 }
 
 HashtagHandler.prototype.processAliasQuery = function(name){
   log.info("Handler.Hashtag","Got alias request ''%s'",name);
-  var botID = this._bridge.getBot().getUserId();
 
   var remote = new RemoteRoom("hashtag_" + name);
   remote.set("twitter_type", "hashtag");
 
-  opts = {
+  var opts = {
       visibility: "public",
       room_alias_name: "twitter_#"+name,
       name: "[Twitter] #"+name,
