@@ -15,10 +15,10 @@ Twitter bridge for Matrix.
   - Read and follow a users timeline
   - Send tweets to yourself and other users
   - Follow hashtags
-- To be complete
-  - Reply to specific tweets
-  - Read your own timeline
   - Direct Messaging
+  - Read your own timeline
+- To be completed
+  - Reply to specific tweets
 
 # Installation
 
@@ -35,7 +35,7 @@ You will need a twitter application authentication token and secret to continue.
 
 Go to https://apps.twitter.com/ and create a new app. If you follow the tedious setup all the way through you should be given all you need to fill in a config.yaml file. Copy ``config.sample.yaml`` and fill in the blanks before saving as ``config.yaml``.
 
-Next, we need to generate the appropriate registration config so that synapse can interface with the bridge. 
+Next, we need to generate the appropriate registration config so that synapse can interface with the bridge.
 
 ```
 node twitter-as.js -r -u "URL"
@@ -59,11 +59,11 @@ The bridge should authenticate and be ready for use.
 
 # Usage
 
-## Linking your account
+## Linking your Twitter account to your Matrix user.
 
 Linking is not required for reading timelines/hashtags, but **interactions must be completed under your own account**.
 
-* Create a room and invite ``@twitbot:yourdomain``. 
+* Create a room and invite ``@twitbot:yourdomain``.
 * Send the message `link account`
 * Follow the URL and instructions. Copy the PIN code
 * Enter the pin code directly into the room and your account should be linked up.
@@ -76,7 +76,6 @@ Accounts which are bridged (Twitter<->Matrix) will be able to send tweets to the
 
 ## Hashtags
 
-Join ``@twitter_#hashtaggoeshere`` to follow a particular hashtag. 
+Join ``@twitter_#hashtaggoeshere`` to follow a particular hashtag.
 
 Accounts which are bridged (Twitter<->Matrix) will be able to send tweets which will automatically apply this tag.
-
