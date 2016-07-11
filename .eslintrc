@@ -1,0 +1,22 @@
+{
+    parserOptions: {
+        ecmaVersion: 6,
+        sourceType: "module"
+    },
+    env: {
+      node: true,
+      es6: true
+    },
+    extends: "eslint:recommended",
+    max-depth: {
+      max: 4
+    },
+
+    rules: {
+      prefer-const: 2,
+      max-len: ["error",{
+        code: 120,
+        ignoreComments: true,
+      }],
+    }
+}
