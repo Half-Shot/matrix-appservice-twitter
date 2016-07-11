@@ -19,6 +19,8 @@
        before: false,
        after: true
       }],
-
+      space-before-blocks: "error",
+      space-before-function-paren: "error",
+      comma-style: ["error", "last"]
     }
 }

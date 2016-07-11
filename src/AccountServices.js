@@ -13,19 +13,19 @@ var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
  *
  * @class
  * @extends {external:TwitterHandler}
- *
- * @param  {matrix-appservice-bridge.Bridge}   bridge
- * @param  app_auth OAuth authentication information
- * @param  app_auth.consumer_key Twitter consumer key
- * @param  app_auth.consumer_secret Twitter consumer secret
- * @param  {TwitterDB}       storage
- * @param  {MatrixTwitter}   twitter
+ * @param  {object} opts
+ * @param  {matrix-appservice-bridge.Bridge}   opts.bridge
+ * @param  {TwitterDB}       opts.storage
+ * @param  {MatrixTwitter}   opts.twitter
+ * @param  {object} opts.app_auth OAuth authentication information
+ * @param  {string} app_auth.consumer_key Twitter consumer key
+ * @param  {string} app_auth.consumer_secret Twitter consumer secret
  */
-var AccountServices = function (bridge, app_auth, storage, twitter) {
-  TwitterHandler.call(this, bridge, null, "service");
-  this._app_auth = app_auth;
-  this._storage = storage;
-  this._twitter = twitter;
+var AccountServices = function (opts) {
+  TwitterHandler.call(this, opts.bridge, null, "service");
+  this._app_auth = opts.app_auth;
+  this._storage = opts.storage;
+  this._twitter = opts.twitter;
   this._oauth = new OAuth.OAuth(
     'https://api.twitter.com/oauth/request_token',
     'https://api.twitter.com/oauth/access_token',
@@ -37,7 +37,7 @@ var AccountServices = function (bridge, app_auth, storage, twitter) {
   );
 };
 
-AccountServices.prototype.processInvite = function (event, request, context){
+AccountServices.prototype.processInvite = function (event, request, context) {
   var intent = this._bridge.getIntent();
   intent.join(event.room_id).then( () => {
     var rroom = new RemoteRoom("service_"+event.sender);
@@ -54,9 +54,9 @@ AccountServices.prototype.processInvite = function (event, request, context){
   });
 };
 
-AccountServices.prototype.processMessage = function (event){
+AccountServices.prototype.processMessage = function (event) {
   var intent = this._bridge.getIntent();
-  if(event.content.body == "link account"){
+  if(event.content.body == "link account") {
     log.info("Handler.AccountServices", event.sender + " is requesting a twitter account link.");
     this._oauth_getUrl(event, event.sender).then( (url) =>{
       intent.sendMessage(event.room_id, {
@@ -71,7 +71,7 @@ AccountServices.prototype.processMessage = function (event){
       });
     });
   }
-  else if(event.content.body == "unlink account"){
+  else if(event.content.body == "unlink account") {
     this._storage.remove_client_data(event.sender);
     this._storage.remove_timeline_room(event.sender);
     this._twitter.detach_user_stream(event.sender);
@@ -80,17 +80,17 @@ AccountServices.prototype.processMessage = function (event){
       "msgtype":"m.text"
     });
   }
-  else if(isNumber(event.content.body)){
+  else if(isNumber(event.content.body)) {
     this._processPIN(event);
   }
 };
 
-AccountServices.prototype._processPIN = function(event){
+AccountServices.prototype._processPIN = function (event) {
   var intent = this._bridge.getIntent();
   this._storage.get_client_data(event.sender).then((client_data) => {
     var pin = event.content.body;
     log.info("Handler.AccountServices", "User sent a pin in to auth with.");
-    if(client_data == null){
+    if(client_data == null) {
       intent.sendMessage(event.room_id, {
         "body":"You must request access with 'link account' first.",
         "msgtype":"m.text"
@@ -117,13 +117,13 @@ AccountServices.prototype._processPIN = function(event){
 
 AccountServices.prototype._oauth_getAccessToken = function (pin, client_data, id) {
   return new Promise((resolve, reject) => {
-    if(client_data && client_data.oauth_token != "" && client_data.oauth_secret != ""){
+    if(client_data && client_data.oauth_token != "" && client_data.oauth_secret != "") {
       this._oauth.getOAuthAccessToken(
         client_data.oauth_token,
         client_data.oauth_secret,
         pin,
         (error, access_token, access_token_secret) =>{
-        if(error){
+        if(error) {
           reject(error.statusCode + ": " + error.data);
         }
         client_data.access_token = access_token;
@@ -135,7 +135,7 @@ AccountServices.prototype._oauth_getAccessToken = function (pin, client_data, id
           access_token_secret: client_data.access_token_secret
         });
         client.get("account/verify_credentials", (error, profile) =>{
-          if(error){
+          if(error) {
             log.error("Handler.AccountServices", "We couldn't authenticate with "
             +"the supplied access token for "+ id +". Look into this.");
             reject("Twitter account could not be authenticated.");
@@ -152,12 +152,12 @@ AccountServices.prototype._oauth_getAccessToken = function (pin, client_data, id
   });
 };
 
-AccountServices.prototype._oauth_getUrl = function(event, id){
+AccountServices.prototype._oauth_getUrl = function (event, id) {
   return new Promise((resolve, reject) => {
     this._oauth.getOAuthRequestToken(
       {"x_auth_access_type":"dm"},
       (error, oAuthToken, oAuthTokenSecret) => {
-      if(error){
+      if(error) {
         reject(["Couldn't get token for user.\n%s", error]);
       }
       var data = {
@@ -173,7 +173,7 @@ AccountServices.prototype._oauth_getUrl = function(event, id){
   });
 };
 
-function isNumber(n) {
+function isNumber (n) {
   return !isNaN(parseFloat(n)) && isFinite(n);
 }
 

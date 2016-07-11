@@ -28,7 +28,7 @@ new Cli({
             test: "ABC"
         }
     },
-    generateRegistration: function(reg, callback) {
+    generateRegistration: function (reg, callback) {
         reg.setId(AppServiceRegistration.generateToken());
         reg.setHomeserverToken(AppServiceRegistration.generateToken());
         reg.setAppServiceToken(AppServiceRegistration.generateToken());
@@ -40,7 +40,7 @@ new Cli({
         //reg.addRegexPattern("aliases", "#twitter_DM.*", true);
         callback(reg);
     },
-    run: function(port, config) {
+    run: function (port, config) {
 
         //Read registration file
 
@@ -67,15 +67,15 @@ new Cli({
             registration: regObj,
             controller: {
                 onUserQuery: userQuery,
-                onEvent: (request, context) => { room_handler.passEvent(request,context); },
+                onEvent: (request, context) => { room_handler.passEvent(request, context); },
                 onAliasQuery: (alias, aliasLocalpart) => {
-                   return room_handler.processAliasQuery(alias,aliasLocalpart);
+                   return room_handler.processAliasQuery(alias, aliasLocalpart);
                 },
-                onAliasQueried: (alias, roomId) => { return room_handler.onRoomCreated(alias,roomId); },
-                onLog: function(line, isError){
-                  if(isError){
-                    if(line.indexOf("M_USER_IN_USE") == -1){//QUIET!
-                        log.error("matrix-appservice-bridge",line);
+                onAliasQueried: (alias, roomId) => { return room_handler.onRoomCreated(alias, roomId); },
+                onLog: function (line, isError) {
+                  if(isError) {
+                    if(line.indexOf("M_USER_IN_USE") == -1) {//QUIET!
+                        log.error("matrix-appservice-bridge", line);
                     }
                   }
                 }
@@ -83,19 +83,25 @@ new Cli({
             // Fix to use our own JS SDK due to a bug in 0.4.1
             clientFactory: clientFactory
         });
-        log.info("AppServ","Matrix-side listening on port %s", port);
+        log.info("AppServ", "Matrix-side listening on port %s", port);
         //Setup twitter
 
         var tstorage = new TwitterDB('twitter.db');
         tstorage.init();
 
         twitter = new MatrixTwitter(bridge, config, tstorage);
+        var opt = {
+          bridge:bridge,
+          app_auth:config.app_auth,
+          storage:tstorage,
+          twitter:twitter
+        }
         room_handler = new TwitterRoomHandler(bridge,
           {
-            services: new AccountServices(bridge, config.app_auth, tstorage, twitter),
+            services: new AccountServices(opt),
             timeline: new TimelineHandler(bridge, twitter),
             hashtag: new HashtagHandler(bridge, twitter),
-            directmessage: new DirectMessageHandler(bridge,twitter)
+            directmessage: new DirectMessageHandler(bridge, twitter)
           }
         );
 
@@ -115,7 +121,7 @@ new Cli({
           entries.forEach((entry) => {
             if (entry.remote.data.hasOwnProperty('twitter_type')) {
               var type = entry.remote.data.twitter_type;
-              if(type == 'timeline'){
+              if(type == 'timeline') {
                 twitter.add_timeline(entry.remote.data.twitter_user, entry);
               }
               else if(type == 'hashtag') {
@@ -134,7 +140,7 @@ new Cli({
  * @param  {type}   The userid being queried.
  * @return {Promise}            Promise to be resolved by the appservice.
  */
-function userQuery(queriedUser) {
+function userQuery (queriedUser) {
   return twitter.get_profile_by_id(queriedUser.localpart.substr("twitter_".length)).then( (twitter_user) => {
     /* Even users with a default avatar will still have an avatar url set.
        This *should* always work. */
@@ -146,7 +152,7 @@ function userQuery(queriedUser) {
       };
     });
   }).catch((error) => {
-      log.error("UserQuery","Couldn't find the user.\nReason: %s",error);
+      log.error("UserQuery", "Couldn't find the user.\nReason: %s", error);
       return null;
   });
 }

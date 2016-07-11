@@ -22,7 +22,7 @@ var TwitterRoomHandler = function (bridge, handlers) {
   this.handlers = handlers; // 'service' handler
 }
 
-TwitterRoomHandler.prototype.processInvite = function (event, request, context){
+TwitterRoomHandler.prototype.processInvite = function (event, request, context) {
   var remote = context.rooms.remote;
   if(remote == null
      && event.sender != "@twitbot:localhost"
@@ -34,28 +34,28 @@ TwitterRoomHandler.prototype.processInvite = function (event, request, context){
   }
 }
 
-TwitterRoomHandler.prototype.passEvent = function (request, context){
+TwitterRoomHandler.prototype.passEvent = function (request, context) {
   var event = request.getData();
   var remote = context.rooms.remote;
-  if (event.type == "m.room.member" && event.membership == "invite"){
+  if (event.type == "m.room.member" && event.membership == "invite") {
     this.processInvite(event, request, context);
   }
-  if(remote){
-    if(event.type == "m.room.message"){
-      if(remote.data.twitter_type == "service"){
+  if(remote) {
+    if(event.type == "m.room.message") {
+      if(remote.data.twitter_type == "service") {
         this.handlers.services.processMessage(event, request, context);
       }
-      else if(remote.data.twitter_type == "timeline"){
+      else if(remote.data.twitter_type == "timeline") {
         this.handlers.timeline.processMessage(event, request, context);
       }
-      else if(remote.data.twitter_type == "hashtag"){
+      else if(remote.data.twitter_type == "hashtag") {
         this.handlers.hashtag.processMessage(event, request, context);
       }
-      else if(remote.data.twitter_type == "dm"){
+      else if(remote.data.twitter_type == "dm") {
         this.handlers.directmessage.processMessage(event, request, context);
       }
-      else if(remote.data.twitter_type == "user_timeline"){
-        if(remote.data.twitter_owner == event.sender){
+      else if(remote.data.twitter_type == "user_timeline") {
+        if(remote.data.twitter_owner == event.sender) {
           this.handlers.timeline.processMessage(event, request, context);
         }
       }
@@ -66,11 +66,11 @@ TwitterRoomHandler.prototype.passEvent = function (request, context){
   log.info("RoomHandler", "Got message from a non-registered room.");
 }
 
-TwitterRoomHandler.prototype.processAliasQuery = function(alias, aliasLocalpart){
+TwitterRoomHandler.prototype.processAliasQuery = function (alias, aliasLocalpart) {
   var type = aliasLocalpart.substr("twitter_".length, 2);
   var part = aliasLocalpart.substr("twitter_.".length);
 
-  if(type[0] == '@'){ //User timeline
+  if(type[0] == '@') { //User timeline
     return this.handlers.timeline.processAliasQuery(part);
   }
   else if(type[0] == '#') { //Hashtag
@@ -85,17 +85,17 @@ TwitterRoomHandler.prototype.processAliasQuery = function(alias, aliasLocalpart)
   }
 }
 
-TwitterRoomHandler.prototype.onRoomCreated = function(alias, roomId){
+TwitterRoomHandler.prototype.onRoomCreated = function (alias, roomId) {
   var roomstore = this._bridge.getRoomStore();
   roomstore.getEntriesByMatrixId(roomId).then(entries =>{
-    if(entries.length == 0){
+    if(entries.length == 0) {
       log.error("RoomHandler", "Got a onRoomCreated, but no remote is associated.");
     }
     var type = entries[0].remote.data.twitter_type
-    if(type == "timeline"){
+    if(type == "timeline") {
       this.handlers.timeline.onRoomCreated(alias, entries[0]);
     }
-    else if(type == "hashtag"){
+    else if(type == "hashtag") {
       this.handlers.hashtag.onRoomCreated(alias, entries[0]);
     }
   });

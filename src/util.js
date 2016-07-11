@@ -17,7 +17,7 @@ var mime    = require('mime');
  * @param  {string} url      The URL to be downloaded from.
  * @return {Promise<Buffer>} A promise that will return a buffer with the data.
  */
-function downloadFile(url){
+function downloadFile (url) {
   return new Promise((resolve, reject) => {
 
     var ht = url.startsWith("https") ? https : http;
@@ -54,7 +54,7 @@ function downloadFile(url){
  * @param  {type} [name]      Name of the file. Will use the URL filename otherwise.
  * @return {Promise<string>}  Promise resolving with a MXC URL.
  */
-function uploadContentFromUrl(bridge, url, id, name) {
+function uploadContentFromUrl (bridge, url, id, name) {
     var contenttype;
     id = id || null;
     name = name || null;
@@ -63,7 +63,7 @@ function uploadContentFromUrl(bridge, url, id, name) {
         var ht = url.startsWith("https") ? https : http;
 
         ht.get((url), (res) => {
-            if(res.headers.hasOwnProperty("content-type")){
+            if(res.headers.hasOwnProperty("content-type")) {
               contenttype = res.headers["content-type"];
             }
             else{
@@ -90,7 +90,7 @@ function uploadContentFromUrl(bridge, url, id, name) {
             });
         })
     }).then((buffer) => {
-        if(typeof id == "string" || id == null){
+        if(typeof id == "string" || id == null) {
             id = bridge.getIntent(id);
         }
         return id.getClient().uploadContent({
@@ -102,7 +102,7 @@ function uploadContentFromUrl(bridge, url, id, name) {
         var content_uri = JSON.parse(response).content_uri;
         log.info("UploadContent", "Media uploaded to %s", content_uri);
         return content_uri;
-    }).catch(function(reason) {
+    }).catch(function (reason) {
         log.error("UploadContent", "Failed to get image from url:\n%s", reason)
     })
 

@@ -60,7 +60,7 @@ var MatrixTwitter = function (bridge, config, storage) {
  * @function
  * @return {Promise}  A promise that returns when authentication succeeds.
  */
-MatrixTwitter.prototype.start = function(){
+MatrixTwitter.prototype.start = function () {
   return this._get_bearer_token().then((token) => {
     this.app_auth.bearer_token = token;
     log.info('Twitter', 'Retrieved token');
@@ -90,10 +90,10 @@ MatrixTwitter.prototype._get_bearer_http = function () {
         form: "grant_type=client_credentials",
         contentType: "application/x-www-form-urlencoded;charset=UTF-8"
     };
-    Request.post(options, function(error, response, body) {
+    Request.post(options, function (error, response, body) {
         if (error) {
             reject(error);
-        } else if (response.statusCode !== 200){
+        } else if (response.statusCode !== 200) {
             reject("Response to bearer token request returned non OK")
             log.error("Twitter",
               "Body of response:%s\nStatuscode of respnse:%s",
@@ -128,7 +128,7 @@ MatrixTwitter.prototype._get_bearer_http = function () {
 MatrixTwitter.prototype._get_bearer_token = function () {
   return new Promise((resolve) => {
     fs.readFile('bearer.tok', {encoding:'utf-8'}, (err, content) => {
-      if(err){
+      if(err) {
         log.warn('Twitter', "Token file not found or unreadable. Requesting new token.");
         log.error("Twitter", err);
         resolve(Promise.resolve(this._get_bearer_http()));
@@ -147,16 +147,16 @@ MatrixTwitter.prototype._get_bearer_token = function () {
         'application/rate_limit_status',
         {},
         (error, status, response) => {
-          if(response.statusCode == 401){
+          if(response.statusCode == 401) {
             log.warn('Twitter', "Authentication with existing token failed. ");
             fs.unlink('bearer.tok', (err) => {
-              if(err){
+              if(err) {
                   log.warn('Twitter', "Couldn't delete bearer.tok");
               }
               resolve(this._get_bearer_http());
             });
           }
-          else if (response.statusCode == 200){
+          else if (response.statusCode == 200) {
               log.info('Twitter', "Existing token OK.");
               resolve(token);
           }
@@ -170,27 +170,27 @@ MatrixTwitter.prototype._get_bearer_token = function () {
   });
 }
 
-MatrixTwitter.prototype._get_intent = function(id){
+MatrixTwitter.prototype._get_intent = function (id) {
   return this._bridge.getIntent("@twitter_" + id + ":" + this._bridge.opts.domain);
 }
 
-MatrixTwitter.prototype._update_user_timeline_profile = function(profile){
+MatrixTwitter.prototype._update_user_timeline_profile = function (profile) {
   var ts = new Date().getTime();
   return this.storage.get_profile_by_id(profile.id).then((old)=>{
     var name = true;
     var avatar = true;
-    if(old != null){
+    if(old != null) {
       name = (old.profile.name != profile.name) || (old.profile.screen_name != profile.screen_name);
       avatar = (old.profile.profile_image_url_https != profile.profile_image_url_https);
 
     }
 
     var intent = this._get_intent(profile.id_str);
-    if(name){
+    if(name) {
       intent.setDisplayName(profile.name + " (@" + profile.screen_name + ")");
     }
 
-    if(avatar){
+    if(avatar) {
       util.uploadContentFromUrl(this._bridge, profile.profile_image_url_https, intent).then((uri) =>{
         return intent.setAvatarUrl(uri);
       }).catch(err => {
@@ -206,7 +206,7 @@ MatrixTwitter.prototype._update_user_timeline_profile = function(profile){
   });
 }
 
-MatrixTwitter.prototype._create_twitter_client = function(creds){
+MatrixTwitter.prototype._create_twitter_client = function (creds) {
   var ts = new Date().getTime();
   var client = new Twitter({
     consumer_key: this.app_auth.consumer_key,
@@ -218,27 +218,27 @@ MatrixTwitter.prototype._create_twitter_client = function(creds){
   return client;
 }
 
-MatrixTwitter.prototype._get_twitter_client = function(sender) {
+MatrixTwitter.prototype._get_twitter_client = function (sender) {
   //Check if we have the account in the cache
   return this.storage.get_client_data(sender).then((creds) => {
     return new Promise( (resolve, reject) => {
-      if(creds == null){
+      if(creds == null) {
           reject("No twitter account linked.");
       }
 
       var ts = new Date().getTime();
       var id = creds.user_id;
       var client;
-      if(this.tclients.hasOwnProperty(id)){
+      if(this.tclients.hasOwnProperty(id)) {
         client = this.tclients[id];
-        if(ts - client.last_auth < TWITTER_CLIENT_INTERVAL_MS){
+        if(ts - client.last_auth < TWITTER_CLIENT_INTERVAL_MS) {
           resolve(client);
           return;
         }
 
         log.info("Twitter", "Credentials for %s need to be reevaluated.", sender);
         client.get("account/verify_credentials", (error, profile) => {
-          if(error){
+          if(error) {
             log.info("Twitter", "Credentials for " + id + " are no longer valid.");
             log.error("Twitter", error);
             delete this.tclients[id];//Invalidate it
@@ -254,7 +254,7 @@ MatrixTwitter.prototype._get_twitter_client = function(sender) {
         client = this._create_twitter_client(creds);
         this.tclients[id] = client;
         client.get("account/verify_credentials", (error, profile) => {
-          if(error){
+          if(error) {
             delete this.tclients[id];//Invalidate it
             log.error(
               "Twitter",
@@ -274,7 +274,7 @@ MatrixTwitter.prototype._get_twitter_client = function(sender) {
   });
 }
 
-MatrixTwitter.prototype._get_user = function(data) {
+MatrixTwitter.prototype._get_user = function (data) {
   return new Promise((resolve, reject) => {
     this.app_twitter.get('users/show', data, (error, user) => {
         if (error) {
@@ -302,12 +302,12 @@ MatrixTwitter.prototype._get_user = function(data) {
  * @return {Promise<TwitterProfile>} A promise containing the Twitter profile
  * to be returned. See https://dev.twitter.com/rest/reference/get/users/show
  */
-MatrixTwitter.prototype.get_profile_by_id = function(id) {
+MatrixTwitter.prototype.get_profile_by_id = function (id) {
   log.info("Twitter", "Looking up T" + id);
   var ts = new Date().getTime();
   return this.storage.get_profile_by_id(id).then((profile)=>{
-    if(profile != null){
-      if(ts - profile.timestamp < TWITTER_PROFILE_INTERVAL_MS){
+    if(profile != null) {
+      if(ts - profile.timestamp < TWITTER_PROFILE_INTERVAL_MS) {
         return profile.profile;
       }
     }
@@ -324,12 +324,12 @@ MatrixTwitter.prototype.get_profile_by_id = function(id) {
  *
  * @see {@link https://dev.twitter.com/rest/reference/get/users/show}
  */
-MatrixTwitter.prototype.get_user_by_screenname = function(name) {
+MatrixTwitter.prototype.get_user_by_screenname = function (name) {
   log.info("Twitter", "Looking up @" + name);
   var ts = new Date().getTime();
   return this.storage.get_profile_by_name(name).then((profile)=>{
-    if(profile != null){
-      if(ts - profile.timestamp < TWITTER_PROFILE_INTERVAL_MS){
+    if(profile != null) {
+      if(ts - profile.timestamp < TWITTER_PROFILE_INTERVAL_MS) {
         return profile.profile;
       }
     }
@@ -345,7 +345,7 @@ MatrixTwitter.prototype.get_user_by_screenname = function(name) {
  * @param  {type} type  The 'msgtype' of a message.
  * @return {object}     The content of a Matrix 'm.room.message' event.
  */
-MatrixTwitter.prototype.tweet_to_matrix_content = function(tweet, type) {
+MatrixTwitter.prototype.tweet_to_matrix_content = function (tweet, type) {
     return {
         "body": new HTMLDecoder().decode(tweet.text),
         "created_at": tweet.created_at,
@@ -358,11 +358,11 @@ MatrixTwitter.prototype.tweet_to_matrix_content = function(tweet, type) {
 }
 
 //Runs every 500ms to help not overflow the room.
-MatrixTwitter.prototype._process_head_of_msg_queue = function(){
-  if(this.msg_queue.length > 0){
+MatrixTwitter.prototype._process_head_of_msg_queue = function () {
+  if(this.msg_queue.length > 0) {
     var msgs = this.msg_queue.pop();
     //log.info("Twitter","Pulling off queue:",msg.content.body);
-    for(var msg of msgs){
+    for(var msg of msgs) {
       var intent = this._bridge.getIntent(msg.userId);
       intent.sendEvent(msg.roomId, msg.type, msg.content).catch(reason =>{
         log.error("Twitter", "Failed send tweet to room: %s", reason);
@@ -372,7 +372,7 @@ MatrixTwitter.prototype._process_head_of_msg_queue = function(){
 }
 
 
-MatrixTwitter.prototype._push_to_msg_queue = function(muser, roomid, tweet, type) {
+MatrixTwitter.prototype._push_to_msg_queue = function (muser, roomid, tweet, type) {
   var time = Date.parse(tweet.created_at);
   var newmsg = {
     userId:muser,
@@ -384,9 +384,9 @@ MatrixTwitter.prototype._push_to_msg_queue = function(muser, roomid, tweet, type
 
   var media_promises = [];
 
-  if(tweet.entities.hasOwnProperty("media")){
-    for(var media of tweet.entities.media){
-      if(media.type != 'photo'){
+  if(tweet.entities.hasOwnProperty("media")) {
+    for(var media of tweet.entities.media) {
+      if(media.type != 'photo') {
         continue;
       }
       media_promises.push(
@@ -413,8 +413,8 @@ MatrixTwitter.prototype._push_to_msg_queue = function(muser, roomid, tweet, type
 
   return Promise.all(media_promises).then(msgs =>{
     msgs.unshift(newmsg);
-    for(var m in this.msg_queue){
-      if(newmsg.time > this.msg_queue[m].time){
+    for(var m in this.msg_queue) {
+      if(newmsg.time > this.msg_queue[m].time) {
         this.msg_queue.splice(m, 0, msgs);
         return;
       }
@@ -447,7 +447,7 @@ MatrixTwitter.prototype._push_to_msg_queue = function(muser, roomid, tweet, type
  * will be decreased when the function calls itself.
  * @return {Promise[]]}  A promise that resolves once the tweet has been queued.
  */
-MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
+MatrixTwitter.prototype.process_tweet = function (roomid, tweet, depth) {
     depth--;
     var muser = "@twitter_" + tweet.user.id_str + ":" + this._bridge.opts.domain;
 
@@ -463,7 +463,7 @@ MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
             'statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet) => {
             if (!error) {
                 var promise = this.process_tweet(roomid, newtweet, depth)
-                if(promise != null){
+                if(promise != null) {
                   return promise.then(() => {
                         resolve();
                   });
@@ -485,7 +485,7 @@ MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
 
       this._update_user_timeline_profile(tweet.user);
 
-      if(this.processed_tweets.contains(roomid, tweet.text)){
+      if(this.processed_tweets.contains(roomid, tweet.text)) {
         log.info("Twitter", "Repeated tweet detected, not processing");
         return;
       }
@@ -506,21 +506,21 @@ MatrixTwitter.prototype.process_tweet = function(roomid, tweet, depth) {
  * @param  {extenal:MatrixUser} user  The user who sent the event.
  * @param  {extenal:RemoteRoom} room  The remote room that got the message.
  */
-MatrixTwitter.prototype.send_matrix_event_as_tweet = function(event, user, room){
-  if(user == null){
+MatrixTwitter.prototype.send_matrix_event_as_tweet = function (event, user, room) {
+  if(user == null) {
     log.warn("Twitter", "User tried to send a tweet without being known by the AS.");
     return;
   }
-  if(event.content.msgtype == "m.text"){
+  if(event.content.msgtype == "m.text") {
     log.info("Twitter", "Got message: %s", event.content.body);
     var text = event.content.body.substr(0, 140);
     this.send_tweet_to_timeline(room, user, text);
   }
-  else if(event.content.msgtype == "m.image"){
+  else if(event.content.msgtype == "m.image") {
     log.info("Twitter", "Got image: %s", event.content.body);
     //Get the url
     var url = event.content.url;
-    if(url.startsWith("mxc://")){
+    if(url.startsWith("mxc://")) {
       url = this._bridge.opts.homeserverUrl + "/_matrix/media/r0/download/" + url.substr("mxc://".length);
     }
     util.downloadFile(url).then((buffer) =>{
@@ -543,9 +543,9 @@ MatrixTwitter.prototype.send_matrix_event_as_tweet = function(event, user, room)
  * @param  extras                       Extra information to send with the tweet.
  * @param  {string[]} extras.media      Media files to attach to the tweet.
  */
-MatrixTwitter.prototype.send_tweet_to_timeline = function(remote, sender, body, extras){
+MatrixTwitter.prototype.send_tweet_to_timeline = function (remote, sender, body, extras) {
   var type = remote.get("twitter_type");
-  if(!["timeline", "hashtag", "user_timeline"].includes(type)){
+  if(!["timeline", "hashtag", "user_timeline"].includes(type)) {
     log.error("Twitter", "Twitter type was wrong (%s) ", type)
     return;//Where am I meant to send it :(
   }
@@ -554,28 +554,28 @@ MatrixTwitter.prototype.send_tweet_to_timeline = function(remote, sender, body, 
 
   return this._get_twitter_client(sender.getId()).then((c) => {
     client = c;
-    if(type == "timeline"){
+    if(type == "timeline") {
       var timelineID = remote.getId().substr("timeline_".length);
       log.info("Twitter", "Trying to tweet " + timelineID);
       return this.get_profile_by_id(timelineID);
     }
   }).then(tuser => {
     var status = {status:body};
-    if(type == "timeline"){
+    if(type == "timeline") {
       var name = "@"+tuser.screen_name;
-      if(!body.startsWith(name) && client.profile.screen_name != tuser.screen_name){
+      if(!body.startsWith(name) && client.profile.screen_name != tuser.screen_name) {
         status.status = (name + " " + body);
       }
     }
-    else if(type == "hashtag"){
+    else if(type == "hashtag") {
       var htag = "#" + remote.roomId.substr("hashtag_".length);
-      if(!body.toLowerCase().includes(htag.toLowerCase())){
+      if(!body.toLowerCase().includes(htag.toLowerCase())) {
         status.status = (htag + " " + body);
       }
     }
 
-    if(extras !== undefined){
-      if(extras.hasOwnProperty("media")){
+    if(extras !== undefined) {
+      if(extras.hasOwnProperty("media")) {
         status.media_ids = extras.media.join(',');
       }
     }
@@ -584,7 +584,7 @@ MatrixTwitter.prototype.send_tweet_to_timeline = function(remote, sender, body, 
 
     this.processed_tweets.push(remote.roomId, status.status);
     client.post("statuses/update", status, (error) => {
-      if(error){
+      if(error) {
         log.error("Twitter", "Failed to send tweet. %s", error);
         return;
       }
@@ -600,7 +600,7 @@ MatrixTwitter.prototype.send_tweet_to_timeline = function(remote, sender, body, 
   Timeline functions
 */
 
-MatrixTwitter.prototype._process_timeline = function() {
+MatrixTwitter.prototype._process_timeline = function () {
     if (this.timeline_queue.length < 1) {
         return;
     }
@@ -619,12 +619,12 @@ MatrixTwitter.prototype._process_timeline = function() {
     }
 
     this.app_twitter.get('statuses/user_timeline', req, (error, feed) => {
-        if(error){
+        if(error) {
           log.error("Twitter", "_process_timeline: GET /statuses/user_timeline returned: %s", error.msg);
           return;
         }
         if (feed.length > 0) {
-            if(this.msg_queue_intervalID != null){
+            if(this.msg_queue_intervalID != null) {
               clearInterval(this.msg_queue_intervalID);
               this.msg_queue_intervalID = null;
             }
@@ -653,7 +653,7 @@ MatrixTwitter.prototype._process_timeline = function() {
  *                         be a bridge user.
  * @param  {external:Entry} entry The entry for a room in the RoomBridgeStore.
  */
-MatrixTwitter.prototype.add_timeline = function(userid, entry) {
+MatrixTwitter.prototype.add_timeline = function (userid, entry) {
     var obj = {
         "user_id": userid,
         "entry":entry
@@ -671,7 +671,7 @@ MatrixTwitter.prototype.add_timeline = function(userid, entry) {
  * @param  {type} userid The Matrix user_id of the timeline owner. This would
  *                       be a bridge user.
  */
-MatrixTwitter.prototype.remove_timeline = function(userid){
+MatrixTwitter.prototype.remove_timeline = function (userid) {
   const tlfind = (tline) => { tline.user_id == userid };
   this.timeline_list  = this.timeline_list.splice(this.timeline_list.findIndex(tlfind), 1);
   this.timeline_queue = this.timeline_queue.splice(this.timeline_queue.findIndex(tlfind), 1);
@@ -682,7 +682,7 @@ MatrixTwitter.prototype.remove_timeline = function(userid){
  * MatrixTwitter.prototype.stop_timeline - Stop the timeline timer so that
  * timelines are no longer processed.
  */
-MatrixTwitter.prototype.stop_timeline = function() {
+MatrixTwitter.prototype.stop_timeline = function () {
     if (this.timeline_intervalID) {
         clearInterval(this.timeline_intervalID);
         this.timeline_intervalID = null;
@@ -694,7 +694,7 @@ MatrixTwitter.prototype.stop_timeline = function() {
  * MatrixTwitter.prototype.start_timeline - Start the timeline timer so that
  * timelines will be processed in turn.
  */
-MatrixTwitter.prototype.start_timeline = function() {
+MatrixTwitter.prototype.start_timeline = function () {
     this.timeline_intervalID = setInterval(() => {this._process_timeline();}, this.timeline_period);
 }
 
@@ -707,7 +707,7 @@ MatrixTwitter.prototype.start_timeline = function() {
  * MatrixTwitter.prototype.start_hashtag - Start the hashtag timer so that
  * hashtags are processed in turn.
  */
-MatrixTwitter.prototype.start_hashtag = function(){
+MatrixTwitter.prototype.start_hashtag = function () {
   this.hashtag_intervalID = setInterval(() => {this._process_hashtag_feed();}, this.hashtag_period);
 }
 
@@ -715,7 +715,7 @@ MatrixTwitter.prototype.start_hashtag = function(){
  * MatrixTwitter.prototype.stop_hashtag - Stop the hashtag timer so that
  * hashtags are no longer processed.
  */
-MatrixTwitter.prototype.stop_hashtag = function(){
+MatrixTwitter.prototype.stop_hashtag = function () {
     if (this.hashtag_intervalID) {
         clearInterval(this.hashtag_intervalID);
         this.hashtag_intervalID = null;
@@ -729,7 +729,7 @@ MatrixTwitter.prototype.stop_hashtag = function(){
  * @param  {string} hashtag The hasgtag to add (without the #).
  * @param  {external:Entry} entry The entry for a room in the RoomBridgeStore.
  */
-MatrixTwitter.prototype.add_hashtag_feed = function(hashtag, entry){
+MatrixTwitter.prototype.add_hashtag_feed = function (hashtag, entry) {
     var obj = {
         "hashtag": hashtag,
         "entry": entry
@@ -746,13 +746,13 @@ MatrixTwitter.prototype.add_hashtag_feed = function(hashtag, entry){
  *
  * @param  {string} hashtag The hasgtag to remove (without the #).
  */
-MatrixTwitter.prototype.remove_hashtag_feed = function(hashtag){
+MatrixTwitter.prototype.remove_hashtag_feed = function (hashtag) {
   const htfind = (feed) => { feed.hashtag == hashtag };
   this.hashtag_list  = this.hashtag_list.splice( this.hashtag_list.findIndex(htfind), 1);
   this.hashtag_queue = this.hashtag_queue.splice(this.hashtag_queue.findIndex(htfind), 1);
 }
 
-MatrixTwitter.prototype._process_hashtag_feed = function(){
+MatrixTwitter.prototype._process_hashtag_feed = function () {
   if (this.hashtag_queue.length < 1) {
       return;
   }
@@ -768,11 +768,11 @@ MatrixTwitter.prototype._process_hashtag_feed = function(){
   }
 
   this.app_twitter.get('search/tweets', req, (error, results) => {
-      if(error){
+      if(error) {
         log.error("Twitter", "_process_timeline: GET /statuses/user_timeline returned: %s", error);
         return;
       }
-      if(results.statuses.length > 0){
+      if(results.statuses.length > 0) {
         feed.entry.remote.set("twitter_since", results.search_metadata.max_id_str);
         this._bridge.getRoomStore().upsertEntry(feed.entry);
       }
@@ -796,25 +796,25 @@ MatrixTwitter.prototype._process_hashtag_feed = function(){
  * @param  {string} user The user's matrix ID.
  * @return {Promise}   A Promise that will resolve with the operation completes.
  */
-MatrixTwitter.prototype.attach_user_stream = function(user){
-  if(this.user_streams.hasOwnProperty(user)){
+MatrixTwitter.prototype.attach_user_stream = function (user) {
+  if(this.user_streams.hasOwnProperty(user)) {
     log.warn("Twitter", "Not attaching stream since we already have one connected!");
   }
   return this._get_twitter_client(user).then((c) => {
     var stream = c.stream('user', {with: "followings"});
     log.info("Twitter", "Attached stream for " + user);
     stream.on('data',  (data) => {
-      if(data.hasOwnProperty("direct_message")){
+      if(data.hasOwnProperty("direct_message")) {
         this._process_incoming_dm(data.direct_message);
       }
-      else if (data.hasOwnProperty("warning")){
+      else if (data.hasOwnProperty("warning")) {
         log.warn("Twitter.UserStream", "%s : %s", data.warning.code, data.warning.message);
       }
-      else if (data.hasOwnProperty("id")){ //Yeah..the only way to know if it's a tweet is to check if the ID field is set at the root level.
+      else if (data.hasOwnProperty("id")) { //Yeah..the only way to know if it's a tweet is to check if the ID field is set at the root level.
         this._push_to_user_timeline(user, data);
       }
     });
-    stream.on('error', function(error) {
+    stream.on('error', function (error) {
      log.error("Twitter", "Stream gave an error %s", error);
     });
     this.user_streams[user] = stream;
@@ -829,9 +829,9 @@ MatrixTwitter.prototype.attach_user_stream = function(user){
  *
  * @param  {string} user The user's matrix ID.
  */
-MatrixTwitter.prototype.detach_user_stream = function(user){
+MatrixTwitter.prototype.detach_user_stream = function (user) {
 log.info("Twitter", "Detached stream for " + user);
-  if(this.user_streams.hasOwnProperty(user)){
+  if(this.user_streams.hasOwnProperty(user)) {
     this.user_streams[user].destroy();
     delete this.user_streams[user];
   }
@@ -846,10 +846,10 @@ log.info("Twitter", "Detached stream for " + user);
  * @param  {object}      The user's Twitter profile.
  * @return {Promise}     A promise that returns once the operation has completed.
  */
-MatrixTwitter.prototype.create_user_timeline = function(user, profile){
+MatrixTwitter.prototype.create_user_timeline = function (user, profile) {
   //Check if room exists.
   return this.storage.get_timeline_room(user).then(value =>{
-    if(value == null){
+    if(value == null) {
       var intent = this._get_intent(profile.id_str);
       //Create the room
       return intent.createRoom(
@@ -883,9 +883,9 @@ MatrixTwitter.prototype.create_user_timeline = function(user, profile){
 
 }
 
-MatrixTwitter.prototype._push_to_user_timeline = function(user, msg){
+MatrixTwitter.prototype._push_to_user_timeline = function (user, msg) {
   this.storage.get_timeline_room(user).then(value =>{
-    if(value){
+    if(value) {
       this.process_tweet(value, msg, TWEET_REPLY_MAX_DEPTH);
       return;
     }
@@ -893,7 +893,7 @@ MatrixTwitter.prototype._push_to_user_timeline = function(user, msg){
   });
 }
 
-MatrixTwitter.prototype._create_dm_room = function(msg){
+MatrixTwitter.prototype._create_dm_room = function (msg) {
   log.info(
     "Twitter.DM",
     "Creating a new room for DMs from %s(%s) => %s(%s)",
@@ -909,8 +909,8 @@ MatrixTwitter.prototype._create_dm_room = function(msg){
     var invitees = new Set([
       "@twitter_" + msg.recipient_id_str + ":" + this._bridge.opts.domain
     ]);
-    for(var user_id of user_ids){
-      if(user_id != null){
+    for(var user_id of user_ids) {
+      if(user_id != null) {
         invitees.add(user_id);
       }
     }
@@ -940,19 +940,19 @@ MatrixTwitter.prototype._create_dm_room = function(msg){
   });
 }
 
-MatrixTwitter.prototype._process_incoming_dm = function(msg){
+MatrixTwitter.prototype._process_incoming_dm = function (msg) {
   var users = [msg.sender_id_str, msg.recipient_id_str].sort().join('');
 
   this._update_user_timeline_profile(msg.sender);
   this._update_user_timeline_profile(msg.recipient);
 
-  if(this.sent_dms.contains(users, msg.text)){
+  if(this.sent_dms.contains(users, msg.text)) {
     log.info("Twitter.DM", "DM has already been processed, ignoring.");
     return;
   }
 
   this.storage.get_dm_room(users).then(room_id =>{
-    if(room_id){
+    if(room_id) {
       this._put_dm_in_room(room_id, msg);
       return;
     }
@@ -973,7 +973,7 @@ MatrixTwitter.prototype._process_incoming_dm = function(msg){
 
 }
 
-MatrixTwitter.prototype._put_dm_in_room = function(room_id, msg){
+MatrixTwitter.prototype._put_dm_in_room = function (room_id, msg) {
   var intent = this._get_intent(msg.sender_id_str);
   log.info(
     "Twitter.DM",
@@ -996,12 +996,12 @@ MatrixTwitter.prototype._put_dm_in_room = function(room_id, msg){
  * @return {Promise}           A promise that will resolve when the operation
  * completes
  */
-MatrixTwitter.prototype.send_dm = function(user_id, room_id, text){
+MatrixTwitter.prototype.send_dm = function (user_id, room_id, text) {
   //Get the users from the room
   var users = "";
   return this.storage.get_users_from_dm_room(room_id).then(u =>{
     users = u;
-    if(users == null){
+    if(users == null) {
       log.error(
         "Twitter.DM",
         ("User (%s) tried to send a DM to (%s) but the room was not found in" +
@@ -1021,7 +1021,7 @@ MatrixTwitter.prototype.send_dm = function(user_id, room_id, text){
     );
     this.sent_dms.push(users, text);
     client.post("direct_messages/new", {user_id:otheruser, text:text}, (error) =>{
-      if(error){
+      if(error) {
         log.error("Twitter.DM", "direct_messages/new failed. Reason: %s", error);
       }
     });

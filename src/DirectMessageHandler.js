@@ -13,7 +13,7 @@ var DirectMessage = function (bridge, twitter) {
 }
 
 DirectMessage.prototype.processMessage = function (event) {
-    if(event.content.msgtype == "m.text"){
+    if(event.content.msgtype == "m.text") {
       this.twitter.send_dm(event.sender, event.room_id, event.content.body);
     }
 }

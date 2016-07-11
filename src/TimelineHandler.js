@@ -17,7 +17,7 @@ var TimelineHandler = function (bridge, twitter) {
 }
 
 
-TimelineHandler.prototype.onRoomCreated = function(alias, entry){
+TimelineHandler.prototype.onRoomCreated = function (alias, entry) {
     var owner = entry.remote.data.twitter_user;
     var intent = this._bridge.getIntent(owner);
     intent.getClient().getProfileInfo(owner, 'avatar_url').then((content) =>
@@ -44,7 +44,7 @@ TimelineHandler.prototype.processMessage = function (event, request, context) {
   this.twitter.send_matrix_event_as_tweet(event, context.senders.matrix, context.rooms.remote);
 }
 
-TimelineHandler.prototype.processAliasQuery = function(alias){
+TimelineHandler.prototype.processAliasQuery = function (alias) {
   //Create the room
   log.info("Handler.TimelineHandler", "Looking up " + alias);
   return this.twitter.get_user_by_screenname(alias).then((tuser) => {
@@ -68,7 +68,7 @@ TimelineHandler.prototype.processAliasQuery = function(alias){
   The owner of this stream will receive a 75
   The bot will have 100
 */
-TimelineHandler.prototype._constructTimelineRoom = function(user, alias) {
+TimelineHandler.prototype._constructTimelineRoom = function (user, alias) {
     var botID = this._bridge.getBot().getUserId();
 
     var roomOwner = "@twitter_" + user.id_str + ":" + this._bridge.opts.domain;
@@ -106,7 +106,7 @@ TimelineHandler.prototype._constructTimelineRoom = function(user, alias) {
     };
 }
 
-function roomPowers(users) {
+function roomPowers (users) {
     return {
         "content": {
             "ban": 50,
