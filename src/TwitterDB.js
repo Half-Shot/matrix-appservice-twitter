@@ -11,6 +11,7 @@ var TwitterDB = function (filepath) {
   this.db = new SQLite3.Database(filepath, (err) => {
     if(err) {
       log.error("TwitDB", "Error opening database, %s");
+      throw "Couldn't open database. The appservice won't be able to continue.";
     }
   });
 }
@@ -22,10 +23,40 @@ var TwitterDB = function (filepath) {
  */
 TwitterDB.prototype.init = function () {
   log.info("TwitDB", "Starting DB Init");
-  this._create_profile_cache();
-  this._create_twitter_table();
-  this._create_dm_room_table();
-  this._create_timeline_table();
+  this._create(`
+    CREATE TABLE IF NOT EXISTS user_cache (
+      id	INTEGER UNIQUE NOT NULL,
+      screenname TEXT NOT NULL,
+      profile	TEXT NOT NULL,
+      timestamp	INTEGER NOT NULL,
+      PRIMARY KEY(id)
+    )
+    `, "user_cache");
+  this._create(`
+    CREATE TABLE IF NOT EXISTS twitter_account (
+      user_id	TEXT UNIQUE NOT NULL,
+      oauth_token TEXT,
+      oauth_secret	TEXT,
+      access_token TEXT,
+      access_token_secret	TEXT,
+      twitter_id	INTEGER,
+      PRIMARY KEY(user_id)
+    )
+    `, "twitter_account");
+  this._create(`
+    CREATE TABLE IF NOT EXISTS timeline_room (
+      user_id	TEXT UNIQUE NOT NULL,
+      room_id	TEXT NOT NULL,
+      PRIMARY KEY(user_id)
+    )
+    `, "timeline_room");
+  this._create(`
+    CREATE TABLE IF NOT EXISTS dm_room (
+    	room_id	TEXT NOT NULL,
+    	users	TEXT NOT NULL,
+    	PRIMARY KEY(room_id)
+    );
+    `, "dm_room");
 }
 
 TwitterDB.prototype.get_profile_by_id = function (id) {
@@ -98,7 +129,7 @@ TwitterDB.prototype.get_profile_by_name = function (name) {
 }
 
 /**
- * TwitterDB.prototype.set_twitter_profile - Insert/Update a Twitter profile
+ * TwitterDB.prototype.cache_user_profile - Insert/Update a Twitter profile
  * into the database.
  * @function
  * @param  {type} id          Twitter ID of the profile.
@@ -106,10 +137,10 @@ TwitterDB.prototype.get_profile_by_name = function (name) {
  * @param  {object} data      The profile data.
  * @param  {number} timestamp The time when this data was *fetched*.
  */
-TwitterDB.prototype.set_twitter_profile = function (id, name, data, timestamp) {
+TwitterDB.prototype.cache_user_profile = function (id, name, data, timestamp) {
   this.db.run(
     `
-    REPLACE INTO user_cache VALUES ($id,$name,$data,$timestamp);
+    REPLACE INTO user_cache (id,screenname,profile,timestamp) VALUES ($id,$name,$data,$timestamp);
     `
   , {
     $id: id,
@@ -125,7 +156,7 @@ TwitterDB.prototype.set_twitter_profile = function (id, name, data, timestamp) {
   });
 }
 
-TwitterDB.prototype.get_client_data = function (user_id) {
+TwitterDB.prototype.get_twitter_account = function (user_id) {
   return new Promise((resolve, reject) =>{
     this.db.get(
       `
@@ -152,15 +183,15 @@ TwitterDB.prototype.get_client_data = function (user_id) {
 }
 
 TwitterDB.prototype.get_matrixid_from_twitterid = function (twitter_id) {
-return new Promise((resolve, reject) =>{
-  this.db.get(
+  return new Promise((resolve, reject) =>{
+    this.db.get(
     `
     SELECT user_id
     FROM twitter_account
     WHERE twitter_id = $id
     `
     , {
-      $id:twitter_id
+      $id: twitter_id
     }, (err, row) =>{
       if(err != null) {
         log.error("TwitDB", "Error retrieving linked userid: %s", err.Error);
@@ -201,32 +232,43 @@ TwitterDB.prototype.get_linked_user_ids = function () {
   });
 }
 
-TwitterDB.prototype.set_client_data = function (user_id, twitter_id, data) {
-  this.db.run(
-    `
-    REPLACE INTO twitter_account VALUES (
-      $user_id,
-      $oauth_token,
-      $oauth_secret,
-      $access_token,
-      $access_token_secret,
-      $twitter_id
-    );
-    `
-  , {
-    $user_id: user_id,
-    $twitter_id: twitter_id,
-    $oauth_token: data.oauth_token,
-    $oauth_secret: data.oauth_secret,
-    $access_token: data.access_token,
-    $access_token_secret: data.access_token_secret
-  },
-  function (err) {
-    if(err) {
-      log.error("TwitDB", "Error storing client data: %s", err);
-      return;
-    }
-    log.info("TwitDB", "Stored client data for %s", user_id);
+TwitterDB.prototype.set_twitter_account = function (user_id, twitter_id, data) {
+  return new Promise((resolve, reject) => {
+    this.db.run(
+      `
+      REPLACE INTO twitter_account (
+        user_id,
+        oauth_token,
+        oauth_secret,
+        access_token,
+        access_token_secret,
+        twitter_id
+      ) VALUES (
+        $user_id,
+        $oauth_token,
+        $oauth_secret,
+        $access_token,
+        $access_token_secret,
+        $twitter_id
+      );
+      `
+    , {
+      $user_id: user_id,
+      $twitter_id: twitter_id,
+      $oauth_token: data.oauth_token,
+      $oauth_secret: data.oauth_secret,
+      $access_token: data.access_token,
+      $access_token_secret: data.access_token_secret
+    },
+    (err) => {
+      if(err) {
+        log.error("TwitDB", "Error storing client data: %s", err);
+        reject(err);
+        return;
+      }
+      log.info("TwitDB", "Stored client data for %s", user_id);
+      resolve();
+    });
   });
 }
 
@@ -239,7 +281,7 @@ TwitterDB.prototype.get_timeline_room = function (user_id) {
       WHERE user_id = $user_id;
       `
     , {
-      $user_id:user_id
+      $user_id: user_id
     }, (err, row) =>{
       if(err != null) {
         log.error("TwitDB", "Error retrieving timeline room: %s", err.Error);
@@ -256,18 +298,23 @@ TwitterDB.prototype.get_timeline_room = function (user_id) {
 }
 
 TwitterDB.prototype.set_timeline_room = function (user_id, room_id) {
-  this.db.run(
-    `
-    REPLACE INTO timeline_room
-    VALUES ($user_id,$room_id)
-    `
-  , {
-    $user_id:user_id,
-    $room_id:room_id
-  }, (err) =>{
-    if(err != null) {
-      log.error("TwitDB", "Error storing timeline room for user: %s", err);
-    }
+  return new Promise((resolve, reject) => {
+    this.db.run(
+      `
+      REPLACE INTO timeline_room (user_id,room_id)
+      VALUES ($user_id,$room_id)
+      `
+    , {
+      $user_id: user_id,
+      $room_id: room_id
+    }, (err) =>{
+      if(err != null) {
+        log.error("TwitDB", "Error storing timeline room for user: %s", err);
+        reject(err);
+        return;
+      }
+      resolve();
+    });
   });
 }
 
@@ -278,7 +325,7 @@ TwitterDB.prototype.remove_timeline_room = function (user_id) {
     WHERE timeline_room.user_id = $user_id;
     `
   , {
-    $user_id:user_id
+    $user_id: user_id
   }, (err) =>{
     if(err != null) {
       log.error("TwitDB", "Error deleting timeline room for user: %s", err);
@@ -293,7 +340,7 @@ TwitterDB.prototype.remove_client_data = function (user_id) {
     WHERE twitter_account.user_id = $user_id;
     `
   , {
-    $user_id:user_id
+    $user_id: user_id
   }, (err) =>{
     if(err != null) {
       log.error("TwitDB", "Error deleting client data for user: %s", err);
@@ -357,100 +404,35 @@ TwitterDB.prototype.get_users_from_dm_room = function (room_id) {
 
 TwitterDB.prototype.add_dm_room = function (room_id, users) {
   log.info("TwitDB", "Storing dm room %s", room_id);
-  this.db.run(
-    `
-    INSERT INTO dm_room VALUES ($room_id,$users);
-    `
-  , {
-    $room_id: room_id,
-    $users: users
-  },
-  function (err) {
-    if(err) {
-      log.error("TwitDB", "Error storing dm room: %s", err);
-      return;
-    }
-    log.info("TwitDB", "Stored dm room %s", room_id);
+  return new Promise((resolve, reject) => {
+    this.db.run(
+      `
+      INSERT INTO dm_room (room_id,users) VALUES ($room_id,$users);
+      `
+    , {
+      $room_id: room_id,
+      $users: users
+    },
+    (err) => {
+      if(err) {
+        log.error("TwitDB", "Error storing dm room: %s", err);
+        reject(err);
+        return;
+      }
+      log.info("TwitDB", "Stored dm room %s", room_id);
+      resolve();
+    });
   });
 }
 
-//Caches every user profile we grab from Twitter so as to not go over our limits.
-TwitterDB.prototype._create_profile_cache = function () {
-  this.db.run(
-    `
-    CREATE TABLE IF NOT EXISTS user_cache (
-    	id	INTEGER UNIQUE NOT NULL,
-      screenname TEXT NOT NULL,
-    	profile	TEXT NOT NULL,
-    	timestamp	INTEGER NOT NULL,
-    	PRIMARY KEY(id)
-    )
-    `,
-    function (err) {
-      if(err) {
-        throw "Error creating 'user_cache': "+err;
-      }
-    }
-  );
-}
 
-//Keeps track of links between matrix users and their accounts
-TwitterDB.prototype._create_twitter_table = function () {
-  this.db.run(
-    `
-    CREATE TABLE IF NOT EXISTS twitter_account (
-      user_id	TEXT UNIQUE NOT NULL,
-      oauth_token TEXT,
-      oauth_secret	TEXT,
-      access_token TEXT,
-      access_token_secret	TEXT,
-      twitter_id	INTEGER,
-      PRIMARY KEY(user_id)
-    )
-    `,
-    function (err) {
-      if(err) {
-        throw "Error creating 'twitter_account': "+err;
-      }
+TwitterDB.prototype._create = function (tablename, statement) {
+  this.db.run(statement, (err) => {
+    if(err) {
+      throw "Error creating 'twitter_account': "+err;
     }
-  );
+  });
 }
-
-//Keeps track of links between matrix users and their accounts
-TwitterDB.prototype._create_timeline_table = function () {
-  this.db.run(
-    `
-    CREATE TABLE IF NOT EXISTS timeline_room (
-      user_id	TEXT UNIQUE NOT NULL,
-      room_id	TEXT NOT NULL,
-      PRIMARY KEY(user_id)
-    )
-    `,
-    function (err) {
-      if(err) {
-        throw "Error creating 'twitter_account': "+err;
-      }
-    }
-  );
-}
-
-TwitterDB.prototype._create_dm_room_table = function () {
-  this.db.run(
-    `
-    CREATE TABLE IF NOT EXISTS dm_room (
-    	room_id	TEXT NOT NULL,
-    	users	TEXT NOT NULL,
-    	PRIMARY KEY(room_id)
-    );
-    `,
-    function (err) {
-      if(err) {
-        throw "Error creating 'dm_room': "+err;
-      }
-    }
-  );
-}
-
 
 TwitterDB.prototype.close = function () {
   this.db.close();
