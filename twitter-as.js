@@ -21,116 +21,116 @@ var twitter;
 var bridge;
 
 new Cli({
-    registrationPath: "twitter-registration.yaml",
-    bridgeConfig: {
-        schema: "config.yaml",
-        defaults: {
-            test: "ABC"
-        }
-    },
-    generateRegistration: function (reg, callback) {
-        reg.setId(AppServiceRegistration.generateToken());
-        reg.setHomeserverToken(AppServiceRegistration.generateToken());
-        reg.setAppServiceToken(AppServiceRegistration.generateToken());
-        reg.setSenderLocalpart("twitbot");
-        reg.addRegexPattern("users", "@twitter_.*", true);
-        reg.addRegexPattern("aliases", "#twitter_@.*", true);
-        reg.addRegexPattern("aliases", "#twitter_#.*", true);
+  registrationPath: "twitter-registration.yaml",
+  bridgeConfig: {
+    schema: "config.yaml",
+    defaults: {
+      test: "ABC"
+    }
+  },
+  generateRegistration: function (reg, callback) {
+    reg.setId(AppServiceRegistration.generateToken());
+    reg.setHomeserverToken(AppServiceRegistration.generateToken());
+    reg.setAppServiceToken(AppServiceRegistration.generateToken());
+    reg.setSenderLocalpart("twitbot");
+    reg.addRegexPattern("users", "@twitter_.*", true);
+    reg.addRegexPattern("aliases", "#twitter_@.*", true);
+    reg.addRegexPattern("aliases", "#twitter_#.*", true);
         /* Currently not in use */
         //reg.addRegexPattern("aliases", "#twitter_DM.*", true);
-        callback(reg);
-    },
-    run: function (port, config) {
+    callback(reg);
+  },
+  run: function (port, config) {
 
         //Read registration file
 
-        var regObj = yaml.safeLoad(fs.readFileSync("twitter-registration.yaml", 'utf8'));
-        regObj = AppServiceRegistration.fromObject(regObj);
-        if (regObj === null) {
-            throw new Error("Failed to parse registration file");
-        }
+    var regObj = yaml.safeLoad(fs.readFileSync("twitter-registration.yaml", 'utf8'));
+    regObj = AppServiceRegistration.fromObject(regObj);
+    if (regObj === null) {
+      throw new Error("Failed to parse registration file");
+    }
 
-        var room_handler;
+    var room_handler;
 
-        var clientFactory = new ClientFactory(
-          {
-            sdk:require("matrix-js-sdk"),
-            url: config.bridge.homeserverUrl,
-            token:regObj.as_token,
-            appServiceUserId: "@" + regObj.sender_localpart + ":" + config.bridge.domain
-          }
+    var clientFactory = new ClientFactory(
+      {
+        sdk: require("matrix-js-sdk"),
+        url: config.bridge.homeserverUrl,
+        token: regObj.as_token,
+        appServiceUserId: "@" + regObj.sender_localpart + ":" + config.bridge.domain
+      }
         );
 
-        bridge = new Bridge({
-            homeserverUrl: config.bridge.homeserverUrl,
-            domain: config.bridge.domain,
-            registration: regObj,
-            controller: {
-                onUserQuery: userQuery,
-                onEvent: (request, context) => { room_handler.passEvent(request, context); },
-                onAliasQuery: (alias, aliasLocalpart) => {
-                   return room_handler.processAliasQuery(alias, aliasLocalpart);
-                },
-                onAliasQueried: (alias, roomId) => { return room_handler.onRoomCreated(alias, roomId); },
-                onLog: function (line, isError) {
-                  if(isError) {
-                    if(line.indexOf("M_USER_IN_USE") == -1) {//QUIET!
-                        log.error("matrix-appservice-bridge", line);
-                    }
-                  }
-                }
-            },
+    bridge = new Bridge({
+      homeserverUrl: config.bridge.homeserverUrl,
+      domain: config.bridge.domain,
+      registration: regObj,
+      controller: {
+        onUserQuery: userQuery,
+        onEvent: (request, context) => { room_handler.passEvent(request, context); },
+        onAliasQuery: (alias, aliasLocalpart) => {
+          return room_handler.processAliasQuery(alias, aliasLocalpart);
+        },
+        onAliasQueried: (alias, roomId) => { return room_handler.onRoomCreated(alias, roomId); },
+        onLog: function (line, isError) {
+          if(isError) {
+            if(line.indexOf("M_USER_IN_USE") == -1) {//QUIET!
+              log.error("matrix-appservice-bridge", line);
+            }
+          }
+        }
+      },
             // Fix to use our own JS SDK due to a bug in 0.4.1
-            clientFactory: clientFactory
-        });
-        log.info("AppServ", "Matrix-side listening on port %s", port);
+      clientFactory: clientFactory
+    });
+    log.info("AppServ", "Matrix-side listening on port %s", port);
         //Setup twitter
 
-        var tstorage = new TwitterDB('twitter.db');
-        tstorage.init();
+    var tstorage = new TwitterDB('twitter.db');
+    tstorage.init();
 
-        twitter = new MatrixTwitter(bridge, config, tstorage);
-        var opt = {
-          bridge:bridge,
-          app_auth:config.app_auth,
-          storage:tstorage,
-          twitter:twitter
-        }
-        room_handler = new TwitterRoomHandler(bridge,
-          {
-            services: new AccountServices(opt),
-            timeline: new TimelineHandler(bridge, twitter),
-            hashtag: new HashtagHandler(bridge, twitter),
-            directmessage: new DirectMessageHandler(bridge, twitter)
-          }
-        );
-
-        var roomstore;
-        twitter.start().then(() => {
-          bridge.run(port, config);
-          return bridge.loadDatabases();
-        }).then(() => {
-          roomstore = bridge.getRoomStore();//changed
-          tstorage.get_linked_user_ids().then(ids =>{
-            ids.forEach((value) => {
-              twitter.attach_user_stream(value);
-            });
-          });
-          return roomstore.getEntriesByMatrixRoomData({});
-        }).then((entries) => {
-          entries.forEach((entry) => {
-            if (entry.remote.data.hasOwnProperty('twitter_type')) {
-              var type = entry.remote.data.twitter_type;
-              if(type == 'timeline') {
-                twitter.add_timeline(entry.remote.data.twitter_user, entry);
-              }
-              else if(type == 'hashtag') {
-                twitter.add_hashtag_feed(entry.remote.roomId.substr("hashtag_".length), entry);
-              }
-            }
-          });
-        });
+    twitter = new MatrixTwitter(bridge, config, tstorage);
+    var opt = {
+      bridge: bridge,
+      app_auth: config.app_auth,
+      storage: tstorage,
+      twitter: twitter
     }
+    room_handler = new TwitterRoomHandler(bridge,
+      {
+        services: new AccountServices(opt),
+        timeline: new TimelineHandler(bridge, twitter),
+        hashtag: new HashtagHandler(bridge, twitter),
+        directmessage: new DirectMessageHandler(bridge, twitter)
+      }
+    );
+
+    var roomstore;
+    twitter.start().then(() => {
+      bridge.run(port, config);
+      return bridge.loadDatabases();
+    }).then(() => {
+      roomstore = bridge.getRoomStore();//changed
+      tstorage.get_linked_user_ids().then(ids =>{
+        ids.forEach((value) => {
+          twitter.attach_user_stream(value);
+        });
+      });
+      return roomstore.getEntriesByMatrixRoomData({});
+    }).then((entries) => {
+      entries.forEach((entry) => {
+        if (entry.remote.data.hasOwnProperty('twitter_type')) {
+          var type = entry.remote.data.twitter_type;
+          if(type == 'timeline') {
+            twitter.add_timeline(entry.remote.data.twitter_user, entry);
+          }
+          else if(type == 'hashtag') {
+            twitter.add_hashtag_feed(entry.remote.roomId.substr("hashtag_".length), entry);
+          }
+        }
+      });
+    });
+  }
 }).run();
 
 
@@ -152,7 +152,7 @@ function userQuery (queriedUser) {
       };
     });
   }).catch((error) => {
-      log.error("UserQuery", "Couldn't find the user.\nReason: %s", error);
-      return null;
+    log.error("UserQuery", "Couldn't find the user.\nReason: %s", error);
+    return null;
   });
 }

@@ -11,6 +11,7 @@
 
     rules: {
       prefer-const: 2,
+      curly: "error",
       max-len: ["error", {
         code: 120,
         ignoreComments: true,
@@ -21,6 +22,11 @@
       }],
       space-before-blocks: "error",
       space-before-function-paren: "error",
-      comma-style: ["error", "last"]
+      comma-style: ["error", "last"],
+      indent: ["error", 2],
+      key-spacing: ["error", {
+        "beforeColon": false,
+        "afterColon": true
+      }]
     }
 }

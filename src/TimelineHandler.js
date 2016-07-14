@@ -1,7 +1,6 @@
 var log  = require('npmlog');
-
+var util  = require('./util.js');
 var RemoteRoom  = require("matrix-appservice-bridge").RemoteRoom;
-var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
 
 /**
  * TimelineHandler - Handler for timeline room creation and messaging
@@ -12,50 +11,62 @@ var TwitterHandler = require('./TwitterHandler.js').TwitterHandler;
  * @param  {matrix-appservice-bridge.Bridge}   bridge
  */
 var TimelineHandler = function (bridge, twitter) {
-  TwitterHandler.call(this, bridge, "@", "timeline");
+  this._bridge = bridge;
   this.twitter = twitter;
 }
 
+/**
+ * TwitterHandler.prototype.onRoomCreated - The is called once a room provisoned
+ * by processAliasQuery has been created.
 
+ * @param  {string} alias
+ * @param  {external:RoomBridgeStore.Entry} entry description
+ */
 TimelineHandler.prototype.onRoomCreated = function (alias, entry) {
-    var owner = entry.remote.data.twitter_user;
-    var intent = this._bridge.getIntent(owner);
-    intent.getClient().getProfileInfo(owner, 'avatar_url').then((content) =>
-    {
-        if (typeof content.avatar_url != "string")
-        {
-            log.error("Handler.Timeline", "User", owner, "does not have an avatar set. This is unexpected.");
-            return;
-        }
-        log.info("Handler.Timeline", "Set Room Avatar:", content.avatar_url);
-        intent.sendStateEvent(entry.matrix.getId(), "m.room.avatar", "",
-        {
-            "url": content.avatar_url
-        });
-    });
-
-    this.twitter.add_timeline(
+  this.twitter.add_timeline(
       entry.remote.data.twitter_user,
       entry
-    );
+  );
 }
 
+/**
+ * TwitterHandler.prototype.processMessage - Handler for events of type
+ * 'm.room.message'. The handler does not have to act on these.
+ *
+ * @param  {object} event   The event data of the request.
+ * @param  {object} request The request itself.
+ * @param  {object} context Context given by the appservice.
+ */
 TimelineHandler.prototype.processMessage = function (event, request, context) {
   this.twitter.send_matrix_event_as_tweet(event, context.senders.matrix, context.rooms.remote);
 }
 
+/**
+ * TwitterHandler.prototype.processAliasQuery - A request to this handler to
+ * provision a room for the given name *after* the global alias prefix.
+ *
+ * @param  {type} name The requested name *after* '#twitter_'
+ * @return {ProvisionedRoom | Promise<ProvisionedRoom,Error>, null}
+ */
 TimelineHandler.prototype.processAliasQuery = function (alias) {
   //Create the room
   log.info("Handler.TimelineHandler", "Looking up " + alias);
-  return this.twitter.get_user_by_screenname(alias).then((tuser) => {
-      if (tuser != null) {
-          if (!tuser.protected) {
-              return this._constructTimelineRoom(tuser, alias);
-          }
-          log.warn("Handler.Timeline", tuser.screen_name + " is a protected account, so we can't read from it.");
+  var tuser;
+  return this.twitter.get_user_by_screenname(alias).then((tu) => {
+    tuser = tu;
+    if (tuser != null) {
+      if (tuser.protected) {
+        log.warn("Handler.Timeline", tuser.screen_name + " is a protected account, so we can't read from it.");
+        throw "User is protected, can't create timeline."
       }
-      log.warn("Handler.Timeline", tuser.screen_name + " was not found.");
-
+      return;
+    }
+    log.warn("Handler.Timeline", tuser.screen_name + " was not found.");
+    throw "User not found";
+  }).then(() => {
+    return util.uploadContentFromUrl(this._bridge, tuser.profile_image_url_https).then(mxc_url =>{
+      return this._constructTimelineRoom(tuser, alias, mxc_url);
+    })
   }).catch(reason =>{
     log.error("Twitter", "Couldn't create timeline room: ", reason);
   });
@@ -68,70 +79,76 @@ TimelineHandler.prototype.processAliasQuery = function (alias) {
   The owner of this stream will receive a 75
   The bot will have 100
 */
-TimelineHandler.prototype._constructTimelineRoom = function (user, alias) {
-    var botID = this._bridge.getBot().getUserId();
+TimelineHandler.prototype._constructTimelineRoom = function (user, alias, avatar) {
+  var botID = this._bridge.getBot().getUserId();
 
-    var roomOwner = "@twitter_" + user.id_str + ":" + this._bridge.opts.domain;
-    var users = {};
-    users[botID] = 100;
-    users[roomOwner] = 75;
-    var powers = roomPowers(users);
-    var remote = new RemoteRoom("timeline_" + user.id_str);
-    remote.set("twitter_type", "timeline");
-    remote.set("twitter_user", roomOwner);
+  var roomOwner = "@twitter_" + user.id_str + ":" + this._bridge.opts.domain;
+  var users = {};
+  users[botID] = 100;
+  users[roomOwner] = 75;
+  var powers = roomPowers(users);
+  var remote = new RemoteRoom("timeline_" + user.id_str);
+  remote.set("twitter_type", "timeline");
+  remote.set("twitter_user", roomOwner);
 
-    var opts = {
-        visibility: "public",
-        room_alias_name: "twitter_@"+alias,
-        name: "[Twitter] " + user.name,
-        topic: user.description,
-        invite: [roomOwner],
-        initial_state: [
-            powers, {
-                "type": "m.room.join_rules",
-                "content": {
-                    "join_rule": "public"
-                },
-                "state_key": ""
-            }, {
-                "type": "org.matrix.twitter.data",
-                "content": user,
-                "state_key": ""
-            }
-        ]
-    };
-    return {
-        creationOpts: opts,
-        remote: remote
-    };
+  var opts = {
+    visibility: "public",
+    room_alias_name: "twitter_@"+alias,
+    name: "[Twitter] " + user.name,
+    topic: user.description,
+    invite: [roomOwner],
+    initial_state: [
+      powers, {
+        "type": "m.room.join_rules",
+        "content": {
+          "join_rule": "public"
+        },
+        "state_key": ""
+      }, {
+        "type": "org.matrix.twitter.data",
+        "content": user,
+        "state_key": ""
+      }, {
+        "type": "m.room.avatar",
+        "state_key": "",
+        "content": {
+          "url": avatar
+        }
+      }
+    ]
+  };
+  return {
+    creationOpts: opts,
+    remote: remote
+  };
 }
 
 function roomPowers (users) {
-    return {
-        "content": {
-            "ban": 50,
-            "events": {
-                "m.room.name": 100,
-                "m.room.power_levels": 100,
-                "m.room.topic": 100,
-                "m.room.join_rules": 100,
-                "m.room.avatar": 100,
-                "m.room.aliases": 75,
-                "m.room.canonical_alias": 75
-            },
-            "events_default": 10,
-            "kick": 75,
-            "redact": 75,
-            "state_default": 0,
-            "users": users,
-            "users_default": 10
-        },
-        "state_key": "",
-        "type": "m.room.power_levels"
-    };
+  return {
+    "content": {
+      "ban": 50,
+      "events": {
+        "m.room.name": 100,
+        "m.room.power_levels": 100,
+        "m.room.topic": 100,
+        "m.room.join_rules": 100,
+        "m.room.avatar": 100,
+        "m.room.aliases": 75,
+        "m.room.canonical_alias": 75
+      },
+      "events_default": 10,
+      "kick": 75,
+      "redact": 75,
+      "state_default": 0,
+      "users": users,
+      "users_default": 10
+    },
+    "state_key": "",
+    "type": "m.room.power_levels"
+  };
 }
 
 
 module.exports = {
-    TimelineHandler: TimelineHandler
+  TimelineHandler: TimelineHandler
 }

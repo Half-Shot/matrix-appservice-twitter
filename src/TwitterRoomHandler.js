@@ -24,9 +24,10 @@ var TwitterRoomHandler = function (bridge, handlers) {
 
 TwitterRoomHandler.prototype.processInvite = function (event, request, context) {
   var remote = context.rooms.remote;
+  var twitbot = "@twitbot:"+this._bridge.opts.domain;
   if(remote == null
-     && event.sender != "@twitbot:localhost"
-     && event.state_key == "@twitbot:localhost")
+     && event.sender != twitbot
+     && event.state_key == twitbot)
   {
     //Services bot
     this.handlers.services.processInvite(event, request, context);
@@ -90,6 +91,7 @@ TwitterRoomHandler.prototype.onRoomCreated = function (alias, roomId) {
   roomstore.getEntriesByMatrixId(roomId).then(entries =>{
     if(entries.length == 0) {
       log.error("RoomHandler", "Got a onRoomCreated, but no remote is associated.");
+      return;
     }
     var type = entries[0].remote.data.twitter_type
     if(type == "timeline") {
@@ -102,5 +104,5 @@ TwitterRoomHandler.prototype.onRoomCreated = function (alias, roomId) {
 }
 
 module.exports = {
-    TwitterRoomHandler: TwitterRoomHandler
+  TwitterRoomHandler: TwitterRoomHandler
 }

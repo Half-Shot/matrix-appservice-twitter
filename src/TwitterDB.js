@@ -1,6 +1,7 @@
 var SQLite3 = require('sqlite3').verbose();
 var log = require('npmlog');
 
+const TWITTER_PROFILE_INTERVAL_MS   = 300000;
 
 /**
  * TwitterDB - Stores data for specific users and data not specific to rooms.
@@ -71,14 +72,17 @@ TwitterDB.prototype.get_profile_by_id = function (id) {
     , {
       $id: id
     }
-    , (err, row) =>{
+    , (err, profile) =>{
       if(err != null) {
         log.error("TwitDB", "Error retrieving profile: %s", err.Error);
         reject(err);
       }
-      if(row !== undefined) {
-        row.profile = JSON.parse(row.profile);
-        resolve(row);
+      if(profile !== undefined) {
+        var ts = new Date().getTime();
+        if(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS) {
+          return null;
+        }
+        resolve(JSON.parse(profile.profile));
       }
       else {
         resolve(null);
@@ -88,17 +92,10 @@ TwitterDB.prototype.get_profile_by_id = function (id) {
 }
 
 /**
- @typedef TwitterDBProfile
- @type {Object}
- @property {object} profile   A complete record of a twitter users profile.
- @property {number} timestamp The last time the record was updated.
- */
-
-/**
  * TwitterDB.prototype.get_profile_by_name - Get a Twitter profile by the
  * screenname of a user.
  * @function
- * @returns {Promise<TwitterDBProfile>}
+ * @returns {Promise<object>} A Twitter profile
  */
 TwitterDB.prototype.get_profile_by_name = function (name) {
   return new Promise((resolve, reject) => {
@@ -111,15 +108,18 @@ TwitterDB.prototype.get_profile_by_name = function (name) {
     , {
       $name: name
     }
-    , (err, row) =>{
+    , (err, profile) =>{
       if(err != null) {
         log.error("TwitDB", "Error retrieving profile: %s", err.Error);
         reject(err);
         return;
       }
-      if(row !== undefined) {
-        row.profile = JSON.parse(row.profile);
-        resolve(row);
+      if(profile !== undefined) {
+        var ts = new Date().getTime();
+        if(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS) {
+          return null;
+        }
+        resolve(JSON.parse(profile.profile));
       }
       else {
         resolve(null);
@@ -426,10 +426,10 @@ TwitterDB.prototype.add_dm_room = function (room_id, users) {
 }
 
 
-TwitterDB.prototype._create = function (tablename, statement) {
+TwitterDB.prototype._create = function (statement, tablename) {
   this.db.run(statement, (err) => {
     if(err) {
-      throw "Error creating 'twitter_account': "+err;
+      throw `Error creating '${tablename}': ${err}`;
     }
   });
 }
