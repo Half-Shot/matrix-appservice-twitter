@@ -44,6 +44,7 @@ var AccountServices = function (opts) {
  * @param  {Context} context Context given by the appservice.
  */
 AccountServices.prototype.processInvite = function (event, request, context) {
+  log.info("Handler.AccountServices", "Got invite");
   var intent = this._bridge.getIntent();
   intent.join(event.room_id).then( () => {
     var rroom = new RemoteRoom("service_"+event.sender);

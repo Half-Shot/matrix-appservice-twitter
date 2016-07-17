@@ -41,7 +41,7 @@ TwitterRoomHandler.prototype.passEvent = function (request, context) {
   if (event.type == "m.room.member" && event.membership == "invite") {
     this.processInvite(event, request, context);
   }
-  if(remote) {
+  else if(remote) {
     if(event.type == "m.room.message") {
       if(remote.data.twitter_type == "service") {
         this.handlers.services.processMessage(event, request, context);
