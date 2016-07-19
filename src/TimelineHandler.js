@@ -77,7 +77,9 @@ TimelineHandler.prototype.processAliasQuery = function (alias) {
     log.warn("Handler.Timeline", tuser.screen_name + " was not found.");
     throw "User not found";
   }).then(() => {
+    log.info("Handler.TimelineHandler", "User found, getting profile image");
     return util.uploadContentFromUrl(this._bridge, tuser.profile_image_url_https).then(mxc_url =>{
+      log.info("Handler.TimelineHandler", "Got profile image, constructing room.");
       return this._constructTimelineRoom(tuser, alias, mxc_url);
     })
   }).catch(reason =>{
