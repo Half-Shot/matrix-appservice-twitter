@@ -35,11 +35,31 @@ TwitterRoomHandler.prototype.processInvite = function (event, request, context) 
   }
 }
 
+TwitterRoomHandler.prototype.processLeave = function (event, request, context) {
+  var remote = context.rooms.remote;
+  if(remote == null) {
+    return;
+  }
+  var type = remote.data.twitter_type;
+
+  if(type == "service") {
+    this.handlers.services.processLeave(event, request, context);
+  }
+  else if(type == "user_timeline") {
+    this.handlers.timeline.processLeave(event, request, context)
+  }
+}
+
 TwitterRoomHandler.prototype.passEvent = function (request, context) {
   var event = request.getData();
   var remote = context.rooms.remote;
-  if (event.type == "m.room.member" && event.membership == "invite") {
-    this.processInvite(event, request, context);
+  if (event.type == "m.room.member") {
+    if(event.membership == "invite") {
+      this.processInvite(event, request, context);
+    }
+    else if(event.membership == "leave") {
+      this.processLeave(event, request, context);
+    }
   }
   else if(remote) {
     if(event.type == "m.room.message") {

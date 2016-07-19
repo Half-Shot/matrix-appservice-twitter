@@ -29,6 +29,19 @@ TimelineHandler.prototype.onRoomCreated = function (alias, entry) {
   );
 }
 
+TimelineHandler.prototype.processLeave = function (event, request, context) {
+  var remote = context.rooms.remote;
+  if( remote.data.twitter_type == "user_timeline" && remote.data.twitter_owner == event.sender ) {
+    log.info("Handler.AccountServices", "User %s left room. Leaving", event.sender);
+    this.twitter.detach_user_stream(event.sender);
+    var intent = this._bridge.getIntent();
+    intent.leave(event.room_id).then(() =>{
+      var roomstore = this._bridge.getRoomStore();
+      roomstore.removeEntriesByRemoteRoomData(context.rooms.remote.data);
+    });
+  }
+}
+
 /**
  * TwitterHandler.prototype.processMessage - Handler for events of type
  * 'm.room.message'. The handler does not have to act on these.

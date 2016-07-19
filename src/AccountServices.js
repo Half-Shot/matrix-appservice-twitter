@@ -58,8 +58,19 @@ AccountServices.prototype.processInvite = function (event, request, context) {
       }
     );
     //Add the room to the list.
+  }).catch(err => {
+    log.error("Handler.AccountServices", "Couldn't join service room. %s", err)
   });
 };
+
+AccountServices.prototype.processLeave = function (event, request, context) {
+  log.info("Handler.AccountServices", "User %s left room. Leaving", event.sender);
+  var intent = this._bridge.getIntent();
+  intent.leave(event.room_id).then(() =>{
+    var roomstore = this._bridge.getRoomStore();
+    roomstore.removeEntriesByRemoteRoomData(context.rooms.remote.data);
+  });
+}
 
 /**
  * processMessage - Processing incoming commands from the matrix user.
