@@ -15,11 +15,11 @@ var ProcessedTweetList = function (cacheSize, sliceSize) {
 
 ProcessedTweetList.prototype.push = function (room_id, tweet_id) {
   if(!this._roomIdToTweetIds.has(room_id)) {
-    this._roomIdToTweetIds[room_id] = [];
+    this._roomIdToTweetIds.set(room_id, []);
   }
-  this._roomIdToTweetIds[room_id].push(tweet_id);
-  if(this._roomIdToTweetIds[room_id].length > this._cacheSize) {
-    this._roomIdToTweetIds[room_id].splice(0, this._sliceSize);
+  this._roomIdToTweetIds.get(room_id).push(tweet_id);
+  if(this._roomIdToTweetIds.get(room_id).length > this._cacheSize) {
+    this._roomIdToTweetIds.get(room_id).splice(0, this._sliceSize);
   }
 }
 
@@ -27,7 +27,7 @@ ProcessedTweetList.prototype.contains = function (room_id, tweet_id) {
   if(!this._roomIdToTweetIds.has(room_id)) {
     return false;
   }
-  return (this._roomIdToTweetIds[room_id].indexOf(tweet_id) != -1);
+  return (this._roomIdToTweetIds.get(room_id).indexOf(tweet_id) != -1);
 }
 
 module.exports = ProcessedTweetList;
