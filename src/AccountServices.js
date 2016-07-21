@@ -4,9 +4,8 @@ var log        = require('npmlog');
 var OAuth      = require('oauth');
 
 
-
 /**
- * Construct a AccountServices.
+ * Construct an AccountServices object.
  * This class is a handler for conversation between users and the bridge bot to
  * link accounts together
  *
@@ -17,8 +16,8 @@ var OAuth      = require('oauth');
  * @param  {TwitterDB}       opts.storage
  * @param  {MatrixTwitter}   opts.twitter
  * @param  {object} opts.app_auth OAuth authentication information
- * @param  {string} app_auth.consumer_key Twitter consumer key
- * @param  {string} app_auth.consumer_secret Twitter consumer secret
+ * @param  {string} opts.app_auth.consumer_key Twitter consumer key
+ * @param  {string} opts.app_auth.consumer_secret Twitter consumer secret
  */
 var AccountServices = function (opts) {
   this._bridge = opts.bridge;
@@ -44,7 +43,7 @@ var AccountServices = function (opts) {
  * @param  {Context} context Context given by the appservice.
  */
 AccountServices.prototype.processInvite = function (event, request, context) {
-  log.info("Handler.AccountServices", "Got invite");
+  log.info("Handler.AccountServices", "Got invite for %s from %s", event.room_id, event.sender);
   var intent = this._bridge.getIntent();
   intent.join(event.room_id).then( () => {
     var rroom = new RemoteRoom("service_"+event.sender);
@@ -64,7 +63,7 @@ AccountServices.prototype.processInvite = function (event, request, context) {
 };
 
 AccountServices.prototype.processLeave = function (event, request, context) {
-  log.info("Handler.AccountServices", "User %s left room. Leaving", event.sender);
+  log.info("Handler.AccountServices", "User %s left %s. Leaving", event.sender, event.room_id);
   var intent = this._bridge.getIntent();
   intent.leave(event.room_id).then(() =>{
     var roomstore = this._bridge.getRoomStore();
@@ -78,7 +77,7 @@ AccountServices.prototype.processLeave = function (event, request, context) {
  */
 AccountServices.prototype.processMessage = function (event) {
   if(event.content.body == "link account") {
-    this._beginLinkAccount(event);
+    this._beginLinkAccount(event.sender, event.room_id);
   }
   else if(event.content.body == "unlink account") {
     this._unlinkAccount(event);
@@ -93,19 +92,20 @@ AccountServices.prototype.processMessage = function (event) {
  * _beginLinkAccount - Processes a users request to link their twitter account
  * with the bridge. This should return a authorisation link.
  *
- * @param  {object} event The Matrix Event from the requesting user.
+ * @param  {string} sender  The user ID of the sender.
+ * @param  {string} room_id The service room id .
  */
-AccountServices.prototype._beginLinkAccount = function (event) {
+AccountServices.prototype._beginLinkAccount = function (sender, room_id) {
   var intent = this._bridge.getIntent();
-  log.info("Handler.AccountServices", `${event.sender} is requesting a twitter account link.`);
-  this._oauth_getUrl(event.sender).then( (url) =>{
-    intent.sendMessage(event.room_id, {
+  log.info("Handler.AccountServices", `${sender} is requesting a twitter account link.`);
+  this._oauth_getUrl(sender).then( (url) =>{
+    intent.sendMessage(room_id, {
       "body": `Go to ${url} to receive your PIN, and then type it in below.`,
       "msgtype": "m.text"
     });
   }).catch(err => {
     log.error("Handler.AccountServices", `Couldn't get authentication URL: ${err}` );
-    intent.sendMessage(event.room_id, {
+    intent.sendMessage(room_id, {
       "body": "We are unable to process your request at this time.",
       "msgtype": "m.text"
     });
@@ -116,14 +116,15 @@ AccountServices.prototype._beginLinkAccount = function (event) {
  * _unlinkAccount - Processes a users request to unlink their twitter account
  * from the bridge.
  *
- * @param  {object} event The Matrix Event from the requesting user.
+ * @param  {string} sender  The user ID of the sender.
+ * @param  {string} room_id The service room id .
  */
-AccountServices.prototype._unlinkAccount = function (event) {
+AccountServices.prototype._unlinkAccount = function (sender, room_id) {
   var intent = this._bridge.getIntent();
-  this._storage.remove_client_data(event.sender);
-  this._storage.remove_timeline_room(event.sender);
-  this._twitter.detach_user_stream(event.sender);
-  intent.sendMessage(event.room_id, {
+  this._storage.remove_client_data(sender);
+  this._storage.remove_timeline_room(sender);
+  this._twitter.detach_user_stream(sender);
+  intent.sendMessage(room_id, {
     "body": "Your account (if it was linked) is now unlinked from Matrix.",
     "msgtype": "m.text"
   });
@@ -171,10 +172,7 @@ AccountServices.prototype._oauth_getAccessToken = function (pin, client_data, id
       reject("User has no associated token request data");
       return;
     }
-    this._oauth.getOAuthAccessToken(
-      client_data.oauth_token,
-      client_data.oauth_secret,
-      pin,
+    this._oauth.getOAuthAccessToken( client_data.oauth_token, client_data.oauth_secret, pin,
       (error, access_token, access_token_secret) =>{
         if(error) {
           reject(error.statusCode + ": " + error.data);
@@ -208,8 +206,8 @@ AccountServices.prototype._oauth_getAccessToken = function (pin, client_data, id
 /**
  * _oauth_getUrl - Start the process of connecting an account to Twitter.
  *
- * @param  {type} id    The matrix user id wishing to authenticate.
- * @return {Promise<string>}  A promise that will return an auth url or reject with nothing.
+ * @param  {string} id    The matrix user id wishing to authenticate.
+ * @return {Promise<string|Error>}  A promise that will return an auth url or reject with nothing.
  */
 AccountServices.prototype._oauth_getUrl = function (id) {
   return new Promise((resolve, reject) => {
@@ -234,8 +232,8 @@ AccountServices.prototype._oauth_getUrl = function (id) {
         this._storage.set_twitter_account(id, "", data).then(()=>{
           var authURL = 'https://twitter.com/oauth/authenticate?oauth_token=' + oAuthToken;
           resolve(authURL);
-        }).catch(() => {
-          reject("Failed to store account information.");
+        }).catch((err) => {
+          reject({msg: "Failed to store account information.", inner_error: err});
         });
       });
   });
