@@ -23,10 +23,8 @@ var bridge;
 new Cli({
   registrationPath: "twitter-registration.yaml",
   bridgeConfig: {
-    schema: "config.yaml",
-    defaults: {
-      test: "ABC"
-    }
+    affectsRegistration: true,
+    schema: "./config/config.schema.yaml"
   },
   generateRegistration: function (reg, callback) {
     reg.setId(AppServiceRegistration.generateToken());
@@ -52,14 +50,12 @@ new Cli({
 
     var room_handler;
 
-    var clientFactory = new ClientFactory(
-      {
-        sdk: require("matrix-js-sdk"),
-        url: config.bridge.homeserverUrl,
-        token: regObj.as_token,
-        appServiceUserId: "@" + regObj.sender_localpart + ":" + config.bridge.domain
-      }
-        );
+    var clientFactory = new ClientFactory({
+      sdk: require("matrix-js-sdk"),
+      url: config.bridge.homeserverUrl,
+      token: regObj.as_token,
+      appServiceUserId: "@" + regObj.sender_localpart + ":" + config.bridge.domain
+    });
 
     bridge = new Bridge({
       homeserverUrl: config.bridge.homeserverUrl,

@@ -1,0 +1,20 @@
+"$schema": "http://json-schema.org/draft-04/schema#"
+type: "object"
+required: ["bridge", "app_auth"]
+properties:
+    bridge:
+        type: "object"
+        required: ["domain", "homeserverUrl"]
+        properties:
+          domain:
+            type: "string"
+          homeserverUrl:
+            type: "string"
+    app_auth:
+        type: "object"
+        required: ["consumer_key", "consumer_secret"]
+        properties:
+          consumer_key:
+            type: "string"
+          consumer_secret:
+            type: "string"
