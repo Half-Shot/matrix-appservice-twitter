@@ -50,7 +50,7 @@ HashtagHandler.prototype.processMessage = function (event, request, context) {
  * given name *after* the global alias prefix.
  *
  * @param  {type} name The requested name *after* '#twitter_'
- * @return {ProvisionedRoom | Promise<ProvisionedRoom,Error>, null}
+ * @return {?ProvisionedRoom}
  */
 HashtagHandler.prototype.processAliasQuery = function (name) {
   log.info("Handler.Hashtag", "Got alias request ''%s'", name);
