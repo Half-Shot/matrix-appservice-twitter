@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+
+<link rel="stylesheet" href="style.css">
+
+<header>
+	<nav>
+		<a href="#what">About</a>
+		<a href="#install">Install</a>
+		<a href="#usage">Usage</a>
+		<a href="#matrix">Matrix.org</a>
+		<a href="https://github.com/Half-Shot/matrix-appservice-twitter">Github Page</a>
+	</nav>
+</header>
+
+<section id="central">
+	<h1>Twitter Bridge for Matrix</h1>
+	<img src="https://placehold.it/1366x768"></img>
+	<h2>Interact with Twitter through your Matrix Client</h2>
+</section>
+
+<main>
+	<section>
+		<h2 id="what">About the Project</h2>
+		<p>This project allows you to bridge <strong> Twitter accounts, timelines and hashtags</strong> to a Matrix homeserver (see more about that below). </p>
+		<p>You can use a Matrix as a Twitter client and send tweets through, or you can monitor a hashtag through any software that supports the matrix protocol.</p>
+
+		<h3>Features</h3>
+			<ul>
+				<li>Read and follow a users timeline</li>
+				<li>Send tweets from yourself and to other users.</li>
+				<li>Follow hashtags.</li>
+				<li>Direct messaging</li>
+				<li>Read your own timeline</li>
+			</ul>
+	</section>
+
+	<section>
+		<h2 id="install">Installation</h2>
+		<p class="note">We expect you to be running a standard synapse setup for these instructions</p>
+
+		<p>Clone this repo and install the npm dependencies as usual.</p>
+
+		<pre>
+			git clone https://github.com/Half-Shot/matrix-appservice-twitter
+			npm install
+		</pre>
+
+		<p>You will need a twitter application authentication token and secret to continue.</p>
+
+		<p>Go to <a href="https://apps.twitter.com/">https://apps.twitter.com/</a> and create a new app. If you follow the tedious setup all the way through you should be given all you need to fill in a config.yaml file. Copy <code>config.sample.yaml</code> and fill in the blanks before saving as <code>config.yaml</code>.</p>
+
+		<p>Next, we need to generate the appropriate registration config so that synapse can interface with the bridge.</p>
+
+		<pre>
+			node twitter-as.js -r -u "URL"
+		</pre>
+
+		<p>The URL should be replaced by the domain/ip and port of the bridge. In this case you can usually leave it as http://localhost:9000 if you plan to run it on the same server as synapse and will be keeping the default port.</p>
+
+		<p>Copy/symlink the generated registration file to your synapse directory and finally edit your <code>homeserver.yaml</code> file for synapse so that the bridge is registered. This means changing <code>app_service_config_files</code> and inserting the name of your config file into the list. It should look similar to this:</p>
+
+		<pre>
+			app_service_config_files: ["twitter-registration.yaml"]
+		</pre>
+
+		<p>You can restart synapse after this.</p>
+
+		<p> Finally, run the bridge! </p>
+
+		<pre>
+			node twitter-as.js -p 9000 -c config.yaml
+		</pre>
+
+	</section>
+
+	<section>
+		<h2 id="usage">Using the bridge</h2>
+			<h3>Linking your Twitter account to your Matrix user</h3>
+				<p>Linking is not required for reading timelines/hashtags, but <strong>interactions must be completed under your own account</strong>.</p>
+				<ul>
+					<li>Create a room and invite <code>@twitbot:yourdomain</code>.</li>
+					<li>Send the message <code>link account</code></li>
+					<li>Follow the URL and instructions. Copy the PIN code</li>
+					<li>Enter the pin code directly into the room and your account should be linked up.</li>
+				</ul>
+			<h3>User Timelines</h3>
+				<p>Simply join <code>@twitter_@screennamegoeshere:yourdomain</code> to read a users timeline. Protected timelines are currently not available.</p>
+				<p>Accounts which are bridged (Twitter&lt;-&gt;Matrix) will be able to send tweets to these timelines (you do not need to put the @screen_name, it is done automatically)</p>
+			<h3>Hashtags</h3>
+				<p>Join <code>@twitter_#hashtaggoeshere</code> to follow a particular hashtag.</p>
+				<p>Accounts which are bridged (Twitter&lt;-&gt;Matrix) will be able to send tweets which will automatically apply this hashtag.</p>
+			<h3>Direct Messages</h3>
+				<p class="note">Due to limitations in the Twitter API, group DMs are not possible.</p>
+				<p> On recieving a DM, you will be invited to a room where you can message each other as if it was another Matrix user.</p>
+				<p> Rejoining previous conversations is not possible, but either parties sending a message will create a private room </p>
+	</section>
+
+	<section>
+		<h2 id="matrix">Matrix.org</h2>
+		<p> This project was created as part of Google Summer of Code 2016 for <a href="https://matrix.org">Matrix.org</a></p>
+ 		<blockquote>
+			Matrix is an open standard for decentralised communication, providing simple HTTP APIs and open source reference implementations for securely distributing and persisting JSON over an open federation of servers.
+		</blockquote>
+		<p> You can learn more, including a list of compatible clients and how to run your own server <a href="https://matrix.org">here</p>. </p>
+	</section>
+</main>
