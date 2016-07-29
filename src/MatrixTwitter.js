@@ -474,7 +474,7 @@ MatrixTwitter.prototype.process_tweet = function (roomid, tweet, depth) {
   }
     //log.info("Twitter","Processing tweet:",tweet.text);
 
-  return new Promise( (resolve, reject) => {
+  return new Promise( (resolve) => {
     if (tweet.in_reply_to_status_id_str != null && depth > 0) {
       this.app_twitter.get(
             'statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet) => {
@@ -484,7 +484,8 @@ MatrixTwitter.prototype.process_tweet = function (roomid, tweet, depth) {
               else
               {
                 log.error("process_tweet: GET /statuses/show returned: " + error[0].message);
-                reject("process_tweet failed to retrieve a reply");
+                //Don't reject here, or Promise.all will fail.
+                resolve();
               }
             });
     }
