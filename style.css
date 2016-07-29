@@ -43,8 +43,6 @@ main{
   width:96vw;
 }
 
-
-
 header{
   height:3.5vh;
   background-color: #5778C6;
@@ -83,4 +81,26 @@ h2{
 
 h3{
   color: #2A344D;
+}
+
+@media screen and (max-width: 768px) {
+  body{
+    font-size: 24pt;
+  }
+  pre {
+    white-space: pre-line;
+  }
+  .hide-mobile {
+    display:none;
+  }
+  nav > a{
+    display:block;
+    width:100%;
+    text-align: center;
+    padding: 0;
+  }
+
+  header{
+    height:17vh;
+  }
 }
