@@ -9,7 +9,7 @@ header > nav {
   margin-left: 10vw;
 }
 
-a:visited{
+header > nav > a:visited{
   font-weight: normal;
   color:white;
 }
