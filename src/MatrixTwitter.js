@@ -16,6 +16,7 @@ const TIMELINE_POLL_INTERVAL = 3050; //Twitter allows 300 calls per 15 minute (W
 const HASHTAG_POLL_INTERVAL = 3050; //Twitter allows 450 calls per 15 minute (We add 50 milliseconds for a little safety).
 const TWEET_REPLY_MAX_DEPTH = 3;
 const TIMELINE_TWEET_FETCH_COUNT = 100;
+const HASHTAG_TWEET_FETCH_COUNT = 100;
 
 
 /**
@@ -637,6 +638,10 @@ MatrixTwitter.prototype._process_timeline = function () {
       return;
     }
 
+    if(feed.length == TIMELINE_TWEET_FETCH_COUNT){
+      log.info("Twitter","Timeline poll request hit count limit. Request likely incomplete.");
+    }
+
     if(this.msg_queue_intervalID != null) {
       clearInterval(this.msg_queue_intervalID);
       this.msg_queue_intervalID = null;
@@ -776,7 +781,8 @@ MatrixTwitter.prototype._process_hashtag_feed = function () {
   var feed = this.hashtag_queue.shift();
   var req = {
     q: "%23"+feed.hashtag,
-    result_type: 'recent'
+    result_type: 'recent',
+    count: HASHTAG_TWEET_FETCH_COUNT
   };
   var since = feed.entry.remote.get("twitter_since");
   if (since != undefined) {
@@ -790,6 +796,9 @@ MatrixTwitter.prototype._process_hashtag_feed = function () {
     }
 
     if(results.statuses.length > 0) {
+      if(results.statuses.length == HASHTAG_TWEET_FETCH_COUNT){
+        log.info("Twitter","Hashtag poll request hit count limit. Request likely incomplete.");
+      }
       feed.entry.remote.set("twitter_since", results.search_metadata.max_id_str);
       this._bridge.getRoomStore().upsertEntry(feed.entry).catch(err =>{
         log.warn("Twitter", "Couldn't store twitter_since by upserting %s\n%s", feed.entry.remote.roomId, err);
