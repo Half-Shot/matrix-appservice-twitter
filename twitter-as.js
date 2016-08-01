@@ -20,7 +20,7 @@ var util                 = require('./src/util.js');
 var twitter;
 var bridge;
 
-new Cli({
+var cli = new Cli({
   registrationPath: "twitter-registration.yaml",
   bridgeConfig: {
     affectsRegistration: true,
@@ -92,7 +92,7 @@ new Cli({
       storage: tstorage,
       twitter: twitter
     }
-    room_handler = new TwitterRoomHandler(bridge,
+    room_handler = new TwitterRoomHandler(bridge, config,
       {
         services: new AccountServices(opt),
         timeline: new TimelineHandler(bridge, twitter),
@@ -127,8 +127,14 @@ new Cli({
       });
     });
   }
-}).run();
+})
 
+try{
+  cli.run();
+}
+catch(err) {
+  log.error("Init", "Failed to start bridge.");
+}
 
 /**
  * userQuery - Handler for user queries made by the homeserver.

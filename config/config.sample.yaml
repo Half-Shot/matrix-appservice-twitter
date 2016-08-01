@@ -5,3 +5,13 @@ bridge:
 app_auth: #Get these from twitter by creating an application through the API site.
     consumer_key: BLAHBLAHBLAH
     consumer_secret: BLAHBLAHBLAH
+
+hashtags:
+  enable: true
+
+timelines:
+  enable: true
+
+media:
+  enable_download: true
+  enable_profile_images: true

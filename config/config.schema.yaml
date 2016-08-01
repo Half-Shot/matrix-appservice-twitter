@@ -1,6 +1,6 @@
 "$schema": "http://json-schema.org/draft-04/schema#"
 type: "object"
-required: ["bridge", "app_auth"]
+required: ["bridge", "app_auth","hashtags","timelines","media"]
 properties:
     bridge:
         type: "object"
@@ -18,3 +18,23 @@ properties:
             type: "string"
           consumer_secret:
             type: "string"
+    hashtags:
+        type: "object"
+        required: ["enable"]
+        properties:
+          enable:
+            type: "boolean"
+    timelines:
+        type: "object"
+        required: ["enable"]
+        properties:
+          enable:
+            type: "boolean"
+    media:
+        type: "object"
+        required: ["enable_download","enable_profile_images"]
+        properties:
+          enable_download:
+            type: "boolean"
+          enable_profile_images:
+            type: "boolean"

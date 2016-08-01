@@ -31,6 +31,7 @@ const TIMELINE_TWEET_FETCH_COUNT = 100;
  */
 var MatrixTwitter = function (bridge, config, storage) {
   this.app_auth = config.app_auth;
+  this._media_cfg = config.media;
   this.app_twitter = null;
   this._app_twitter_promise = null;
   this.tclients = new Map(); // {'@userid':TwitterClient}
@@ -193,7 +194,8 @@ MatrixTwitter.prototype._update_user_timeline_profile = function (profile) {
       //If either the real name (name) or the screen_name (handle) are out of date, update the screen name.
       update_name = (old.profile.name != profile.name)
       update_name = (old.profile.screen_name != profile.screen_name);
-      update_avatar = (old.profile.profile_image_url_https != profile.profile_image_url_https);
+      update_avatar = (old.profile.profile_image_url_https != profile.profile_image_url_https)
+       && this._media_cfg.enable_profile_images;
     }
 
     var intent = this._get_intent(profile.id_str);
@@ -409,7 +411,7 @@ MatrixTwitter.prototype._push_to_msg_queue = function (muser, roomid, tweet, typ
   };
 
   var media_promises = [];
-  if(tweet.entities.hasOwnProperty("media")) {
+  if(tweet.entities.hasOwnProperty("media") && this._media_cfg.enable_download) {
     for(var media of tweet.entities.media) {
       if(media.type != 'photo') {
         continue;

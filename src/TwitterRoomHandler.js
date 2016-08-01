@@ -17,8 +17,10 @@ var log = require('npmlog');
  * @param  {Object.<string,TwitterHandler>} handlers Handers to register for
  * each type of room.
  */
-var TwitterRoomHandler = function (bridge, handlers) {
+var TwitterRoomHandler = function (bridge, config,  handlers) {
   this._bridge = bridge;
+  this._hashtags = config.hashtags;
+  this._timelines = config.timelines;
   this.handlers = handlers; // 'service' handler
 }
 
@@ -91,10 +93,10 @@ TwitterRoomHandler.prototype.processAliasQuery = function (alias, aliasLocalpart
   var type = aliasLocalpart.substr("twitter_".length, 2);
   var part = aliasLocalpart.substr("twitter_.".length);
 
-  if(type[0] == '@') { //User timeline
+  if(type[0] == '@' && this._timelines.enabled) { //User timeline
     return this.handlers.timeline.processAliasQuery(part);
   }
-  else if(type[0] == '#') { //Hashtag
+  else if(type[0] == '#' && this._hashtags.enabled) { //Hashtag
     return this.handlers.hashtag.processAliasQuery(part);
   }
   /*else if(type == 'DM') {
