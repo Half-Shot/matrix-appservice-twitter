@@ -52,7 +52,7 @@
 
 		<p>You will need a twitter application authentication token and secret to continue.</p>
 
-		<p>Go to <a href="https://apps.twitter.com/">https://apps.twitter.com/</a> and create a new app. If you follow the tedious setup all the way through you should be given all you need to fill in a config.yaml file. Copy <code>config.sample.yaml</code> and fill in the blanks before saving as <code>config.yaml</code>.</p>
+		<p>Go to <a href="https://apps.twitter.com/">https://apps.twitter.com/</a> and create a new app. If you follow the setup all the way through you should be given all you need to fill in a config.yaml file. Copy <code>config.sample.yaml</code> and fill in the blanks before saving as <code>config.yaml</code>.</p>
 
 		<p>Next, we need to generate the appropriate registration config so that synapse can interface with the bridge.</p>
 
@@ -76,6 +76,34 @@
 			node twitter-as.js -p 9000 -c config.yaml
 		</pre>
 
+		<h3>config.yaml</h3>
+		<ul class="config-example">
+			<li> bridge </li>
+				<ul>
+					<li> domain <span>http://localhost</span> <p>The homeserver's domain.</p> </li>
+					<li> homeserverUrl <span>http://localhost:8448</span> <p>The homeservers URL.</p>  </li>
+				</ul>
+			<li> app_auth </li>
+				<ul>
+					<li> consumer_key <p>The key obtained by registering a new Twitter API application.</p> </li>
+
+					<li> consumer_secret <p>The secret obtained by registering a new Twitter API application.</p> </li>
+				</ul>
+			<li> hashtags </li>
+				<ul>
+					<li> enable <span>true/false</span> <p>Should the bridge allow creation of new hashtag rooms.</p> </li>
+				</ul>
+			<li> timelines </li>
+				<ul>
+					<li> enable <span>true/false</span> <p>Should the bridge allow creation of new timeline rooms.</p> </li>
+					<li> enable </li>
+				</ul>
+			<li> media </li>
+				<ul>
+					<li> enable_download <span>true/false</span> <p>Should media inside tweets be uploaded to the homeserver, or just linked?</p> </li>
+					<li> enable_profile_images <span>true/false</span> <p> Should profile images be set for twitter accounts.</p> </li>
+				</ul>
+	</ul>
 	</section>
 
 	<section>

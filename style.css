@@ -35,6 +35,7 @@ header > nav > a{
   padding-right: 3vw;
   height:3.5vh;
   line-height: 3.5vh;
+  font-size: 24px; font-size: 1.25vw;
 }
 
 main{
@@ -108,4 +109,31 @@ h3{
   header{
     height:17vh;
   }
+}
+
+/* Config style */
+.config-example li{
+  list-style: none;
+}
+
+.config-example > li {
+  font-size: 16pt;
+}
+
+
+.config-example > ul > li {
+  font-size: 14pt;
+}
+
+.config-example p {
+  font-size: 12pt;
+  font-family: monospace;
+  margin-top: 0;
+}
+
+.config-example span {
+  color: #24499D;
+  display: block;
+  margin: 0;
+  font-family: monospace;
 }
