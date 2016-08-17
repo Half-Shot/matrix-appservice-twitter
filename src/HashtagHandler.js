@@ -53,7 +53,7 @@ HashtagHandler.prototype.processMessage = function (event, request, context) {
  * @return {?ProvisionedRoom}
  */
 HashtagHandler.prototype.processAliasQuery = function (name) {
-  log.info("Handler.Hashtag", "Got alias request ''%s'", name);
+  log.info("Handler.Hashtag", "Got alias request '%s'", name);
 
   if(/^[a-z0-9]+$/i.test(name) == false) {
     return null; //Not alphanumeric
