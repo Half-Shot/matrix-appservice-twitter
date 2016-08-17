@@ -3,15 +3,15 @@ var Request = require('request');
 var fs = require('fs');
 var log = require('npmlog');
 var Buffer = require('buffer').Buffer;
-var HTMLDecoder = new require('html-entities').AllHtmlEntities;
 var MatrixRoom = require("matrix-appservice-bridge").MatrixRoom;
 var RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
+
+var TweetProcessor = require("./TweetProcessor").TweetProcessor;
 
 var ProcessedTweetList = require("./ProcessedTweetList.js");
 var util = require("./util.js");
 
 const TWITTER_CLIENT_INTERVAL_MS    = 60000;
-const TWITTER_MSG_QUEUE_INTERVAL_MS = 1500;
 const TIMELINE_POLL_INTERVAL = 3050; //Twitter allows 300 calls per 15 minute (We add 50 milliseconds for a little safety).
 const HASHTAG_POLL_INTERVAL = 3050; //Twitter allows 450 calls per 15 minute (We add 50 milliseconds for a little safety).
 const TWEET_REPLY_MAX_DEPTH = 3;
@@ -32,9 +32,7 @@ const HASHTAG_TWEET_FETCH_COUNT = 100;
  */
 var MatrixTwitter = function (bridge, config, storage) {
   this.app_auth = config.app_auth;
-  this._media_cfg = config.media;
   this.app_twitter = null;
-  this._app_twitter_promise = null;
   this.tclients = new Map(); // {'@userid':TwitterClient}
   this.storage = storage;
 
@@ -46,11 +44,14 @@ var MatrixTwitter = function (bridge, config, storage) {
 
   this.user_streams = new Map(); // {'@userid':TwitterStream}
 
-  this.processed_tweets = new ProcessedTweetList(256, 32);  //This will contain all the tweet IDs of things we don't want to repeat.
   this.sent_dms = new ProcessedTweetList(1, 1);  //This will contain the body of the DM posted to a room to avoid reposting it.
   this.msg_queue = [];
   this.msg_queue_intervalID = null;
+
   this._bridge = bridge;
+  this._processor = null;
+  this._app_twitter_promise = null;
+  this._media_cfg = config.media;
 };
 
 
@@ -71,10 +72,17 @@ MatrixTwitter.prototype.start = function () {
     log.info('Twitter', 'Retrieved token');
     this.app_twitter = new Twitter(this.app_auth);
 
-    this.msg_queue_intervalID = setInterval(() => {
-      this._process_head_of_msg_queue();
-    }, TWITTER_MSG_QUEUE_INTERVAL_MS);
 
+    this._processor = new TweetProcessor(
+      {
+        bridge: this._bridge,
+        storage: this._storage,
+        client: this.app_twitter,
+        meda: this._media_cfg
+      }
+    );
+
+    this._processor.start();
     this.start_timeline();
     this.start_hashtag();
 
@@ -363,153 +371,6 @@ MatrixTwitter.prototype.get_user_by_screenname = function (name) {
 }
 
 /**
- * MatrixTwitter.prototype.tweet_to_matrix_content - This function will fill
- * the content structure for a new matrix message for a given tweet.
- *
- * @param  {TwitterTweet} tweet The tweet object from the Twitter API See {@link}
- * @param  {type} type  The 'msgtype' of a message.
- * @return {object}     The content of a Matrix 'm.room.message' event.
- *
- * @see {@link https://dev.twitter.com/overview/api/tweets}
- */
-MatrixTwitter.prototype.tweet_to_matrix_content = function (tweet, type) {
-  return {
-    "body": new HTMLDecoder().decode(tweet.text),
-    "created_at": tweet.created_at,
-    "likes": tweet.favorite_count,
-    "reblogs": tweet.retweet_count,
-    "tweet_id": tweet.id_str,
-    "tags": tweet.entities.hashtags,
-    "msgtype": type
-  }
-}
-
-//Runs every 500ms to help not overflow the room.
-MatrixTwitter.prototype._process_head_of_msg_queue = function () {
-  if(this.msg_queue.length > 0) {
-    var msgs = this.msg_queue.pop();
-    //log.info("Twitter","Pulling off queue:",msg.content.body);
-    var promises = [];
-    for(var msg of msgs) {
-      var intent = this._bridge.getIntent(msg.userId);
-      promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).catch(reason =>{
-        log.error("Twitter", "Failed send tweet to room: %s", reason);
-      }));
-    }
-    Promise.all(promises);
-  }
-}
-
-
-MatrixTwitter.prototype._push_to_msg_queue = function (muser, roomid, tweet, type) {
-  var time = Date.parse(tweet.created_at);
-  var newmsg = {
-    userId: muser,
-    roomId: roomid,
-    time: time,
-    type: "m.room.message",
-    content: this.tweet_to_matrix_content(tweet, type)
-  };
-
-  var media_promises = [];
-  if(tweet.entities.hasOwnProperty("media") && this._media_cfg.enable_download) {
-    for(var media of tweet.entities.media) {
-      if(media.type != 'photo') {
-        continue;
-      }
-      media_promises.push(
-        util.uploadContentFromUrl(
-          this._bridge,
-          media.media_url_https,
-          this._get_intent(tweet.id_str)
-        ).then( (mxc_url) => {
-          return {
-            userId: muser,
-            roomId: roomid,
-            time: time,
-            type: "m.room.message",
-            content: {
-              body: media.display_url,
-              msgtype: "m.image",
-              url: mxc_url
-            }
-          }
-        })
-      );
-    }
-  }
-
-  return Promise.all(media_promises).then(msgs =>{
-    msgs.unshift(newmsg);
-    for(var m in this.msg_queue) {
-      if(newmsg.time > this.msg_queue[m].time) {
-        this.msg_queue.splice(m, 0, msgs);
-        return;
-      }
-    }
-
-    this.msg_queue.push(msgs);
-  }).catch(reason =>{
-    log.error("Twitter", "Failed to submit tweet to queue, reason: %s", reason);
-  });
-}
-
-/**
- * MatrixTwitter.prototype.process_tweet - Process a given tweet (including
- * resolving any parent tweets), and submit it to the given room. This function
- * is recursive, limited to the depth set.
- *
- * @param  {String} roomid Matrix Room ID of the room that we are processing.
- * @param  {TwitterTweet} tweet The tweet object from the Twitter API See {@link}
- * @param  {Number} depth  The maximum depth of the tweet chain (replies to
- * replies) to be traversed. Set this to how deep you wish to traverse and it
- * will be decreased when the function calls itself.
- * @return {Promise[]]}  A promise that resolves once the tweet has been queued.
- *
- * @see {@link https://dev.twitter.com/overview/api/tweets}
- */
-MatrixTwitter.prototype.process_tweet = function (roomid, tweet, depth) {
-  depth--;
-
-  var type = "m.text";
-  if (tweet.in_reply_to_status_id_str != null) {
-    type = "m.notice"; // A nicer way to show previous tweets
-  }
-    //log.info("Twitter","Processing tweet:",tweet.text);
-
-  return new Promise( (resolve) => {
-    if (tweet.in_reply_to_status_id_str != null && depth > 0) {
-      this.app_twitter.get(
-            'statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet) => {
-              if (!error) {
-                return this.process_tweet(roomid, newtweet, depth);
-              }
-              else
-              {
-                log.error("process_tweet: GET /statuses/show returned: " + error[0].message);
-                //Don't reject here, or Promise.all will fail.
-                resolve();
-              }
-            });
-    }
-    else {
-      resolve();
-    }
-  }).then(() => {
-    this._update_user_timeline_profile(tweet.user);
-    if(this.processed_tweets.contains(roomid, tweet.text)) {
-      log.info("Twitter", "Repeated tweet detected, not processing");
-      return;
-    }
-
-    this.processed_tweets.push(roomid, tweet.text);
-    this._push_to_msg_queue('@twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type);
-    return;
-
-  });
-}
-
-/**
  * MatrixTwitter.prototype.send_matrix_event_as_tweet - Takes a message event
  * from a room and tries to identify the sender and the correct format before
  * processing it in {@see send_tweet_to_timeline}.
@@ -594,7 +455,7 @@ MatrixTwitter.prototype.send_tweet_to_timeline = function (remote, sender, body,
 
     status.status = status.status.substr(0, 140);
 
-    this.processed_tweets.push(remote.roomId, status.status);
+    this._processor.push_processed_tweet.push(remote.roomId, status.status);
     client.post("statuses/update", status, (error) => {
       if(error) {
         log.error("Twitter", "Failed to send tweet. %s", error);
@@ -642,22 +503,11 @@ MatrixTwitter.prototype._process_timeline = function () {
       log.info("Twitter","Timeline poll request hit count limit. Request likely incomplete.");
     }
 
-    if(this.msg_queue_intervalID != null) {
-      clearInterval(this.msg_queue_intervalID);
-      this.msg_queue_intervalID = null;
-    }
     tline.entry.remote.set("twitter_since", feed[0].id_str);
-    var promises = [];
-    feed.reverse().forEach((item) => {
-      promises.push(this.process_tweet(tline.entry.matrix.roomId, item, TWEET_REPLY_MAX_DEPTH));
-    });
-    Promise.all(promises).then(() =>{
-      this._bridge.getRoomStore().upsertEntry(tline.entry).catch(err =>{
-        log.warn("Twitter", "Couldn't store twitter_since by upserting %s\n%s", feed.entry.remote.roomId, err);
-      });
-      this.msg_queue_intervalID = setInterval(() => {
-        this._process_head_of_msg_queue();
-      }, TWITTER_MSG_QUEUE_INTERVAL_MS);
+
+    this._processor.process_tweets(tline.entry.matrix.roomId, feed.reverse(), TWEET_REPLY_MAX_DEPTH);
+    this._bridge.getRoomStore().upsertEntry(tline.entry).catch(err =>{
+      log.warn("Twitter", "Couldn't store twitter_since by upserting %s\n%s", feed.entry.remote.roomId, err);
     });
 
   });
@@ -805,9 +655,8 @@ MatrixTwitter.prototype._process_hashtag_feed = function () {
       });
     }
 
-    results.statuses.reverse().forEach((item) => {
-      this.process_tweet(feed.entry.matrix.roomId, item, 0);
-    });
+    this._processor.process_tweets(feed.entry.matrix.roomId, results.statuses.reverse(), 0);
+
   });
   this.hashtag_queue.push(feed);
 }
@@ -919,7 +768,7 @@ MatrixTwitter.prototype.create_user_timeline = function (user, profile) {
 MatrixTwitter.prototype._push_to_user_timeline = function (user, msg) {
   this.storage.get_timeline_room(user).then(value =>{
     if(value) {
-      this.process_tweet(value, msg, TWEET_REPLY_MAX_DEPTH);
+      this._processor.process_tweet(value, msg, TWEET_REPLY_MAX_DEPTH);
       return;
     }
     log.error("Twitter.UserTimeline", "A user is registered but its timeline room is null. Something is up.");
