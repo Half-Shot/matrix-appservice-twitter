@@ -80,8 +80,9 @@ var cli = new Cli({
       clientFactory: clientFactory
     });
     log.info("AppServ", "Matrix-side listening on port %s", port);
-        //Setup twitter
 
+
+    //Setup twitter
     var tstorage = new TwitterDB('twitter.db');
     tstorage.init();
 
@@ -104,6 +105,16 @@ var cli = new Cli({
     var roomstore;
     twitter.start().then(() => {
       bridge.run(port, config);
+
+      // Setup twitbot profile (this is needed for some actions)
+      bridge.getClientFactory().getClientAs().register("twitbot").then( () => {
+        log.info("Init","Created user 'twitbot'.");
+      }).catch( (err) => {
+        if (err.errcode !== "M_USER_IN_USE") {
+          log.info("Init", "Failed to create bot user 'twitbot'. %s", err.errcode);
+        }
+      });
+
       return bridge.loadDatabases();
     }).then(() => {
       roomstore = bridge.getRoomStore();//changed
@@ -134,6 +145,7 @@ try{
 }
 catch(err) {
   log.error("Init", "Failed to start bridge.");
+  log.error("Init", err);
 }
 
 /**
