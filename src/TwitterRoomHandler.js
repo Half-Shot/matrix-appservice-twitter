@@ -93,10 +93,10 @@ TwitterRoomHandler.prototype.processAliasQuery = function (alias, aliasLocalpart
   var type = aliasLocalpart.substr("twitter_".length, 2);
   var part = aliasLocalpart.substr("twitter_.".length);
 
-  if(type[0] == '@' && this._timelines.enabled) { //User timeline
+  if(type[0] == '@' && this._timelines.enable) { //User timeline
     return this.handlers.timeline.processAliasQuery(part);
   }
-  else if(type[0] == '#' && this._hashtags.enabled) { //Hashtag
+  else if(type[0] == '#' && this._hashtags.enable) { //Hashtag
     return this.handlers.hashtag.processAliasQuery(part);
   }
   /*else if(type == 'DM') {
