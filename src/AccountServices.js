@@ -160,7 +160,7 @@ AccountServices.prototype._processPIN = function (event) {
     }).catch(err => {
       intent.sendMessage(event.room_id, {
         "body": "We couldn't verify this PIN :(. Maybe you typed it wrong or you"
-             + "might need to request it again.",
+             + " might need to request it again.",
         "msgtype": "m.text"
       });
       log.error("Handler.AccountServices", "OAuth Access Token Failed:%s", err);
