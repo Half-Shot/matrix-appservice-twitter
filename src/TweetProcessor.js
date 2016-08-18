@@ -39,7 +39,7 @@ TweetProcessor.prototype.start = function () {
 TweetProcessor.prototype._process_head_of_msg_queue = function () {
   if(this.msg_queue.length > 0) {
     if(this.msg_queue.length >= MSG_QUEUE_LAGGING_THRESHOLD) {
-      log.warn("TwitterProcessor", "Message queue has a large number of unsent events. %s (warn at:%s) ",
+      log.warn("TweetProcessor", "Message queue has a large number of unsent events. %s (warn at:%s) ",
        this.msg_queue.length,
        MSG_QUEUE_LAGGING_THRESHOLD
       );
@@ -47,10 +47,11 @@ TweetProcessor.prototype._process_head_of_msg_queue = function () {
     var msgs = this.msg_queue.pop();
     var promises = [];
     for(var msg of msgs) {
-      var intent = this._bridge.getIntent(msg.userId);
-      promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).catch(reason =>{
-        log.error("TwitterProcessor", "Failed send tweet to room: %s", reason);
-      }));
+      // var intent = this._bridge.getIntent(msg.userId);
+      // promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).catch(reason =>{
+      //   log.error("TwitterProcessor", "Failed send tweet to room: %s", reason);
+      // }));
+      log.info("TweetProcessor", "Msg: " + msg.content);
     }
     Promise.all(promises);
   }
@@ -127,35 +128,29 @@ TweetProcessor.prototype._push_to_msg_queue = function (muser, roomid, tweet, ty
 
     this.msg_queue.push(msgs);
   }).catch(reason =>{
-    log.error("TwitterProcessor", "Failed to submit tweet to queue, reason: %s", reason);
+    log.error("TweetProcessor", "Failed to submit tweet to queue, reason: %s", reason);
   });
 }
 
-TweetProcessor.prototype.process_tweets = function (roomid, tweets, depth) {
-  this._process_tweet(roomid, tweets, depth);
+TweetProcessor.prototype.process_tweets = function (roomid, tweets, depth, client = null) {
+  if (client == null) {
+    client = this._tclient;
+  }
+  tweets.forEach( (tweet) => {
+    this._process_tweet(roomid, tweet, depth);
+  });
+
 }
 
-TweetProcessor.prototype.process_tweet = function (roomid, tweet, depth) {
-  log.info("TweetProcessor", "STUB process_tweet");
-  return;
-  if(tweet.in_reply_to_status_id_str != null) {
-    this.app_twitter.get(
-      'statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet) => {
-        if (!error) {
-          return this.process_tweet(roomid, newtweet, depth);
-        }
-        else
-        {
-          log.error("TwitterProcessor", "process_tweet: GET /statuses/show returned: " + error[0].message);
-          //Don't reject here, or Promise.all will fail.
-          resolve();
-        }
-      });
+TweetProcessor.prototype.process_tweet = function (roomid, tweet, depth, client = null) {
+  if (client == null) {
+    client = this._tclient
   }
+  this._process_tweet(roomid, tweet, depth, client);
 }
 
 /**
- * MatrixTwitter.prototype.process_tweet - Process a given tweet (including
+ * TweetProcessor.prototype._process_tweet - Process a given tweet (including
  * resolving any parent tweets), and submit it to the given room. This function
  * is recursive, limited to the depth set.
  *
@@ -168,7 +163,7 @@ TweetProcessor.prototype.process_tweet = function (roomid, tweet, depth) {
  *
  * @see {@link https://dev.twitter.com/overview/api/tweets}
  */
-TweetProcessor.prototype._process_tweet = function (roomid, tweet, depth) {
+TweetProcessor.prototype._process_tweet = function (roomid, tweet, depth, client) {
   depth--;
   var type = "m.text";
   if (tweet.in_reply_to_status_id_str != null) {
@@ -176,15 +171,14 @@ TweetProcessor.prototype._process_tweet = function (roomid, tweet, depth) {
   }
   return new Promise( (resolve) => {
     if (tweet.in_reply_to_status_id_str != null && depth > 0) {
-      this.app_twitter.get(
+      client.get(
         'statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet) => {
           if (!error) {
             return this._process_tweet(roomid, newtweet, depth);
           }
           else
           {
-            log.error("TwitterProcessor", "process_tweet: GET /statuses/show returned: " + error[0].message);
-            //Don't reject here, or Promise.all will fail.
+            log.error("TweetProcessor", "process_tweet: GET /statuses/show returned: " + error[0].message);
             reject();
           }
         });
@@ -195,7 +189,7 @@ TweetProcessor.prototype._process_tweet = function (roomid, tweet, depth) {
   }).then(() => {
     this._update_user_timeline_profile(tweet.user);
     if(this.processed_tweets.contains(roomid, tweet.text)) {
-      log.info("TwitterProcessor", "Repeated tweet detected, not processing");
+      log.info("TweetProcessor", "Repeated tweet detected, not processing");
       return;
     }
 
