@@ -17,6 +17,7 @@ const HASHTAG_POLL_INTERVAL = 3050; //Twitter allows 450 calls per 15 minute (We
 const TWEET_REPLY_MAX_DEPTH = 3;
 const TIMELINE_TWEET_FETCH_COUNT = 100;
 const HASHTAG_TWEET_FETCH_COUNT = 100;
+const STREAM_RETRY_INTERVAL = 15000;
 
 
 /**
@@ -76,9 +77,9 @@ MatrixTwitter.prototype.start = function () {
     this._processor = new TweetProcessor(
       {
         bridge: this._bridge,
-        storage: this._storage,
+        storage: this.storage,
         client: this.app_twitter,
-        meda: this._media_cfg
+        media: this._media_cfg
       }
     );
 
@@ -190,53 +191,6 @@ MatrixTwitter.prototype._get_intent = function (id) {
   return this._bridge.getIntentFromLocalpart("twitter_" + id);
 }
 
-MatrixTwitter.prototype._update_user_timeline_profile = function (profile) {
-  var ts = new Date().getTime();
-  if(profile == null) {
-    log.warn("Twitter", "Tried to preform a profile update with a null profile.");
-    return;
-  }
-  this.storage.get_profile_by_id(profile.id).then((old)=>{
-    var update_name = true;
-    var update_avatar = true;
-    if(old != null && old.profile != null) {
-      //If either the real name (name) or the screen_name (handle) are out of date, update the screen name.
-      update_name = (old.profile.name != profile.name)
-      update_name = (old.profile.screen_name != profile.screen_name);
-      update_avatar = (old.profile.profile_image_url_https != profile.profile_image_url_https)
-       && this._media_cfg.enable_profile_images;
-    }
-
-    var intent = this._get_intent(profile.id_str);
-    if(update_name) {
-      if(profile != null && profile.name != null && profile.screen_name != null ) {
-        intent.setDisplayName(profile.name + " (@" + profile.screen_name + ")");
-      }
-      else {
-        log.warn("Twitter", "Tried to preform a user display name update with a null profile.");
-      }
-    }
-
-    if(update_avatar) {
-      if(profile == null || profile.profile_image_url_https == null) {
-        log.warn("Twitter", "Tried to preform a user avatar update with a null profile.");
-        return;
-      }
-      util.uploadContentFromUrl(this._bridge, profile.profile_image_url_https, intent).then((uri) =>{
-        return intent.setAvatarUrl(uri);
-      }).catch(err => {
-        log.error(
-            'Twitter',
-            "Couldn't set new avatar for @%s because of %s",
-            profile.screen_name,
-            err
-          );
-      });
-    }
-    this.storage.cache_user_profile(profile.id, profile.screen_name, profile, ts);
-  });
-}
-
 MatrixTwitter.prototype._create_twitter_client = function (creds) {
   var ts = new Date().getTime();
   var client = new Twitter({
@@ -280,7 +234,7 @@ MatrixTwitter.prototype._get_twitter_client = function (sender) {
             return;
           }
           client.profile = profile;
-          this._update_user_timeline_profile(profile);
+          this._processor.update_user_timeline_profile(profile);
           resolve(client);
         });
       }
@@ -302,7 +256,7 @@ MatrixTwitter.prototype._get_twitter_client = function (sender) {
           }
           client.profile = profile;
           client.last_auth = ts;
-          this._update_user_timeline_profile(profile);
+          this._processor.update_user_timeline_profile(profile);
           resolve(client);
         });
       }
@@ -327,7 +281,7 @@ MatrixTwitter.prototype._get_user = function (data) {
         reject(error.message);
         return;
       }
-      this._update_user_timeline_profile(user);
+      this._processor.update_user_timeline_profile(user);
       resolve(user);
     });
   });
@@ -692,16 +646,37 @@ MatrixTwitter.prototype.attach_user_stream = function (user) {
           data.warning.message
         );
       }
+      else if (data.disconnect) {
+        if(data.disconnect.code == 2){
+          log.error("TwitterStream", "We got a disconnect error for too many duplicate streams. Bailing on this user.\n%s",
+           data.warning.message);
+        }
+        else if(data.disconnect.code == 6 ){
+          log.error("TwitterStream", "Token revoked. We can't do any more here.\n%s",
+           data.warning.message);
+        }
+        else
+        {
+          log.warn("TwitterStream", "We got a disconnect errorcode %s %s. Restarting stream.",
+            data.warning.code,
+            data.warning.message
+          );
+          this.detach_user_stream(user);
+          setTimeout(() => {this.attach_user_stream(user); }, STREAM_RETRY_INTERVAL);
+        }
+      }
       else if (data.id) { //Yeah..the only way to know if it's a tweet is to check if the ID field is set at the root level.
         this._push_to_user_timeline(user, data);
       }
     });
     stream.on('error', function (error) {
-      log.error("Twitter", "Stream gave an error %s", error);
+      log.error("Twitter.UserStream", "Stream gave an error %s", error);
+      this.detach_user_stream(user);
+      setTimeout(() => {this.attach_user_stream(user); }, STREAM_RETRY_INTERVAL);
     });
     this.user_streams[user] = stream;
   }).catch(reason =>{
-    log.warn("Twitter", "Couldn't attach user stream for %s : %s", user, reason);
+    log.warn("Twitter.UserStream", "Couldn't attach user stream for %s : %s", user, reason);
   });
 }
 
@@ -825,8 +800,8 @@ MatrixTwitter.prototype._create_dm_room = function (msg) {
 MatrixTwitter.prototype._process_incoming_dm = function (msg) {
   var users = [msg.sender_id_str, msg.recipient_id_str].sort().join('');
 
-  this._update_user_timeline_profile(msg.sender);
-  this._update_user_timeline_profile(msg.recipient);
+  this._processor.update_user_timeline_profile(msg.sender);
+  this._processor.update_user_timeline_profile(msg.recipient);
 
   if(this.sent_dms.contains(users, msg.text)) {
     log.info("Twitter.DM", "DM has already been processed, ignoring.");
