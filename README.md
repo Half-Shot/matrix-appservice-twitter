@@ -3,6 +3,8 @@ matrix-appservice-twitter
 
 Twitter bridge for Matrix.
 
+### Please [visit this page](https://half-shot.github.io/matrix-appservice-twitter/) for a prettier introduction.
+
 # Requirements
 
 - NodeJS
