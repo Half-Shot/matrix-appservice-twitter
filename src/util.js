@@ -119,7 +119,18 @@ function uploadContentFromUrl (bridge, url, id, name) {
 
 }
 
+/**
+ * isStrInteger - Checks a string is a integer
+ *
+ * @param  {string} str
+ * @return {bool}
+ */
+function isStrInteger (str) {
+  return str.match(/[0-9]+/);
+}
+
 module.exports = {
   uploadContentFromUrl: uploadContentFromUrl,
-  downloadFile: downloadFile
+  downloadFile: downloadFile,
+  isStrInteger: isStrInteger
 }

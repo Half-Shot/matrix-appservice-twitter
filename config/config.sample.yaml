@@ -1,10 +1,11 @@
 bridge:
   domain: localhost
   homeserverUrl: http://localhost:8008
+  database_file: twitter.db
 
 app_auth: #Get these from twitter by creating an application through the API site.
-    consumer_key: BLAHBLAHBLAH
-    consumer_secret: BLAHBLAHBLAH
+  consumer_key: BLAHBLAHBLAH
+  consumer_secret: BLAHBLAHBLAH
 
 hashtags:
   enable: true
@@ -15,3 +16,9 @@ timelines:
 media:
   enable_download: true
   enable_profile_images: true
+
+logging:
+  file: logs/twitter-bridge.log
+  size: 50m
+  count: 3
+  compress: false

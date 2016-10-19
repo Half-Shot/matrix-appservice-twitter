@@ -21,12 +21,13 @@ var TwitterRoomHandler = function (bridge, config,  handlers) {
   this._bridge = bridge;
   this._hashtags = config.hashtags;
   this._timelines = config.timelines;
+  this._sender_localpart = config.sender_localpart;
   this.handlers = handlers; // 'service' handler
 }
 
 TwitterRoomHandler.prototype.processInvite = function (event, request, context) {
   var remote = context.rooms.remote;
-  var twitbot = "@twitbot:"+this._bridge.opts.domain;
+  var twitbot = "@"+this._sender_localpart+":"+this._bridge.opts.domain;
   if(remote == null
      && event.sender != twitbot
      && event.state_key == twitbot)

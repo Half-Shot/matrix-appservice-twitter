@@ -10,6 +10,8 @@ properties:
             type: "string"
           homeserverUrl:
             type: "string"
+          database_file:
+            type: "string"
     app_auth:
         type: "object"
         required: ["consumer_key", "consumer_secret"]
@@ -37,4 +39,16 @@ properties:
           enable_download:
             type: "boolean"
           enable_profile_images:
+            type: "boolean"
+    logging:
+        type: "object"
+        required: ["file"]
+        properties:
+          file:
+            type: "string"
+          size:
+            type: "string"
+          count:
+            type: "integer"
+          compress:
             type: "boolean"

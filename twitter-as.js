@@ -1,21 +1,18 @@
-var log     = require('npmlog');
-var yaml    = require("js-yaml");
-var fs      = require("fs");
+const log     = require('npmlog');
+const yaml    = require("js-yaml");
+const fs      = require("fs");
 
-var Cli                    = require("matrix-appservice-bridge").Cli;
-var Bridge                 = require("matrix-appservice-bridge").Bridge;
-var RemoteUser             = require("matrix-appservice-bridge").RemoteUser;
-var AppServiceRegistration = require("matrix-appservice-bridge").AppServiceRegistration;
-var ClientFactory          = require("matrix-appservice-bridge").ClientFactory;
+const Cli                    = require("matrix-appservice-bridge").Cli;
+const Bridge                 = require("matrix-appservice-bridge").Bridge;
+const RemoteUser             = require("matrix-appservice-bridge").RemoteUser;
+const AppServiceRegistration = require("matrix-appservice-bridge").AppServiceRegistration;
+const ClientFactory          = require("matrix-appservice-bridge").ClientFactory;
 
-var MatrixTwitter        = require("./src/MatrixTwitter.js").MatrixTwitter;
-var TwitterRoomHandler   = require("./src/TwitterRoomHandler.js").TwitterRoomHandler;
-var AccountServices      = require("./src/AccountServices.js").AccountServices;
-var TimelineHandler      = require("./src/TimelineHandler.js").TimelineHandler;
-var HashtagHandler       = require("./src/HashtagHandler.js").HashtagHandler;
-var DirectMessageHandler = require("./src/DirectMessageHandler.js").DirectMessageHandler;
-var TwitterDB            = require("./src/TwitterDB.js").TwitterDB;
-var util                 = require('./src/util.js');
+const MatrixTwitter        = require("./src/MatrixTwitter.js").MatrixTwitter;
+const TwitterRoomHandler   = require("./src/TwitterRoomHandler.js").TwitterRoomHandler;
+const RoomHandlers         = require("./src/handlers/Handlers.js");
+const TwitterDB            = require("./src/TwitterDB.js").TwitterDB;
+const util                 = require('./src/util.js');
 
 var twitter;
 var bridge;
@@ -30,18 +27,20 @@ var cli = new Cli({
     reg.setId(AppServiceRegistration.generateToken());
     reg.setHomeserverToken(AppServiceRegistration.generateToken());
     reg.setAppServiceToken(AppServiceRegistration.generateToken());
-    reg.setSenderLocalpart("twitbot");
+    reg.setSenderLocalpart("_twitter_bot");
     reg.addRegexPattern("users", "@twitter_.*", true);
     reg.addRegexPattern("aliases", "#twitter_@.*", true);
     reg.addRegexPattern("aliases", "#twitter_#.*", true);
-        /* Currently not in use */
-        //reg.addRegexPattern("aliases", "#twitter_DM.*", true);
     callback(reg);
   },
   run: function (port, config) {
 
-        //Read registration file
+    if(config.logging.file) {
+      var lrstream = require('logrotate-stream');
+      log.stream = lrstream(config.logging);
+    }
 
+    //Read registration file
     var regObj = yaml.safeLoad(fs.readFileSync("twitter-registration.yaml", 'utf8'));
     regObj = AppServiceRegistration.fromObject(regObj);
     if (regObj === null) {
@@ -76,14 +75,11 @@ var cli = new Cli({
           }
         }
       },
-            // Fix to use our own JS SDK due to a bug in 0.4.1
       clientFactory: clientFactory
     });
     log.info("AppServ", "Matrix-side listening on port %s", port);
 
-
-    //Setup twitter
-    var tstorage = new TwitterDB('twitter.db');
+    var tstorage = new TwitterDB(config.bridge.database_file || "twitter.db");
     tstorage.init();
 
     twitter = new MatrixTwitter(bridge, config, tstorage);
@@ -91,27 +87,27 @@ var cli = new Cli({
       bridge: bridge,
       app_auth: config.app_auth,
       storage: tstorage,
-      twitter: twitter
+      twitter: twitter,
+      sender_localpart: regObj.sender_localpart
     }
     room_handler = new TwitterRoomHandler(bridge, config,
       {
-        services: new AccountServices(opt),
-        timeline: new TimelineHandler(bridge, twitter),
-        hashtag: new HashtagHandler(bridge, twitter),
-        directmessage: new DirectMessageHandler(bridge, twitter)
+        services: new RoomHandlers.AccountServices(opt),
+        timeline: new RoomHandlers.TimelineHandler(bridge, twitter),
+        hashtag: new RoomHandlers.HashtagHandler(bridge, twitter),
+        directmessage: new RoomHandlers.DirectMessageHandler(bridge, twitter)
       }
     );
-
     var roomstore;
     twitter.start().then(() => {
       bridge.run(port, config);
 
       // Setup twitbot profile (this is needed for some actions)
-      bridge.getClientFactory().getClientAs().register("twitbot").then( () => {
-        log.info("Init","Created user 'twitbot'.");
+      bridge.getClientFactory().getClientAs().register(regObj.sender_localpart).then( () => {
+        log.info("Init", "Created user '"+regObj.sender_localpart+"'.");
       }).catch( (err) => {
         if (err.errcode !== "M_USER_IN_USE") {
-          log.info("Init", "Failed to create bot user 'twitbot'. %s", err.errcode);
+          log.info("Init", "Failed to create bot user '"+regObj.sender_localpart+"'. %s", err.errcode);
         }
       });
 

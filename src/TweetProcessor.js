@@ -132,6 +132,16 @@ TweetProcessor.prototype._push_to_msg_queue = function (muser, roomid, tweet, ty
   });
 }
 
+
+/**
+ * TweetProcessor.prototype.process_tweets - A function used to process
+ *
+ * @param  {type} roomid        description
+ * @param  {type} tweets        description
+ * @param  {type} depth         description
+ * @param  {type} client = null description
+ * @return {type}               description
+ */
 TweetProcessor.prototype.process_tweets = function (roomid, tweets, depth, client = null) {
   if (client == null) {
     client = this._tclient;
@@ -169,7 +179,7 @@ TweetProcessor.prototype._process_tweet = function (roomid, tweet, depth, client
   if (tweet.in_reply_to_status_id_str != null) {
     type = "m.notice"; // A nicer way to show previous tweets
   }
-  return new Promise( (resolve) => {
+  return new Promise( (resolve, reject) => {
     if (tweet.in_reply_to_status_id_str != null && depth > 0) {
       client.get(
         'statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet) => {
