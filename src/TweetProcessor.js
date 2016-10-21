@@ -210,6 +210,4 @@ TweetProcessor.prototype._process_tweet = function (roomid, tweet, depth, client
 }
 
 
-module.exports = {
-  TweetProcessor: TweetProcessor
-}
+module.exports = TweetProcessor;

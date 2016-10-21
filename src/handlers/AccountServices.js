@@ -1,8 +1,8 @@
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
-const Twitter    = require('twitter');
-const log        = require('npmlog');
-const OAuth      = require('oauth');
-const util      = require('util');
+const Twitter = require('twitter');
+const log = require('npmlog');
+const OAuth = require('oauth');
+const util = require('util');
 
 /**
   * This class is a handler for conversation between users and the bridge bot to
