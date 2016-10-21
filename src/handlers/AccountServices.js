@@ -123,7 +123,7 @@ class AccountServices {
     var intent = this._bridge.getIntent();
     this._storage.remove_client_data(event.sender);
     this._storage.remove_timeline_room(event.sender);
-    this._twitter.detach_user_stream(event.sender);
+    this._twitter.user_stream.detach(event.sender);
     intent.sendMessage(event.room_id, {
       "body": "Your account (if it was linked) is now unlinked from Matrix.",
       "msgtype": "m.text"
@@ -154,7 +154,7 @@ class AccountServices {
           "msgtype": "m.text"
         });
         this._twitter.create_user_timeline(event.sender, profile);
-        this._twitter.attach_user_stream(event.sender);
+        this._twitter.user_stream.attach(event.sender);
       }).catch(err => {
         intent.sendMessage(event.room_id, {
           "body": "We couldn't verify this PIN :(. Maybe you typed it wrong or you"

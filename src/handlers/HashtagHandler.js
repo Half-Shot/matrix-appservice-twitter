@@ -23,9 +23,9 @@ class HashtagHandler {
    * @param  {external:RoomBridgeStore.Entry} entry description
    */
   onRoomCreated (alias, entry) {
-    this.twitter.add_hashtag_feed(
+    this.twitter.timeline.add_hashtag(
       entry.remote.getId().substr("hashtag_".length),
-      entry
+      entry.matrix.getId()
     );
   }
 

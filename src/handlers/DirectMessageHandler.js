@@ -36,7 +36,7 @@ class DirectMessageHandler {
    */
   processMessage  (event) {
     if(event.content.msgtype == "m.text") {
-      this.twitter.send_dm(event.sender, event.room_id, event.content.body);
+      this.twitter.dm.send(event.sender, event.room_id, event.content.body);
     }
   }
 

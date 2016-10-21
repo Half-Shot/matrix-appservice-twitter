@@ -48,9 +48,9 @@ class TimelineHandler {
    * @param  {external:RoomBridgeStore.Entry} entry description
    */
   onRoomCreated (alias, entry) {
-    this.twitter.add_timeline(
+    this.twitter.timeline.add_timeline(
         entry.remote.data.twitter_user,
-        entry
+        entry.matrix.getId()
     );
   }
 
@@ -58,7 +58,7 @@ class TimelineHandler {
     var remote = context.rooms.remote;
     if( remote.data.twitter_type == "user_timeline" && remote.data.twitter_owner == event.sender ) {
       log.info("Handler.AccountServices", "User %s left room. Leaving", event.sender);
-      this.twitter.detach_user_stream(event.sender);
+      this.twitter.user_stream.detach(event.sender);
       var intent = this._bridge.getIntent();
       intent.leave(event.room_id).then(() =>{
         var roomstore = this._bridge.getRoomStore();
