@@ -1,36 +1,32 @@
-const log     = require('npmlog');
-const yaml    = require("js-yaml");
-const fs      = require("fs");
+const log = require('npmlog');
+const yaml = require("js-yaml");
+const fs = require("fs");
 
-const Cli                    = require("matrix-appservice-bridge").Cli;
-const Bridge                 = require("matrix-appservice-bridge").Bridge;
-const RemoteUser             = require("matrix-appservice-bridge").RemoteUser;
-const AppServiceRegistration = require("matrix-appservice-bridge").AppServiceRegistration;
-const ClientFactory          = require("matrix-appservice-bridge").ClientFactory;
+const AppService = require("matrix-appservice-bridge");
 
-const MatrixTwitter        = require("./src/MatrixTwitter.js").MatrixTwitter;
-const TwitterRoomHandler   = require("./src/TwitterRoomHandler.js").TwitterRoomHandler;
-const RoomHandlers         = require("./src/handlers/Handlers.js");
-const TwitterDB            = require("./src/TwitterDB.js").TwitterDB;
-const util                 = require('./src/util.js');
+const Twitter = require("./src/twitter/Twitter.js");
+const TwitterRoomHandler = require("./src/TwitterRoomHandler.js");
+const RoomHandlers = require("./src/handlers/Handlers.js");
+const TwitterDB = require("./src/TwitterDB.js");
+const util = require('./src/util.js');
 
 var twitter;
 var bridge;
 
-var cli = new Cli({
+var cli = new AppService.Cli({
   registrationPath: "twitter-registration.yaml",
   bridgeConfig: {
     affectsRegistration: true,
     schema: "./config/config.schema.yaml"
   },
   generateRegistration: function (reg, callback) {
-    reg.setId(AppServiceRegistration.generateToken());
-    reg.setHomeserverToken(AppServiceRegistration.generateToken());
-    reg.setAppServiceToken(AppServiceRegistration.generateToken());
+    reg.setId(AppService.AppServiceRegistration.generateToken());
+    reg.setHomeserverToken(AppService.AppServiceRegistration.generateToken());
+    reg.setAppServiceToken(AppService.AppServiceRegistration.generateToken());
     reg.setSenderLocalpart("_twitter_bot");
-    reg.addRegexPattern("users", "@twitter_.*", true);
-    reg.addRegexPattern("aliases", "#twitter_@.*", true);
-    reg.addRegexPattern("aliases", "#twitter_#.*", true);
+    reg.addRegexPattern("users", "@_twitter_.*", true);
+    reg.addRegexPattern("aliases", "#_twitter_@.*", true);
+    reg.addRegexPattern("aliases", "#_twitter_#.*", true);
     callback(reg);
   },
   run: function (port, config) {
@@ -42,21 +38,21 @@ var cli = new Cli({
 
     //Read registration file
     var regObj = yaml.safeLoad(fs.readFileSync("twitter-registration.yaml", 'utf8'));
-    regObj = AppServiceRegistration.fromObject(regObj);
+    regObj = AppService.AppServiceRegistration.fromObject(regObj);
     if (regObj === null) {
       throw new Error("Failed to parse registration file");
     }
 
     var room_handler;
 
-    var clientFactory = new ClientFactory({
+    var clientFactory = new AppService.ClientFactory({
       sdk: require("matrix-js-sdk"),
       url: config.bridge.homeserverUrl,
       token: regObj.as_token,
       appServiceUserId: "@" + regObj.sender_localpart + ":" + config.bridge.domain
     });
 
-    bridge = new Bridge({
+    bridge = new AppService.Bridge({
       homeserverUrl: config.bridge.homeserverUrl,
       domain: config.bridge.domain,
       registration: regObj,
@@ -82,7 +78,7 @@ var cli = new Cli({
     var tstorage = new TwitterDB(config.bridge.database_file || "twitter.db");
     tstorage.init();
 
-    twitter = new MatrixTwitter(bridge, config, tstorage);
+    twitter = new Twitter(bridge, config, tstorage);
     var opt = {
       bridge: bridge,
       app_auth: config.app_auth,
@@ -116,7 +112,7 @@ var cli = new Cli({
       roomstore = bridge.getRoomStore();//changed
       tstorage.get_linked_user_ids().then(ids =>{
         ids.forEach((value) => {
-          twitter.attach_user_stream(value);
+          twitter.user_stream.attach(value);
         });
       });
       return roomstore.getEntriesByMatrixRoomData({});
@@ -125,10 +121,10 @@ var cli = new Cli({
         if (entry.remote.data.hasOwnProperty('twitter_type')) {
           var type = entry.remote.data.twitter_type;
           if(type == 'timeline') {
-            twitter.add_timeline(entry.remote.data.twitter_user, entry);
+            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId());
           }
           else if(type == 'hashtag') {
-            twitter.add_hashtag_feed(entry.remote.roomId.substr("hashtag_".length), entry);
+            twitter.timeline.add_hashtag(entry.remote.roomId.substr("hashtag_".length), entry.matrix.getId());
           }
         }
       });
@@ -158,7 +154,7 @@ function userQuery (queriedUser) {
       return {
         name: twitter_user.name + " (@" + twitter_user.screen_name + ")",
         url: uri,
-        remote: new RemoteUser(twitter_user.id_str)
+        remote: new AppService.RemoteUser(twitter_user.id_str)
       };
     });
   }).catch((error) => {
