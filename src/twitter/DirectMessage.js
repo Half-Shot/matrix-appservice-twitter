@@ -8,21 +8,21 @@ const Bridge = require("matrix-appservice-bridge");
 class DirectMessage {
   constructor (twitter) {
     this.twitter = twitter;
-    this.sent_dms = new ProcessedTweetList(1, 1);  //This will contain the body of the DM posted to a room to avoid reposting it.
+    this._sent_dms = new ProcessedTweetList(1, 1);  //This will contain the body of the DM posted to a room to avoid reposting it.
   }
 
-  process_incoming_dm (msg) {
+  process_dm (msg) {
     var users = [msg.sender_id_str, msg.recipient_id_str].sort().join('');
 
     this.twitter.update_profile(msg.sender);
     this.twitter.update_profile(msg.recipient);
 
-    if(this.sent_dms.contains(users, msg.text)) {
+    if(this._sent_dms.contains(users, msg.text)) {
       log.info("DirectMessage", "DM has already been processed, ignoring.");
       return;
     }
 
-    this.storage.get_dm_room(users).then(room_id =>{
+    this.twitter.storage.get_dm_room(users).then(room_id =>{
       if(room_id) {
         this._put_dm_in_room(room_id, msg);
         return;
@@ -33,7 +33,7 @@ class DirectMessage {
           var mroom = new Bridge.MatrixRoom(room.room_id);
           var rroom = new Bridge.RemoteRoom("dm_"+users);
           rroom.set("twitter_type", "dm");
-          this._bridge.getRoomStore().linkRooms(mroom, rroom);
+          this.twitter.bridge.getRoomStore().linkRooms(mroom, rroom);
           this._put_dm_in_room(room.room_id, msg);
         });
       });
@@ -64,7 +64,7 @@ class DirectMessage {
           user_id, room_id
         );
       }
-      return this.twitter.get_client(user_id);
+      return this.twitter.client_factory.get_client(user_id);
     }).then(client => {
       var otheruser = users.replace(client.profile.id_str, "");
       log.info(
@@ -74,7 +74,7 @@ class DirectMessage {
         client.profile.screen_name,
         otheruser
       );
-      this.sent_dms.push(users, text);
+      this._sent_dms.push(users, text);
       client.post("direct_messages/new", {user_id: otheruser, text: text}, (error) =>{
         if(error) {
           log.error("DirectMessage", "direct_messages/new failed. Reason: %s", error);

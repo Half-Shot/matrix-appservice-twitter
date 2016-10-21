@@ -1,8 +1,7 @@
 const log      = require('npmlog');
 
-
-const TIMELINE_POLL_INTERVAL = 3050; //Twitter allows 300 calls per 15 minute (We add 50 milliseconds for a little safety).
-const HASHTAG_POLL_INTERVAL = 3050; //Twitter allows 450 calls per 15 minute (We add 50 milliseconds for a little safety).
+const TIMELINE_POLL_INTERVAL = 3010; //Twitter allows 300 calls per 15 minute (We add 10 milliseconds for a little safety).
+const HASHTAG_POLL_INTERVAL = 2010; //Twitter allows 450 calls per 15 minute (We add 10 milliseconds for a little safety).
 const TIMELINE_TWEET_FETCH_COUNT = 100;
 const HASHTAG_TWEET_FETCH_COUNT = 100;
 const TWEET_REPLY_MAX_DEPTH = 3;
@@ -162,12 +161,12 @@ class Timeline {
       count: TIMELINE_TWEET_FETCH_COUNT
     };
 
-    var since = this._storage.get_since("@"+tline.twitter_id);
+    var since = this.twitter.storage.get_since("@"+tline.twitter_id);
     if (since) {
       req.since_id = since;
     }
 
-    this.twitter._client_factory.get_client().get('statuses/user_timeline', req, (error, feed) => {
+    this.twitter.client_factory.get_client().get('statuses/user_timeline', req, (error, feed) => {
       if(error) {
         log.error("Timeline", "_process_timeline: GET /statuses/user_timeline returned: %s", error);
         return;
@@ -180,9 +179,9 @@ class Timeline {
         log.info("Timeline", "Timeline poll request hit count limit. Request likely incomplete.");
       }
 
-      this._storage.set_since("@"+tline.twitter_id, feed[0].id);
+      this.twitter.storage.set_since("@"+tline.twitter_id, feed[0].id);
 
-      this._processor.process_tweets(tline.entry.matrix.roomId, feed.reverse(), TWEET_REPLY_MAX_DEPTH);
+      this.twitter.processor.process_tweets(tline.entry.matrix.roomId, feed.reverse(), TWEET_REPLY_MAX_DEPTH);
 
     });
 
@@ -204,14 +203,14 @@ class Timeline {
       count: HASHTAG_TWEET_FETCH_COUNT
     };
 
-    var since = this._storage.get_since(feed.hashtag);
+    var since = this.twitter.storage.get_since(feed.hashtag);
     if (since != undefined) {
       req.since_id = since;
     }
 
-    this.app_twitter.get('search/tweets', req, (error, results) => {
+    this.twitter.client_factory().get_client().get('search/tweets', req, (error, results) => {
       if(error) {
-        log.error("Twitter", "_process_hashtag_feed: GET /search/tweets returned: %s", error);
+        log.error("Timeline", "_process_hashtag_feed: GET /search/tweets returned: %s", error);
         return;
       }
 
@@ -220,12 +219,12 @@ class Timeline {
       }
 
       if(results.statuses.length == HASHTAG_TWEET_FETCH_COUNT) {
-        log.info("Twitter", "Hashtag poll request hit count limit. Request likely incomplete.");
+        log.info("Timeline", "Hashtag poll request hit count limit. Request likely incomplete.");
       }
 
-      this._storage.set_since("@"+feed.hashtag, results.statuses[0].id);
+      this.twitter.storage.set_since("@"+feed.hashtag, results.statuses[0].id);
 
-      this._processor.process_tweets(feed.entry.matrix.roomId, results.statuses.reverse(), 0);
+      this.twitter.processor.process_tweets(feed.entry.matrix.roomId, results.statuses.reverse(), 0);
 
     });
 

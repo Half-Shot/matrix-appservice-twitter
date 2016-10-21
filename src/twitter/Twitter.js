@@ -25,12 +25,14 @@ class Twitter {
     this._bridge = bridge;
     this._config = config;
     this._storage = storage;
+
     this._dm = new DirectMessage(this);
-    this._timeline = null;
+    this._timeline = new Timeline(this);
     this._userstream = new UserStream(this);
+    this._client_factory = new TwitterClientFactory(config.app_auth, storage);
+
     this._processor = null;
     this._start_promise = null;
-    this._client_factory = new TwitterClientFactory(config.app_auth, storage);
   }
 
   /**
@@ -53,7 +55,6 @@ class Twitter {
         media: this._config.media
       });
 
-      this._timeline = new Timeline(client);
 
       if (this._config.timelines.enable) {
         this.timeline.start_timeline();
@@ -76,7 +77,9 @@ class Twitter {
   }
 
   stop () {
-    log.warn("STUB", "Twitter.stop");
+    this.timeline.stop_timeline();
+    this.timeline.stop_hashtag();
+    this.userstream.detach_all();
   }
 
   get dm () {
@@ -95,12 +98,21 @@ class Twitter {
     return this._storage;
   }
 
+  get bridge () {
+    return this._bridge;
+  }
+
   get processor () {
     return this._processor;
   }
 
+  get client_factory () {
+    return this._client_factory;
+  }
+
   notify_matrix_user (user, message) {
     log.warn("STUB", "Twitter.notify_matrix_user");
+    log.info("Twitter", 'Sending %s "%s"', message);
   }
 
   update_profile (user_profile) {
@@ -108,7 +120,7 @@ class Twitter {
   }
 
   /**
-   * send_matrix_event_as_tweet - Takes a message event from a room and tries
+   * Takes a message event from a room and tries
    * to identify the sender and the correct format before processing it
    * in {@see send_tweet}.
    *
@@ -153,7 +165,7 @@ class Twitter {
 
     var client;
 
-    return this._client_factory.get_user_client(sender.getId()).then((c) => {
+    return this._client_factory.get_client(sender.getId()).then((c) => {
       client = c;
       if(type == "timeline") {
         var timelineID = remote.getId().substr("timeline_".length);
@@ -183,7 +195,7 @@ class Twitter {
 
       status.status = status.status.substr(0, 140);
 
-      this.timeline.push_processed_tweet(remote.roomId, status.status);
+      this._processor.push_processed_tweet(remote.roomId, status.status);
       client.post("statuses/update", status, (error) => {
         if(error) {
           log.error("Twitter", "Failed to send tweet. %s", error);
@@ -199,6 +211,7 @@ class Twitter {
 
   upload_media (user, media) {
     log.warn("STUB", "Twitter.upload_media");
+    return Promise.reject("upload_media not implemented");
   }
 
   /**
@@ -232,7 +245,7 @@ class Twitter {
 
   _get_profile (data) {
     return new Promise((resolve, reject) => {
-      this.app_twitter.get('users/show', data, (error, user) => {
+      this._client_factory.get_client().get('users/show', data, (error, user) => {
         if (error) {
           if(Array.isArray(error)) {
             error = error[0];
@@ -300,6 +313,4 @@ class Twitter {
 
 }
 
-module.exports = {
-  Twitter: Twitter
-}
+module.exports = Twitter;

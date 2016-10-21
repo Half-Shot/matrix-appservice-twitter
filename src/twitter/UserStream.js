@@ -1,4 +1,5 @@
 const log  = require('npmlog');
+
 const STREAM_RETRY_INTERVAL = 15000;
 const STREAM_LOCKOUT_RETRY_INTERVAL = 60*60*1000;
 const TWEET_REPLY_MAX_DEPTH = 0;
@@ -49,12 +50,18 @@ class UserStream {
     }
   }
 
+  detach_all () {
+    this._user_streams.forEach((item, i) =>{
+      this.detach(i);
+    });
+  }
+
   _on_stream_data (user_id, data) {
     if(data.direct_message) {
-      this.twitter.dm.process_incoming_dm(data.direct_message);
+      this.twitter.dm.process_dm(data.direct_message);
     }
     else if (data.warning) {
-      log.warn("Twitter.UserStream",
+      log.warn("UserStream",
        "Got a warning from a User Stream.\n%s : %s",
         data.warning.code,
         data.warning.message
@@ -63,7 +70,7 @@ class UserStream {
     else if (data.disconnect) {
       if(data.disconnect.code == 2) {
         log.error(
-          "TwitterStream",
+          "UserStream",
           "Disconnect error for too many duplicate streams. Bailing on this user.\n%s",
           data.warning.message
         );
@@ -75,12 +82,12 @@ class UserStream {
          );
       }
       else if(data.disconnect.code == 6 ) {
-        log.error("TwitterStream", "Token revoked. We can't do any more here.\n%s",
+        log.error("UserStream", "Token revoked. We can't do any more here.\n%s",
          data.warning.message);
       }
       else
       {
-        log.warn("TwitterStream", "Disconnect errorcode %s %s. Restarting stream.",
+        log.warn("UserStream", "Disconnect errorcode %s %s. Restarting stream.",
           data.warning.code,
           data.warning.message
         );
