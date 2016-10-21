@@ -12,6 +12,11 @@
     rules: {
       prefer-const: 2,
       curly: "error",
+      max-lines: ["error",{
+        max: 400,
+        skipComments: false,
+        skipBlankLines: false
+      }],
       max-len: ["error", {
         code: 120,
         ignoreComments: true,
