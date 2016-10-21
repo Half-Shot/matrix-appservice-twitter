@@ -9,9 +9,14 @@ app_auth: #Get these from twitter by creating an application through the API sit
 
 hashtags:
   enable: true
+  admin_only: false
 
 timelines:
   enable: true
+  admin_only: false
+
+admins:
+  - @test:localhost
 
 media:
   enable_download: true

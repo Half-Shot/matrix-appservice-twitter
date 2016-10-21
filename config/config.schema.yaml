@@ -26,11 +26,15 @@ properties:
         properties:
           enable:
             type: "boolean"
+          admin_only:
+            type: "boolean"
     timelines:
         type: "object"
         required: ["enable"]
         properties:
           enable:
+            type: "boolean"
+          admin_only:
             type: "boolean"
     media:
         type: "object"
@@ -42,7 +46,6 @@ properties:
             type: "boolean"
     logging:
         type: "object"
-        required: ["file"]
         properties:
           file:
             type: "string"
