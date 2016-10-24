@@ -1,6 +1,6 @@
 const log  = require('npmlog');
 const Request  = require('request');
-const FS       = require('FS');
+const FS       = require('fs');
 const Buffer   = require('buffer').Buffer;
 const Twitter  = require('twitter');
 
@@ -15,39 +15,29 @@ class TwitterClientFactory {
     this._auth_config = auth_config;
     this._app_client = null;
     this._storage = storage;
-    this._app_twitter_promise = null;
     this._tclients = new Map(); // {'@userid':TwitterClient}
   }
 
   get_client (user_id) {
-    if(user_id == null) {
-      return this.get_application_client();
-    }
-    return this.get_user_client(user_id);
+    return (user_id == null) ? this.get_application_client() : this._get_twitter_client(user_id);
+
   }
 
   get_application_client () {
-    if(this._app_client) {
-      return this._app_client;
-    }
-    if(this._app_twitter_promise) {
-      return this._app_twitter_promise;
-    }
-    else {
-      this._app_twitter_promise = this._get_bearer_token().then((token) => {
+
+    if(!this._app_client) {
+      this._app_client = this._get_bearer_token().then((token) => {
         this._auth_config.bearer_token = token;
         log.info('TClientFactory', 'Retrieved bearer token');
-        this._app_client = new Twitter(this.app_auth);
-      }).then( ()=>{
-        this._app_twitter_promise = null;
-        return this._app_client;
-      });
-      return this._app_twitter_promise;
+        this._app_client = Promise.promisifyAll(new Twitter(this._auth_config));
+      }).catch( err => {
+        log.error("TClientFactory", "Error getting bearer token %s", err);
+        this._app_client = null;
+      })
     }
-  }
 
-  get_user_client (user_id) {
-    return this._tclients.has(user_id) ? Promise.resolve(this._tclients[user_id]) : this.get_twitter_client(user_id);
+    return Promise.resolve(this._app_client);
+
   }
 
   _get_bearer_token () {
@@ -64,14 +54,19 @@ class TwitterClientFactory {
       //Test the token
       return new Promise((resolve, reject) =>{
         var auth = {
-          consumer_key: this.app_auth.consumer_key,
-          consumer_secret: this.app_auth.consumer_secret,
+          consumer_key: this._auth_config.consumer_key,
+          consumer_secret: this._auth_config.consumer_secret,
           bearer_token: token
         };
         this.app_twitter = new Twitter(auth).get(
           'application/rate_limit_status',
           {},
           (error, status, response) => {
+            if(error) {
+              log.error("TClientFactory", error);
+              reject(error);
+              return;
+            }
             if(response.statusCode == 401) {
               log.warn('TClientFactory', "Authentication with existing token failed. ");
               FS.unlink('bearer.tok', (err) => {
@@ -97,7 +92,7 @@ class TwitterClientFactory {
 
   _get_bearer_http () {
     return new Promise( (resolve, reject) => {
-      var key = this.app_auth.consumer_key + ":" + this.app_auth.consumer_secret;
+      var key = this._auth_config.consumer_key + ":" + this._auth_config.consumer_secret;
       key = Buffer.from(key, 'ascii').toString('base64');
       var options = {
         url: "https://api.twitter.com/oauth2/token",
@@ -152,74 +147,45 @@ class TwitterClientFactory {
   _get_twitter_client (sender) {
     //Check if we have the account in the cache
     return this._storage.get_twitter_account(sender).then((creds) => {
-      return new Promise( (resolve, reject) => {
-        if(creds == null) {
-          reject("No twitter account linked.");
-          return;
-        }
+      if(creds == null) {
+        throw "No twitter account linked.";
+      }
 
-        var ts = new Date().getTime();
-        var id = creds.user_id;
-        var client;
-        if(this._tclients.has(id)) {
-          client = this._tclients[id];
-          if(ts - client.last_auth < TWITTER_CLIENT_INTERVAL_MS) {
-            resolve(client);
-            return;
-          }
+      var ts = new Date().getTime();
+      var id = creds.user_id;
+      var client = this._tclients.has(id) ? this._tclients.get(id) : this._create_twitter_client(creds);
+      if(ts - client.last_auth < TWITTER_CLIENT_INTERVAL_MS) {
+        return client;
+      }
 
-          log.info("TClientFactory", "Credentials for %s need to be reevaluated.", sender);
-          client.get("account/verify_credentials", (error, profile) => {
-            if(error) {
-              log.info("TClientFactory", "Credentials for " + id + " are no longer valid.");
-              log.error("TClientFactory", error);
-              delete this._tclients[id];//Invalidate it
-              resolve(this._get_twitter_client(sender));
-              return;
-            }
-            client.profile = profile;
-            this._processor.update_user_timeline_profile(profile);
-            resolve(client);
-          });
-        }
-        else {
-          client = this._create_twitter_client(creds);
-          this._tclients[id] = client;
-          client.get("account/verify_credentials", (error, profile) => {
-            if(error) {
-              delete this._tclients[id];//Invalidate it
-              log.error(
-                "TClientFactory",
-                "We couldn't authenticate with the supplied access token for %s. Look into this. %s",
-                id,
-                error
-              );
-              reject(error);
-              return;
-              //TODO: Possibly find a way to get another key.
-            }
-            client.profile = profile;
-            client.last_auth = ts;
-            this._processor.update_user_timeline_profile(profile);
-            resolve(client);
-          });
-        }
+      log.info("TClientFactory", "Credentials for %s need to be reverified.", sender);
+      return client.getAsync("account/verify_credentials").then(profile => {
+        client.profile = profile;
+        client.last_auth = ts;
+        this._tclients.set(id, client);
+        return client;
+      }).catch(error => {
+        log.info("TClientFactory", "Credentials for " + id + " are no longer valid.");
+        var returningUser = this._tclients.has(id);
+        this._tclients.delete(id);//Invalidate it
+        // return returningUser ? this._get_twitter_client(sender) : Promise.reject(
+        //   `Couldn't authenticate with the supplied access token for ${id}. Look into this. ${error}`
+        // );
       });
     });
   }
 
   _create_twitter_client (creds) {
-    var ts = new Date().getTime();
     var client = new Twitter({
-      consumer_key: this.app_auth.consumer_key,
-      consumer_secret: this.app_auth.consumer_secret,
+      consumer_key: this._auth_config.consumer_key,
+      consumer_secret: this._auth_config.consumer_secret,
       access_token_key: creds.access_token,
       access_token_secret: creds.access_token_secret
     });
     /* Store a timestamp to track the point of login with the client. We do this
        to avoid having to keep track of auth timestamps in another map. */
-    client.last_auth = ts;
-    return client;
+    client.last_auth = 0;
+    return Promise.promisifyAll(client);
   }
 
 }
