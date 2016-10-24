@@ -65,7 +65,7 @@ class HashtagHandler {
     return {
       creationOpts: {
         visibility: "public",
-        room_alias_name: "twitter_#"+name,
+        room_alias_name: "_twitter_#"+name,
         name: "[Twitter] #"+name,
         topic: "Twitter feed for #"+name,
         initial_state: [

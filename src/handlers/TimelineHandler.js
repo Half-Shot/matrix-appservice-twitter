@@ -90,7 +90,7 @@ class TimelineHandler {
     //Create the room
     log.info("Handler.TimelineHandler", "Looking up " + alias);
     var tuser;
-    return this.twitter.get_user_by_screenname(alias).then((tu) => {
+    return this.twitter.get_profile_by_screenname(alias).then((tu) => {
       tuser = tu;
       if (tuser != null) {
         if (tuser.protected) {
@@ -127,11 +127,11 @@ class TimelineHandler {
     var powers = roomPowers(users);
     var remote = new RemoteRoom("timeline_" + user.id_str);
     remote.set("twitter_type", "timeline");
-    remote.set("twitter_user", roomOwner);
+    remote.set("twitter_user", user.id);
 
     var opts = {
       visibility: "public",
-      room_alias_name: "twitter_@"+alias,
+      room_alias_name: "_twitter_@"+alias,
       name: "[Twitter] " + user.name,
       topic: user.description,
       invite: [roomOwner],
