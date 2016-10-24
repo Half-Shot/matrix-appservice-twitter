@@ -5,7 +5,8 @@
     },
     env: {
       node: true,
-      es6: true
+      es6: true,
+      mocha: true
     },
     extends: "eslint:recommended",
 
@@ -14,8 +15,8 @@
       curly: "error",
       max-lines: ["error",{
         max: 400,
-        skipComments: false,
-        skipBlankLines: false
+        skipComments: true,
+        skipBlankLines: true
       }],
       max-len: ["error", {
         code: 120,
