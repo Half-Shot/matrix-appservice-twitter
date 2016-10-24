@@ -24,6 +24,8 @@ class Twitter {
   constructor (bridge, config, storage) {
     this._bridge = bridge;
     this._config = config;
+    this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
+    this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
     this._storage = storage;
 
     this._dm = new DirectMessage(this);
@@ -47,10 +49,10 @@ class Twitter {
     }
 
     this._start_promise = this._client_factory.get_application_client().then((client) =>{
-
       this._processor = new TweetProcessor({
         bridge: this._bridge,
         client,
+        twitter: this,
         storage: this._storage,
         media: this._config.media
       });
@@ -64,7 +66,10 @@ class Twitter {
         this.timeline.start_hashtag();
       }
 
-      this.userstream.attach_all();
+      this._userstream.attach_all();
+
+      this._processor.start();
+
     }).catch((error) => {
       log.error('Twitter', 'Error trying to retrieve bearer token:', error);
       throw error;
@@ -79,7 +84,7 @@ class Twitter {
   stop () {
     this.timeline.stop_timeline();
     this.timeline.stop_hashtag();
-    this.userstream.detach_all();
+    this._userstream.detach_all();
   }
 
   get dm () {
@@ -111,12 +116,63 @@ class Twitter {
   }
 
   notify_matrix_user (user, message) {
-    log.warn("STUB", "Twitter.notify_matrix_user");
-    log.info("Twitter", 'Sending %s "%s"', message);
+    var roomstore = this._bridge.getRoomStore();//changed
+    roomstore.getEntriesByRemoteId("service_@testuser:localhost").then((items) =>{
+      if(items.length == 0) {
+        log.warn("Twitter", "Couldn't find service room for %s, so couldn't send notice.", user);
+        return;
+      }
+      this._bridge.getIntent().sendMessage(items[0].matrix.getId(), {"msgtype": "m.notice", "body": message});
+    });
+    log.info("Twitter", 'Sending %s "%s"', user, message);
   }
 
   update_profile (user_profile) {
-    log.warn("STUB", "Twitter.update_profile");
+    var ts = new Date().getTime();
+    if(user_profile == null) {
+      log.warn("Twitter", "Tried to preform a profile update with a null profile.");
+      return;
+    }
+
+    return this._storage.get_profile_by_id(user_profile.id).then((old)=>{
+      var update_name = true;
+      var update_avatar = true;
+      if(old != null && old.profile != null) {
+        //If either the real name (name) or the screen_name (handle) are out of date, update the screen name.
+        update_name = (old.profile.name != user_profile.name)
+        update_name = (old.profile.screen_name != user_profile.screen_name);
+        update_avatar = (old.profile.profile_image_url_https != user_profile.profile_image_url_https)
+         && this._media_cfg.enable_profile_images;
+      }
+
+      var intent = this.get_intent(user_profile.id_str);
+      if(update_name) {
+        if(user_profile != null && user_profile.name != null && user_profile.screen_name != null ) {
+          intent.setDisplayName(user_profile.name + " (@" + user_profile.screen_name + ")");
+        }
+        else {
+          log.warn("Twitter", "Tried to preform a user display name update with a null profile.");
+        }
+      }
+
+      if(update_avatar) {
+        if(user_profile == null || user_profile.profile_image_url_https == null) {
+          log.warn("Twitter", "Tried to preform a user avatar update with a null profile.");
+          return;
+        }
+        util.uploadContentFromUrl(this._bridge, user_profile.profile_image_url_https, intent).then((uri) =>{
+          return intent.setAvatarUrl(uri);
+        }).catch(err => {
+          log.error(
+              'Twitter',
+              "Couldn't set new avatar for @%s because of %s",
+              user_profile.screen_name,
+              err
+            );
+        });
+      }
+      return this._storage.cache_user_profile(user_profile.id, user_profile.screen_name, user_profile, ts);
+    });
   }
 
   /**
@@ -134,33 +190,51 @@ class Twitter {
       return;
     }
 
-    if(event.content.msgtype == "m.text") {
-      log.info("Twitter", "Got message: %s", event.content.body);
-      var text = event.content.body.substr(0, 140);
-      return this.send_tweet(room, user, text);
-    }
-    else if(event.content.msgtype == "m.image") {
-      log.info("Twitter", "Got image: %s", event.content.body);
-      //Get the url
-      var url = event.content.url;
-      if(url.startsWith("mxc://")) {
-        url = this._bridge.opts.homeserverUrl + "/_matrix/media/r0/download/" + url.substr("mxc://".length);
+    //Check the user can send tweets.
+    this._storage.get_twitter_account(user.getId()).then((account) => {
+      if(account == null) {
+        throw "Matrix account isn't linked to any twitter account.";
       }
-      return util.downloadFile(url).then((buffer) => {
-        return this.upload_media(user, buffer);
-      }).then ((mediaId) => {
-        return this.send_tweet(room, user, "", {media: [mediaId]});
-      }).catch(err => {
-        log.error("Twitter", "Failed to send image to timeline. %s", err);
-      });
-    }
+      else if (account.access_type == "read") {
+        this.notify_matrix_user(
+          user.getId(),
+          "Your account doesn't have the correct access level to send tweets."
+        );
+        throw "Account only has read permissions.";
+      }
+
+    }).then(() =>{
+      if(event.content.msgtype == "m.text") {
+        log.info("Twitter", "Got message: %s", event.content.body);
+        var text = event.content.body.substr(0, 140);
+        return this.send_tweet(room, user, text);
+      }
+      else if(event.content.msgtype == "m.image") {
+        log.info("Twitter", "Got image: %s", event.content.body);
+        //Get the url
+        var url = event.content.url;
+        if(url.startsWith("mxc://")) {
+          url = this._bridge.opts.homeserverUrl + "/_matrix/media/r0/download/" + url.substr("mxc://".length);
+        }
+        return util.downloadFile(url).then((buffer) => {
+          return this.upload_media(user, buffer);
+        }).then ((mediaId) => {
+          return this.send_tweet(room, user, "", {media: [mediaId]});
+        }).catch(err => {
+          log.error("Twitter", "Failed to send image to timeline. %s", err);
+        });
+      }
+    }).catch((err) => {
+      log.error("Twitter", "Failed to send tweet. %s", err);
+    });
+
+
   }
 
   send_tweet (remote, sender, body, extras) {
     var type = remote.get("twitter_type");
     if(!["timeline", "hashtag", "user_timeline"].includes(type)) {
-      log.error("Twitter", "Twitter type was wrong (%s) ", type)
-      return;//Where am I meant to send it :(
+      throw `Tried to send a tweet to a type of room not understood ${type}`;//Where am I meant to send it :(
     }
 
     var client;
@@ -244,25 +318,21 @@ class Twitter {
   }
 
   _get_profile (data) {
-    return new Promise((resolve, reject) => {
-      this._client_factory.get_client().get('users/show', data, (error, user) => {
-        if (error) {
-          if(Array.isArray(error)) {
-            error = error[0];
-          }
-
-          log.error(
-                'Twitter',
-                "_get_profile: GET /users/show returned: %s %s",
-                error.code,
-                error.message
-              );
-          reject(error.message);
-          return;
-        }
-        this.update_profile(user);
-        resolve(user);
-      });
+    this._client_factory.get_client().then(client => {
+      return client.getAsync('users/show', data);
+    }).then(user => {
+      return this.update_profile(user).thenReturn(user);
+    }).catch(error => {
+      if(Array.isArray(error)) {
+        error = error[0];
+      }
+      log.error(
+        'Twitter',
+        "_get_profile: GET /users/show returned: %s %s",
+        error.code,
+        error.message
+      );
+      return null;
     });
   }
 
