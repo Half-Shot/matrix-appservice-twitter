@@ -10,9 +10,8 @@ var mime    = require('mime');
 */
 
 /**
- * downloadFile - This function will take a URL, upload it to Matrix and return
- * the corresponding MXC url in a Promise. The content will be uploaded on the
- * users behalf using the ID, or the AS bot if set to null.
+ * downloadFile - This function will take a URL and store the resulting data into
+ * a buffer.
  *
  * @param  {string} url      The URL to be downloaded from.
  * @return {Promise<Buffer>} A promise that will return a buffer with the data.
@@ -101,7 +100,7 @@ function uploadContentFromUrl (bridge, url, id, name) {
       });
     })
   }).then((buffer) => {
-    if(typeof id == "string" || id == null) {
+    if(id == null || typeof id == "string") {
       id = bridge.getIntent(id);
     }
     return id.getClient().uploadContent({
@@ -126,7 +125,7 @@ function uploadContentFromUrl (bridge, url, id, name) {
  * @return {bool}
  */
 function isStrInteger (str) {
-  return str.match(/[0-9]+/);
+  return str.match(/^[0-9]*$/) !== null;
 }
 
 module.exports = {
