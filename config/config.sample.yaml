@@ -27,3 +27,4 @@ logging:
   size: 50m
   count: 3
   compress: false
+  level: verbose #One of error,warn,info,verbose,silly,silent

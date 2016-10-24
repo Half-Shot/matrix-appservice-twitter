@@ -26,6 +26,8 @@ properties:
         properties:
           enable:
             type: "boolean"
+          poll_if_empty:
+            type: "boolean"
           admin_only:
             type: "boolean"
     timelines:
@@ -33,6 +35,8 @@ properties:
         required: ["enable"]
         properties:
           enable:
+            type: "boolean"
+          poll_if_empty:
             type: "boolean"
           admin_only:
             type: "boolean"
@@ -55,3 +59,5 @@ properties:
             type: "integer"
           compress:
             type: "boolean"
+          level:
+            type: "string"
