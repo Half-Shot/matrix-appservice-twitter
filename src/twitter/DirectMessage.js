@@ -1,5 +1,5 @@
 const log  = require('npmlog');
-const ProcessedTweetList = require("./ProcessedTweetList.js");
+const ProcessedTweetList = require("../ProcessedTweetList.js");
 const Bridge = require("matrix-appservice-bridge");
 
 /**
@@ -12,12 +12,12 @@ class DirectMessage {
   }
 
   process_dm (msg) {
-    var users = [msg.sender_id_str, msg.recipient_id_str].sort().join('');
+    var users = [msg.sender_id_str, msg.recipient_id_str].sort().join(';');
 
     this.twitter.update_profile(msg.sender);
     this.twitter.update_profile(msg.recipient);
 
-    if(this._sent_dms.contains(users, msg.text)) {
+    if(this._sent_dms.contains(users, msg.id_str)) {
       log.info("DirectMessage", "DM has already been processed, ignoring.");
       return;
     }
@@ -38,7 +38,7 @@ class DirectMessage {
         });
       });
     }).catch(reason =>{
-      log.error("DirectMessage", "Couldn't create room. Reason: " + reason);
+      log.error("DirectMessage", reason);
     });
   }
 
@@ -57,16 +57,14 @@ class DirectMessage {
     return this.twitter.storage.get_users_from_dm_room(room_id).then(u =>{
       users = u;
       if(users == null) {
-        log.error(
-          "DirectMessage",
-          ("User (%s) tried to send a DM to (%s) but the room was not found in" +
-           + "the DB. This shouldn't happen."),
-          user_id, room_id
-        );
+        throw `User ${user_id} tried to send a DM to ${room_id} but the room was not found in
+the DB. This shouldn't happen.`;
       }
       return this.twitter.client_factory.get_client(user_id);
     }).then(client => {
-      var otheruser = users.replace(client.profile.id_str, "");
+      var ausers = users.split(';');
+      ausers.splice(ausers.indexOf(client.profile.id_str), 1);
+      var otheruser = ausers[0];
       log.info(
         "DirectMessage",
         "Sending DM from %s(%s) => %s",
@@ -74,11 +72,12 @@ class DirectMessage {
         client.profile.screen_name,
         otheruser
       );
-      this._sent_dms.push(users, text);
-      client.post("direct_messages/new", {user_id: otheruser, text: text}, (error) =>{
-        if(error) {
-          log.error("DirectMessage", "direct_messages/new failed. Reason: %s", error);
-        }
+
+      return client.postAsync("direct_messages/new", {user_id: otheruser, text: text}).then(msg => {
+        this._sent_dms.push(users, msg.id_str);
+
+      }).catch( error => {
+        throw "direct_messages/new failed. Reason: " + error;
       });
     }).catch(reason =>{
       log.error("DirectMessage", "Failed to send DM: %s", reason);
@@ -87,6 +86,7 @@ class DirectMessage {
 
   _put_dm_in_room (room_id, msg) {
     var intent = this.twitter.get_intent(msg.sender_id_str);
+    
     log.info(
       "DirectMessage",
       "Recieved DM from %s(%s) => %s(%s)",
@@ -111,7 +111,7 @@ class DirectMessage {
       this.twitter.storage.get_matrixid_from_twitterid(msg.recipient_id_str)
     ]).then(user_ids =>{
       var invitees = new Set([
-        "@_twitter_" + msg.recipient_id_str + ":" + this._bridge.opts.domain
+        "@_twitter_" + msg.recipient_id_str + ":" + this.twitter.bridge.opts.domain
       ]);
       for(var user_id of user_ids) {
         if(user_id != null) {
@@ -120,15 +120,15 @@ class DirectMessage {
       }
       return [...invitees];
     }).then(invitees => {
-      var intent = this.twitter.get_intent(msg.sender_id_str);
+      var intent = this.twitter.get_intent();
       return intent.createRoom(
         {
           createAsClient: true,
           options: {
             invite: invitees,
+            is_direct: true,
             name: "[Twitter] DM "+msg.sender_screen_name+":"+msg.recipient_screen_name,
             visibility: "private",
-            //topic: "Twitter feed for #"+name,
             initial_state: [
               {
                 "type": "m.room.join_rules",
