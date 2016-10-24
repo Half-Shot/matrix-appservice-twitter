@@ -10,6 +10,8 @@ const RoomHandlers = require("./src/handlers/Handlers.js");
 const TwitterDB = require("./src/TwitterDB.js");
 const util = require('./src/util.js');
 
+global.Promise = require('bluebird');
+
 var twitter;
 var bridge;
 
@@ -30,7 +32,7 @@ var cli = new AppService.Cli({
     callback(reg);
   },
   run: function (port, config) {
-
+    log.level = config.logging.level || "info";
     if(config.logging.file) {
       var lrstream = require('logrotate-stream');
       log.stream = lrstream(config.logging);
@@ -76,7 +78,7 @@ var cli = new AppService.Cli({
     log.info("AppServ", "Matrix-side listening on port %s", port);
 
     var tstorage = new TwitterDB(config.bridge.database_file || "twitter.db");
-    tstorage.init();
+
 
     twitter = new Twitter(bridge, config, tstorage);
     var opt = {
@@ -95,7 +97,9 @@ var cli = new AppService.Cli({
       }
     );
     var roomstore;
-    twitter.start().then(() => {
+    tstorage.init().then(() => {
+      return twitter.start();
+    }).then(() => {
       bridge.run(port, config);
 
       // Setup twitbot profile (this is needed for some actions)
@@ -110,11 +114,6 @@ var cli = new AppService.Cli({
       return bridge.loadDatabases();
     }).then(() => {
       roomstore = bridge.getRoomStore();//changed
-      tstorage.get_linked_user_ids().then(ids =>{
-        ids.forEach((value) => {
-          twitter.user_stream.attach(value);
-        });
-      });
       return roomstore.getEntriesByMatrixRoomData({});
     }).then((entries) => {
       entries.forEach((entry) => {
