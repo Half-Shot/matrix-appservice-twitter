@@ -4,13 +4,14 @@ const HTMLDecoder = new require('html-entities').AllHtmlEntities;
 const ProcessedTweetList = require("./ProcessedTweetList.js");
 const util = require("./util.js");
 
-const TWITTER_MSG_QUEUE_INTERVAL_MS = 750;
+const TWITTER_MSG_QUEUE_INTERVAL_MS = 5;
 //const TWITTER_LOOKUP_INTERVAL = 60000;
 const MSG_QUEUE_LAGGING_THRESHOLD = 50; // The number of messages to be stored in the msg queue before we complain about lag.
 
 class TweetProcessor {
   constructor (opts) {
     this._tclient = opts.client;
+    this._twitter = opts.twitter;
     this._bridge = opts.bridge;
     this._storage = opts.storage;
     this.media_cfg = opts.media;
@@ -39,6 +40,7 @@ class TweetProcessor {
   //Runs every TWITTER_MSG_QUEUE_INTERVAL_MS to help not overflow the HS.
   _process_head_of_msg_queue () {
     if(this.msg_queue.length > 0) {
+      log.silly("TweetProcessor", "Messages in send queue: %s", this.msg_queue.length)
       if(this.msg_queue.length >= MSG_QUEUE_LAGGING_THRESHOLD) {
         log.warn("TweetProcessor", "Message queue has a large number of unsent events. %s (warn at:%s) ",
          this.msg_queue.length,
@@ -141,21 +143,21 @@ class TweetProcessor {
    * @param  {type} client = null description
    * @return {type}               description
    */
-  process_tweets (roomid, tweets, depth, client = null) {
+  process_tweets (rooms, tweets, depth, client = null) {
     if (client == null) {
       client = this._tclient;
     }
     tweets.forEach( (tweet) => {
-      this._process_tweet(roomid, tweet, depth);
+      this._process_tweet(rooms, tweet, depth, client);
     });
 
   }
 
-  process_tweet (roomid, tweet, depth, client = null) {
+  process_tweet (rooms, tweet, depth, client = null) {
     if (client == null) {
-      client = this._tclient
+      client = this._tclient;
     }
-    this._process_tweet(roomid, tweet, depth, client);
+    this._process_tweet(rooms, tweet, depth, client);
   }
 
   /**
@@ -163,7 +165,7 @@ class TweetProcessor {
    * resolving any parent tweets), and submit it to the given room. This function
    * is recursive, limited to the depth set.
    *
-   * @param  {String} roomid Matrix Room ID of the room that we are processing.
+   * @param  {String} rooms Matrix Room ID of the room that we are processing.
    * @param  {TwitterTweet} tweet The tweet object from the Twitter API See {@link}
    * @param  {Number} depth  The maximum depth of the tweet chain (replies to
    * replies) to be traversed. Set this to how deep you wish to traverse and it
@@ -172,40 +174,38 @@ class TweetProcessor {
    *
    * @see {@link https://dev.twitter.com/overview/api/tweets}
    */
-  _process_tweet (roomid, tweet, depth, client) {
+  _process_tweet (rooms, tweet, depth, client) {
     depth--;
     var type = "m.text";
-    if (tweet.in_reply_to_status_id_str != null) {
-      type = "m.notice"; // A nicer way to show previous tweets
+    var promise;
+    if (tweet.in_reply_to_status_id_str != null && depth > 0) {
+      promise = client.getAsync('statuses/show/' + tweet.in_reply_to_status_id_str, {})
+      .then((newtweet) => {
+        return this._process_tweet(rooms, newtweet, depth, client);
+      }).catch(error => {
+        log.error("TweetProcessor", "process_tweet: GET /statuses/show returned: " + error);
+        throw error;
+      });
     }
-    return new Promise( (resolve, reject) => {
-      if (tweet.in_reply_to_status_id_str != null && depth > 0) {
-        client.get(
-          'statuses/show/' + tweet.in_reply_to_status_id_str, {}, (error, newtweet) => {
-            if (!error) {
-              return this._process_tweet(roomid, newtweet, depth);
-            }
-            else
-            {
-              log.error("TweetProcessor", "process_tweet: GET /statuses/show returned: " + error[0].message);
-              reject();
-            }
-          });
-      }
-      else {
-        resolve();
-      }
-    }).then(() => {
-      this._update_user_timeline_profile(tweet.user);
-      if(this.processed_tweets.contains(roomid, tweet.text)) {
-        log.info("TweetProcessor", "Repeated tweet detected, not processing");
-        return;
-      }
+    else {
+      promise = Promise.resolve();
+    }
 
-      this.processed_tweets.push(roomid, tweet.text);
-      this._push_to_msg_queue('@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type);
-      return;
+    //this._twitter.update_profile(tweet.user);
+
+    promise.then( () => {
+      if(typeof rooms == "string") {
+        rooms = [rooms];
+      }
+      rooms.forEach((roomid) => {
+        if(!this.processed_tweets.contains(roomid, tweet.text)) {
+          this.processed_tweets.push(roomid, tweet.text);
+          this._push_to_msg_queue('@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type);
+          return;
+        }
+      });
     });
+    return promise;
   }
 }
 
