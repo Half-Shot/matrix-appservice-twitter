@@ -1,4 +1,5 @@
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
+const MatrixRoom = require("matrix-appservice-bridge").MatrixRoom;
 const Twitter = require('twitter');
 const log = require('npmlog');
 const OAuth = require('oauth');
@@ -89,6 +90,15 @@ class AccountServices {
     else if (body == "account.list") {
       this._listAccountDetails(event);
     }
+    else if(body.startsWith("bridge.room")) {
+      this._bridgeRoom(event);
+    }
+    else if(body.startsWith("bridge.unbridge")) {
+
+    }
+    else if(body.startsWith("bridge.unbridge_all")) {
+
+    }
     else if (event.content.body == "help") {
       this._helpText(event.room_id);
     }
@@ -111,7 +121,9 @@ account.link [type]  Link your Twitter account to your Matrix Account
 
 account.unlink   Removes your account from the bridge. All personal rooms will cease to function.
 account.list     List details about your account.
-
+bridge.room [room_id] [twitter_feed]    Bridge an existing room to a @ or #. The room *must* be public.
+bridge.unbridge [room_id] [twitter_feed]
+bridge.unbridge_all [room_id]
 help  This help text.`
     });
   }
@@ -295,7 +307,7 @@ ${dm_rooms}`
    * @return {Promise<string>}  A promise that will return an auth url or reject with nothing.
    */
   _oauth_getUrl (id, access_type) {
-    if(!['read','write','dm'].includes(access_type)){
+    if(!['read', 'write', 'dm'].includes(access_type)) {
       throw "None or invalid access_type given to OAuth.";
     }
     return new Promise((resolve, reject) => {
@@ -329,6 +341,71 @@ ${dm_rooms}`
            });
          });
     });
+  }
+
+  _bridgeRoom (event) {
+    var args = event.content.body.split(" ");
+    if(args.length < 3) {
+      return;//Not enough args.
+    }
+
+    const room_id = args[1];
+    const feed_id = args[2];
+    const intent = this._bridge.getIntent();
+    const get_room = new Promise(() => {
+      if(!util.isRoomId(room_id)) {
+        throw "RoomID was in the wrong format";
+      }
+      return intent.join(room_id).catch(err =>{
+        log.warn("Handler.AccountServices", "Couldn't verify a room exists for bridging %s", err);
+        throw "Unable to verify that the room exists."
+      })
+
+    });
+
+    const get_twitter_feed = new Promise((resolve, reject) => {
+      if(feed_id[0] === '#' && util.isAlphanumeric(feed_id.substr(1))) {
+        resolve(feed_id.substr(1));//hashtag
+      }
+      else if(feed_id[0] === '@') {
+        resolve(this._twitter.get_profile_by_screenname(feed_id.substr(1)));
+      }
+      else{
+        reject("You need to specify a valid Twitter username or hashtag.");
+      }
+    }).then(item => {
+      var remote;
+      if(typeof item == "string") {
+        remote = new RemoteRoom("hashtag_" + item);
+        remote.set("twitter_type", "hashtag");
+        this._twitter.timeline.add_hashtag(item, room_id);
+      }
+      else if(typeof item == "object") {
+        console.log(item);
+        remote = new RemoteRoom("timeline_" + item.id_str);
+        remote.set("twitter_type", "timeline");
+        remote.set("twitter_user", item.id);
+        this._twitter.timeline.add_timeline(item.id, room_id);
+      }
+      else {
+        throw "Unable to find Twitter feed.";
+      }
+      this._bridge.getRoomStore().linkRooms(new MatrixRoom(room_id), remote);
+
+    })
+
+    return Promise.all([get_room, get_twitter_feed]).then(() => {
+      intent.sendMessage(event.room_id, {
+        "msgtype": "m.notice",
+        "body": "The room is now bridged to " + feed_id
+      });
+    }).catch(err => {
+      intent.sendMessage(event.room_id, {
+        "msgtype": "m.text",
+        "body": err
+      });
+    });
+
   }
 }
 
