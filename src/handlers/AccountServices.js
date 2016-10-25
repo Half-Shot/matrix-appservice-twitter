@@ -406,6 +406,7 @@ ${dm_rooms}`
       else {
         throw "Unable to find Twitter feed.";
       }
+      remote.set("twitter_bidirectional", false);
       this._bridge.getRoomStore().linkRooms(new MatrixRoom(room_id), remote);
 
     })

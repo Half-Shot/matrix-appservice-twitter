@@ -62,6 +62,7 @@ class HashtagHandler {
 
     var remote = new RemoteRoom("hashtag_" + name);
     remote.set("twitter_type", "hashtag");
+    remote.set("twitter_bidirectional", true);
 
     return {
       creationOpts: {

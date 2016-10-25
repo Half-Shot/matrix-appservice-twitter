@@ -104,6 +104,7 @@ class TimelineHandler {
     var remote = new RemoteRoom("timeline_" + user.id_str);
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", user.id_str);
+    remote.set("twitter_bidirectional", false);
 
     var opts = {
       visibility: "public",

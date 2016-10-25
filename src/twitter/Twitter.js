@@ -190,6 +190,11 @@ class Twitter {
       return;
     }
 
+    if(!room.get("twitter_bidirectional")) {
+      log.silly("Twitter", "Room is not bidirectional.");
+      return;
+    }
+
     //Check the user can send tweets.
     this._storage.get_twitter_account(user.getId()).then((account) => {
       if(account == null) {
