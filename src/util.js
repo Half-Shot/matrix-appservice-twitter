@@ -110,7 +110,7 @@ function uploadContentFromUrl (bridge, url, id, name) {
     });
   }).then((response) => {
     var content_uri = JSON.parse(response).content_uri;
-    log.info("UploadContent", "Media uploaded to %s", content_uri);
+    log.verbose("UploadContent", "Media uploaded to %s", content_uri);
     return content_uri;
   }).catch(function (reason) {
     log.error("UploadContent", "Failed to upload content:\n%s", reason)

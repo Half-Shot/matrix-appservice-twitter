@@ -75,7 +75,7 @@ var cli = new AppService.Cli({
       },
       clientFactory: clientFactory
     });
-    log.info("AppServ", "Matrix-side listening on port %s", port);
+    log.info("AppServ", "Started listening on port %s at %s", port, new Date().toUTCString() );
 
     var tstorage = new TwitterDB(config.bridge.database_file || "twitter.db");
 

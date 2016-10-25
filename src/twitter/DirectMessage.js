@@ -18,7 +18,7 @@ class DirectMessage {
     this.twitter.update_profile(msg.recipient);
 
     if(this._sent_dms.contains(users, msg.id_str)) {
-      log.info("DirectMessage", "DM has already been processed, ignoring.");
+      log.verbose("DirectMessage", "DM has already been processed, ignoring.");
       return;
     }
 
@@ -86,8 +86,8 @@ the DB. This shouldn't happen.`;
 
   _put_dm_in_room (room_id, msg) {
     var intent = this.twitter.get_intent(msg.sender_id_str);
-    
-    log.info(
+
+    log.verbose(
       "DirectMessage",
       "Recieved DM from %s(%s) => %s(%s)",
       msg.sender_id_str, msg.sender_screen_name,

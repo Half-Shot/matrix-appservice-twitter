@@ -103,10 +103,9 @@ class TwitterDB {
     }).then((profile) =>{
       if(profile !== undefined) {
         var ts = new Date().getTime();
-        if(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS) {
-          return null;
-        }
-        return JSON.parse(profile.profile);
+        var pro = JSON.parse(profile.profile);
+        pro._outofdate =(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
+        return pro;
       }
       else {
         return null;

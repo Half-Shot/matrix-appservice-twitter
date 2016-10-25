@@ -137,11 +137,11 @@ class Twitter {
     return this._storage.get_profile_by_id(user_profile.id).then((old)=>{
       var update_name = true;
       var update_avatar = true;
-      if(old != null && old.profile != null) {
+      if(old) {
         //If either the real name (name) or the screen_name (handle) are out of date, update the screen name.
-        update_name = (old.profile.name != user_profile.name)
-        update_name = (old.profile.screen_name != user_profile.screen_name);
-        update_avatar = (old.profile.profile_image_url_https != user_profile.profile_image_url_https)
+        update_name = (old.name != user_profile.name)
+        update_name = update_name || (old.screen_name != user_profile.screen_name);
+        update_avatar = (old.profile_image_url_https != user_profile.profile_image_url_https)
          && this._media_cfg.enable_profile_images;
       }
 
@@ -298,7 +298,7 @@ class Twitter {
   get_profile_by_id (user_id) {
     log.info("Twitter", "Looking up T" + user_id);
     return this._storage.get_profile_by_id(user_id).then((profile)=>{
-      if(profile != null) {
+      if(profile != null || !profile._outofdate) {
         return profile;
       }
       return this._get_profile({user_id});
@@ -316,7 +316,7 @@ class Twitter {
   get_profile_by_screenname (screen_name) {
     log.info("Twitter", "Looking up T" + screen_name);
     return this._storage.get_profile_by_name(screen_name).then((profile)=>{
-      if(profile != null) {
+      if(profile != null || !profile._outofdate) {
         return profile;
       }
       return this._get_profile({screen_name});
