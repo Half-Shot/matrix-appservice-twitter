@@ -5,13 +5,19 @@
     },
     env: {
       node: true,
-      es6: true
+      es6: true,
+      mocha: true
     },
     extends: "eslint:recommended",
 
     rules: {
       prefer-const: 2,
       curly: "error",
+      max-lines: ["error",{
+        max: 400,
+        skipComments: true,
+        skipBlankLines: true
+      }],
       max-len: ["error", {
         code: 120,
         ignoreComments: true,

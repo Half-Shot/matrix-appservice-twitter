@@ -1,63 +1,60 @@
-var log     = require('npmlog');
-var yaml    = require("js-yaml");
-var fs      = require("fs");
+const log = require('npmlog');
+const yaml = require("js-yaml");
+const fs = require("fs");
 
-var Cli                    = require("matrix-appservice-bridge").Cli;
-var Bridge                 = require("matrix-appservice-bridge").Bridge;
-var RemoteUser             = require("matrix-appservice-bridge").RemoteUser;
-var AppServiceRegistration = require("matrix-appservice-bridge").AppServiceRegistration;
-var ClientFactory          = require("matrix-appservice-bridge").ClientFactory;
+const AppService = require("matrix-appservice-bridge");
 
-var MatrixTwitter        = require("./src/MatrixTwitter.js").MatrixTwitter;
-var TwitterRoomHandler   = require("./src/TwitterRoomHandler.js").TwitterRoomHandler;
-var AccountServices      = require("./src/AccountServices.js").AccountServices;
-var TimelineHandler      = require("./src/TimelineHandler.js").TimelineHandler;
-var HashtagHandler       = require("./src/HashtagHandler.js").HashtagHandler;
-var DirectMessageHandler = require("./src/DirectMessageHandler.js").DirectMessageHandler;
-var TwitterDB            = require("./src/TwitterDB.js").TwitterDB;
-var util                 = require('./src/util.js');
+const Twitter = require("./src/twitter/Twitter.js");
+const TwitterRoomHandler = require("./src/TwitterRoomHandler.js");
+const RoomHandlers = require("./src/handlers/Handlers.js");
+const TwitterDB = require("./src/TwitterDB.js");
+const util = require('./src/util.js');
+
+global.Promise = require('bluebird');
 
 var twitter;
 var bridge;
 
-var cli = new Cli({
+var cli = new AppService.Cli({
   registrationPath: "twitter-registration.yaml",
   bridgeConfig: {
     affectsRegistration: true,
     schema: "./config/config.schema.yaml"
   },
   generateRegistration: function (reg, callback) {
-    reg.setId(AppServiceRegistration.generateToken());
-    reg.setHomeserverToken(AppServiceRegistration.generateToken());
-    reg.setAppServiceToken(AppServiceRegistration.generateToken());
-    reg.setSenderLocalpart("twitbot");
-    reg.addRegexPattern("users", "@twitter_.*", true);
-    reg.addRegexPattern("aliases", "#twitter_@.*", true);
-    reg.addRegexPattern("aliases", "#twitter_#.*", true);
-        /* Currently not in use */
-        //reg.addRegexPattern("aliases", "#twitter_DM.*", true);
+    reg.setId(AppService.AppServiceRegistration.generateToken());
+    reg.setHomeserverToken(AppService.AppServiceRegistration.generateToken());
+    reg.setAppServiceToken(AppService.AppServiceRegistration.generateToken());
+    reg.setSenderLocalpart("_twitter_bot");
+    reg.addRegexPattern("users", "@_twitter_.*", true);
+    reg.addRegexPattern("aliases", "#_twitter_@.*", true);
+    reg.addRegexPattern("aliases", "#_twitter_#.*", true);
     callback(reg);
   },
   run: function (port, config) {
+    log.level = config.logging.level || "info";
+    if(config.logging.file) {
+      var lrstream = require('logrotate-stream');
+      log.stream = lrstream(config.logging);
+    }
 
-        //Read registration file
-
+    //Read registration file
     var regObj = yaml.safeLoad(fs.readFileSync("twitter-registration.yaml", 'utf8'));
-    regObj = AppServiceRegistration.fromObject(regObj);
+    regObj = AppService.AppServiceRegistration.fromObject(regObj);
     if (regObj === null) {
       throw new Error("Failed to parse registration file");
     }
 
     var room_handler;
 
-    var clientFactory = new ClientFactory({
+    var clientFactory = new AppService.ClientFactory({
       sdk: require("matrix-js-sdk"),
       url: config.bridge.homeserverUrl,
       token: regObj.as_token,
       appServiceUserId: "@" + regObj.sender_localpart + ":" + config.bridge.domain
     });
 
-    bridge = new Bridge({
+    bridge = new AppService.Bridge({
       homeserverUrl: config.bridge.homeserverUrl,
       domain: config.bridge.domain,
       registration: regObj,
@@ -76,63 +73,57 @@ var cli = new Cli({
           }
         }
       },
-            // Fix to use our own JS SDK due to a bug in 0.4.1
       clientFactory: clientFactory
     });
     log.info("AppServ", "Matrix-side listening on port %s", port);
 
+    var tstorage = new TwitterDB(config.bridge.database_file || "twitter.db");
 
-    //Setup twitter
-    var tstorage = new TwitterDB('twitter.db');
-    tstorage.init();
 
-    twitter = new MatrixTwitter(bridge, config, tstorage);
+    twitter = new Twitter(bridge, config, tstorage);
     var opt = {
       bridge: bridge,
       app_auth: config.app_auth,
       storage: tstorage,
-      twitter: twitter
+      twitter: twitter,
+      sender_localpart: regObj.sender_localpart
     }
     room_handler = new TwitterRoomHandler(bridge, config,
       {
-        services: new AccountServices(opt),
-        timeline: new TimelineHandler(bridge, twitter),
-        hashtag: new HashtagHandler(bridge, twitter),
-        directmessage: new DirectMessageHandler(bridge, twitter)
+        services: new RoomHandlers.AccountServices(opt),
+        timeline: new RoomHandlers.TimelineHandler(bridge, twitter),
+        hashtag: new RoomHandlers.HashtagHandler(bridge, twitter),
+        directmessage: new RoomHandlers.DirectMessageHandler(bridge, twitter)
       }
     );
-
     var roomstore;
-    twitter.start().then(() => {
+    tstorage.init().then(() => {
+      return twitter.start();
+    }).then(() => {
       bridge.run(port, config);
 
       // Setup twitbot profile (this is needed for some actions)
-      bridge.getClientFactory().getClientAs().register("twitbot").then( () => {
-        log.info("Init","Created user 'twitbot'.");
+      bridge.getClientFactory().getClientAs().register(regObj.sender_localpart).then( () => {
+        log.info("Init", "Created user '"+regObj.sender_localpart+"'.");
       }).catch( (err) => {
         if (err.errcode !== "M_USER_IN_USE") {
-          log.info("Init", "Failed to create bot user 'twitbot'. %s", err.errcode);
+          log.info("Init", "Failed to create bot user '"+regObj.sender_localpart+"'. %s", err.errcode);
         }
       });
 
       return bridge.loadDatabases();
     }).then(() => {
       roomstore = bridge.getRoomStore();//changed
-      tstorage.get_linked_user_ids().then(ids =>{
-        ids.forEach((value) => {
-          twitter.attach_user_stream(value);
-        });
-      });
       return roomstore.getEntriesByMatrixRoomData({});
     }).then((entries) => {
       entries.forEach((entry) => {
         if (entry.remote.data.hasOwnProperty('twitter_type')) {
           var type = entry.remote.data.twitter_type;
           if(type == 'timeline') {
-            twitter.add_timeline(entry.remote.data.twitter_user, entry);
+            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId());
           }
           else if(type == 'hashtag') {
-            twitter.add_hashtag_feed(entry.remote.roomId.substr("hashtag_".length), entry);
+            twitter.timeline.add_hashtag(entry.remote.roomId.substr("hashtag_".length), entry.matrix.getId());
           }
         }
       });
@@ -162,7 +153,7 @@ function userQuery (queriedUser) {
       return {
         name: twitter_user.name + " (@" + twitter_user.screen_name + ")",
         url: uri,
-        remote: new RemoteUser(twitter_user.id_str)
+        remote: new AppService.RemoteUser(twitter_user.id_str)
       };
     });
   }).catch((error) => {

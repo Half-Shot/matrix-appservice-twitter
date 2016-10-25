@@ -65,7 +65,7 @@ The bridge should authenticate and be ready for use.
 
 Linking is not required for reading timelines/hashtags, but **interactions must be completed under your own account**.
 
-* Create a room and invite ``@twitbot:yourdomain``.
+* Create a room and invite ``@{sender_localpart}:{yourdomain}``.
 * Send the message `link account`
 * Follow the URL and instructions. Copy the PIN code
 * Enter the pin code directly into the room and your account should be linked up.
