@@ -321,8 +321,10 @@ class Twitter {
   get_profile_by_screenname (screen_name) {
     log.info("Twitter", "Looking up T" + screen_name);
     return this._storage.get_profile_by_name(screen_name).then((profile)=>{
-      if(profile != null || !profile._outofdate) {
-        return profile;
+      if(profile != null) {
+        if(!profile._outofdate) {
+          return profile;
+        }
       }
       return this._get_profile({screen_name});
     });

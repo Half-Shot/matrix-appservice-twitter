@@ -419,8 +419,9 @@ ${dm_rooms}`
     }).catch(err => {
       intent.sendMessage(event.room_id, {
         "msgtype": "m.text",
-        "body": err
+        "body": "Error occured"
       });
+      log.error("Handler.AccountServices", "Error occured %s", err);
     });
 
   }
