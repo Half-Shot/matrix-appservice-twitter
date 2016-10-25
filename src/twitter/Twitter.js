@@ -382,7 +382,7 @@ class Twitter {
         rroom.set("twitter_type", "user_timeline");
         rroom.set("twitter_owner", user);
         this._bridge.getRoomStore().linkRooms(mroom, rroom);
-        this._storage.set_timeline_room(user, room.room_id);
+        this._storage.set_timeline_room(user, room.room_id, 'user', 'all');
       });
     });
   }

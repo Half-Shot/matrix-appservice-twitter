@@ -32,9 +32,13 @@ class UserStream {
     }
 
     this._user_streams.set(user_id, "pending");//Block race attempts;
-
+    var client;
     return this.twitter.client_factory.get_client(user_id).then((c) => {
-      var stream = c.stream('user', {with: "followings"});
+      client = c;
+      return this.twitter.storage.get_timeline_room(user_id);
+    }).then(room => {
+      console.log(room);
+      var stream = client.stream('user', {with: room.with, replies: room.replies});
       stream.on('data',  (data) => { this._on_stream_data(user_id, data); });
       stream.on('error', (error) => {
         log.error("UserStream", "Stream gave an error %s", error);
@@ -84,9 +88,9 @@ class UserStream {
       this.twitter.client_factory.get_client(user_id).then((c) =>{
         client = c;
         return this.twitter.storage.get_timeline_room(user_id);
-      }).then((room_id) =>{
-        if(room_id !== null) {
-          this.twitter.processor.process_tweet(room_id, data, TWEET_REPLY_MAX_DEPTH, client);
+      }).then((room) =>{
+        if(room !== null) {
+          this.twitter.processor.process_tweet(room.room_id, data, TWEET_REPLY_MAX_DEPTH, client);
         }
         else{
           log.verbose("UserStream", `${user_id} does not have a registered timeline view for their stream.`);

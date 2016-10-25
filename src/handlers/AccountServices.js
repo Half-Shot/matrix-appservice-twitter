@@ -99,6 +99,12 @@ class AccountServices {
     else if(body.startsWith("bridge.unbridge_all")) {
 
     }
+    else if(body.startsWith("timeline.filter")) {
+      this._setFilter(event);
+    }
+    else if(body.startsWith("timeline.replies")) {
+      this._setReplies(event);
+    }
     else if (event.content.body == "help") {
       this._helpText(event.room_id);
     }
@@ -114,16 +120,27 @@ class AccountServices {
       "body":
 `Matrix Twitter Bridge Help
 account.link [type]  Link your Twitter account to your Matrix Account
-[type] can be:
-  'read' Read-only access to your account. Reading your Timeline.
-  'write' Read and Write such as sending Tweets from rooms.
-  'dm' Read and Write to 1:1 DM rooms. This is the god mode.
+'read' Read-only access to your account. Reading your Timeline.
+'write' Read and Write such as sending Tweets from rooms.
+'dm' Read and Write to 1:1 DM rooms. This is the god mode.
 
 account.unlink   Removes your account from the bridge. All personal rooms will cease to function.
+
 account.list     List details about your account.
+
 bridge.room [room_id] [twitter_feed]    Bridge an existing room to a @ or #. The room *must* be public.
+
 bridge.unbridge [room_id] [twitter_feed]
+
 bridge.unbridge_all [room_id]
+
+timeline.filter [option] Filter the type of tweets coming in. Defaults to 'followings'
+'followings' - gives data about the user and about the user’s followings.
+'user' - events only about the user, not about their followings.
+
+timeline.replies [option]
+'all'
+'mutual'
 help  This help text.`
     });
   }
@@ -148,7 +165,7 @@ help  This help text.`
       }
       return this._storage.get_timeline_room(event.sender);
     }).then(room => {
-      account.timeline_room = room;
+      account.timeline_room = room.room_id;
       return Promise.resolve("[Not implemented yet]");
     }).then(dm_rooms => {
       intent.sendMessage(event.room_id, {
@@ -406,6 +423,56 @@ ${dm_rooms}`
       });
     });
 
+  }
+
+  _setFilter (event) {
+    const intent = this._bridge.getIntent();
+    var option = event.content.body.substr("timeline.filter ".length);
+    if(['followings', 'user'].indexOf(option) == -1) {
+      intent.sendMessage(event.room_id, {
+        "msgtype": "m.text",
+        "body": "Please select one of: followings, user."
+      });
+      return;
+    }
+    this._storage.get_timeline_room(event.sender).then(room => {
+      if(room == null) {
+        intent.sendMessage(event.room_id, {
+          "msgtype": "m.text",
+          "body": "Your account isn't linked yet."
+        });
+        return;
+      }
+      this._storage.set_timeline_with_option(room.room_id, option ).then(() => {
+        this._twitter.user_stream.detach(event.sender);
+        this._twitter.user_stream.attach(event.sender);
+      });
+    });
+  }
+
+  _setReplies (event) {
+    const intent = this._bridge.getIntent();
+    var option = event.content.body.substr("timeline.replies ".length);
+    if(['all', 'mutual'].indexOf(option) == -1) {
+      intent.sendMessage(event.room_id, {
+        "msgtype": "m.text",
+        "body": "Please select one of: followings, user."
+      });
+      return;
+    }
+    this._storage.get_timeline_room(event.sender).then(room => {
+      if(room == null) {
+        intent.sendMessage(event.room_id, {
+          "msgtype": "m.text",
+          "body": "Your account isn't linked yet."
+        });
+        return;
+      }
+      this._storage.set_timeline_replies_option(room.room_id, option ).then(() => {
+        this._twitter.user_stream.detach(event.sender);
+        this._twitter.user_stream.attach(event.sender);
+      });
+    });
   }
 }
 

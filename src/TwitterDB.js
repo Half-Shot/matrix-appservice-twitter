@@ -42,7 +42,6 @@ class TwitterDB {
         user_id	TEXT UNIQUE NOT NULL,
         oauth_token TEXT,
         oauth_secret	TEXT,
-        access_token TEXT,
         access_token_secret	TEXT,
         twitter_id	INTEGER,
         access_type STRING,
