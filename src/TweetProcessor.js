@@ -4,7 +4,7 @@ const HTMLDecoder = new require('html-entities').AllHtmlEntities;
 const ProcessedTweetList = require("./ProcessedTweetList.js");
 const util = require("./util.js");
 
-const TWITTER_MSG_QUEUE_INTERVAL_MS = 5;
+const TWITTER_MSG_QUEUE_INTERVAL_MS = 150;
 //const TWITTER_LOOKUP_INTERVAL = 60000;
 const MSG_QUEUE_LAGGING_THRESHOLD = 50; // The number of messages to be stored in the msg queue before we complain about lag.
 
@@ -191,8 +191,7 @@ class TweetProcessor {
       promise = Promise.resolve();
     }
 
-    //this._twitter.update_profile(tweet.user);
-
+    this._twitter.update_profile(tweet.user);
     promise.then( () => {
       if(typeof rooms == "string") {
         rooms = [rooms];
