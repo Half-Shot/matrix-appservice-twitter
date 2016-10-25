@@ -314,7 +314,13 @@ class Twitter {
    * @see {@link https://dev.twitter.com/rest/reference/get/users/show}
    */
   get_profile_by_screenname (screen_name) {
-    return this._get_profile({screen_name});
+    log.info("Twitter", "Looking up T" + screen_name);
+    return this._storage.get_profile_by_name(screen_name).then((profile)=>{
+      if(profile != null) {
+        return profile;
+      }
+      return this._get_profile({screen_name});
+    });
   }
 
   _get_profile (data) {

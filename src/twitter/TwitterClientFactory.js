@@ -4,7 +4,7 @@ const FS       = require('fs');
 const Buffer   = require('buffer').Buffer;
 const Twitter  = require('twitter');
 
-const TWITTER_CLIENT_INTERVAL_MS    = 60000;
+const TWITTER_CLIENT_INTERVAL_MS    = 60000*10;
 
 /**
   * Deals with authentication

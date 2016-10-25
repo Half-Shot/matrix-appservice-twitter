@@ -92,7 +92,6 @@ class TwitterDB {
    */
   get_profile_by_id (id) {
     log.silly("SQL", "get_profile_by_id => %s", id);
-    log.info("TwitDB", "Retrieving profile: %s", id);
     return this.db.getAsync(
       `
       SELECT profile, timestamp

@@ -118,6 +118,14 @@ function uploadContentFromUrl (bridge, url, id, name) {
 
 }
 
+function isRoomId (room_id) {
+  return /^!(\w+):(\S+)$/.test(room_id)
+}
+
+function isAlphanumeric (str) {
+  return /^[a-z0-9]+$/i.test(str)
+}
+
 /**
  * isStrInteger - Checks a string is a integer
  *
@@ -125,11 +133,13 @@ function uploadContentFromUrl (bridge, url, id, name) {
  * @return {bool}
  */
 function isStrInteger (str) {
-  return str.match(/^[0-9]*$/) !== null;
+  return /^[0-9]+$/.test(str);
 }
 
 module.exports = {
   uploadContentFromUrl: uploadContentFromUrl,
   downloadFile: downloadFile,
-  isStrInteger: isStrInteger
+  isStrInteger: isStrInteger,
+  isRoomId: isRoomId,
+  isAlphanumeric: isAlphanumeric
 }
