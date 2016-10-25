@@ -8,23 +8,5 @@ class DummyHandler {
 }
 
 describe('TwitterRoomHandler', function () {
-  var handler = TwitterRoomHandler(
-    {
-      opts: {
-        domain: "example.com",
-        registration: {
-          sender_localpart: "test"
-        }
-      }
-    },
-    {
 
-    },
-    {
-      services: new DummyHandler()
-    }
-  );
-  describe('processInvite()', function () {
-
-  });
 });
