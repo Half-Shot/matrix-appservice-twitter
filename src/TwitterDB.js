@@ -3,7 +3,7 @@ const log = require('npmlog');
 
 const TWITTER_PROFILE_INTERVAL_MS   = 300000;
 const RATELIMIT_PROFILE_CACHE   = 10000;
-
+const CURRENT_SCHEMA = 2;
 /**
  * Stores data for specific users and data not specific to rooms.
  */
@@ -28,52 +28,32 @@ class TwitterDB {
    */
   init () {
     log.info("TwitDB", "Starting DB Init");
-    return Promise.all([this._create(`
-      CREATE TABLE IF NOT EXISTS user_cache (
-        id	INTEGER UNIQUE NOT NULL,
-        screenname TEXT NOT NULL,
-        profile	TEXT NOT NULL,
-        timestamp	INTEGER NOT NULL,
-        PRIMARY KEY(id)
-      )
-      `, "user_cache"),
-    this._create(`
-      CREATE TABLE IF NOT EXISTS twitter_account (
-        user_id	TEXT UNIQUE NOT NULL,
-        oauth_token TEXT,
-        oauth_secret	TEXT,
-        access_token_secret	TEXT,
-        twitter_id	INTEGER,
-        access_type STRING,
-        PRIMARY KEY(user_id)
-      )
-      `, "twitter_account"),
-    this._create(`
-      CREATE TABLE IF NOT EXISTS timeline_room (
-        user_id	TEXT UNIQUE NOT NULL,
-        room_id	TEXT NOT NULL,
-        PRIMARY KEY(user_id)
-      )
-      `, "timeline_room"),
-    this._create(`
-      CREATE TABLE IF NOT EXISTS dm_room (
-      	room_id	TEXT NOT NULL,
-      	users	TEXT NOT NULL,
-      	PRIMARY KEY(room_id)
-      );
-      `, "dm_room"),
-    this._create(`
-      CREATE TABLE IF NOT EXISTS twitter_since (
-      	id TEXT NOT NULL,
-      	since	INTEGER,
-      	PRIMARY KEY(id)
-      );
-      `, "twitter_since")]);
+    var old_version;
+    var version;
+    return this._get_schema_version().then(o =>{
+      old_version = o;
+      version = o;
+      while(version < CURRENT_SCHEMA) {
+        version++;
+        var schema = require(`./database_schema/v${version}.js`);
+        schema.run(this);
+        log.info("TwitDB", "Updated database v%s", version);
+      }
+    }).then(() => {
+      return this._set_schema_version(old_version, version).then( () => {
+        log.info("TwitDB", "Updated database to the latest schema");
+      });
+    }).catch(err => {
+      log.error("TwitDB", "Couldn't update database to the latest version! Bailing");
+      throw err;
+    })
+
+
   }
 
   _create (statement, tablename) {
-    log.silly("SQL", "_create %s", tablename);
-    return this.db.runAsync(statement).catch( err => {
+    log.info("SQL", "_create %s", tablename);
+    return this.db.run(statement, (err) => {
       if(err) {
         throw `Error creating '${tablename}': ${err}`;
       }
@@ -84,6 +64,31 @@ class TwitterDB {
     this.db.close();
   }
 
+  _get_schema_version ( ) {
+    log.silly("SQL", "_get_schema_version");
+    return this.db.getAsync(
+      `
+      SELECT version
+      FROM schema
+      `
+    ).then((row) =>{
+      return row == undefined ? 0 : row.version;
+    }).catch( ()  => {
+      return 0;
+    });
+  }
+
+  _set_schema_version (old_ver, ver ) {
+    log.silly("SQL", "_set_schema_version => %s", ver);
+    return this.db.getAsync(
+      `
+      UPDATE schema
+      SET version = $ver
+      WHERE version = $old_ver
+      `, {$ver: ver, $old_ver: old_ver}
+    );
+  }
+
   /**
    * Get a twitter profile by a twitter id
    * @param {integer} id A twitter id
@@ -91,7 +96,7 @@ class TwitterDB {
    */
   get_profile_by_id (id) {
     log.silly("SQL", "get_profile_by_id => %s", id);
-    return this.db.getAsync(
+    return this.db.runAsync(
       `
       SELECT profile, timestamp
       FROM user_cache
@@ -282,30 +287,64 @@ class TwitterDB {
     log.silly("SQL", "get_timeline_room => %s", user_id);
     return this.db.getAsync(
         `
-        SELECT room_id
+        SELECT *
         FROM timeline_room
         WHERE user_id = $user_id;
         `
       , {
         $user_id: user_id
       }).then(row => {
-        return row !== undefined ? row.room_id : null;
+        return row !== undefined ? row : null;
       }).catch(err => {
         log.error("TwitDB", "Error retrieving timeline room: %s", err.Error);
         throw err;
       });
   }
 
-  set_timeline_room (user_id, room_id) {
+  set_timeline_with_option (room_id, _with) {
+    log.silly("SQL", "set_timeline_with_option => %s", room_id);
+    return this.db.runAsync(
+      `
+        UPDATE timeline_room
+        SET with = $with
+        WHERE room_id = $room_id;
+      `, {
+        $room_id: room_id,
+        $with: _with
+      }).catch(err => {
+        log.error("TwitDB", "Error setting 'with' filter: %s", err.Error);
+        throw err;
+      });
+  }
+
+  set_timeline_replies_option (room_id, replies) {
+    log.silly("SQL", "set_timeline_replies_option => %s", room_id);
+    return this.db.runAsync(
+      `
+        UPDATE timeline_room
+        SET replies = $replies
+        WHERE room_id = $room_id;
+      `, {
+        $room_id: room_id,
+        $replies: replies
+      }).catch(err => {
+        log.error("TwitDB", "Error setting 'replies' filter: %s", err.Error);
+        throw err;
+      });
+  }
+
+  set_timeline_room (user_id, room_id, _with, replies) {
     log.silly("SQL", "set_timeline_room => %s", room_id);
     return this.db.runAsync(
       `
-      REPLACE INTO timeline_room (user_id,room_id)
-      VALUES ($user_id,$room_id)
+      REPLACE INTO timeline_room (user_id,room_id,with,replies)
+      VALUES ($user_id,$room_id,$with,$replies)
       `
     , {
       $user_id: user_id,
-      $room_id: room_id
+      $room_id: room_id,
+      $with: _with,
+      $replies: replies
     }).catch( err => {
       log.error("TwitDB", "Error storing timeline room for user: %s", err);
       throw err;
