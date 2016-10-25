@@ -82,7 +82,12 @@ class Timeline {
     if(!obj.room.includes(room_id)) {
       obj.room.push(room_id);
     }
-    this._hashtags.push(obj);
+    if(htag != -1) {
+      obj = this._hashtags[htag] = obj;
+    }
+    else {
+      this._hashtags.push(obj);
+    }
     log.info('Timeline', "Added Hashtag: %s", hashtag);
   }
 
@@ -105,7 +110,12 @@ class Timeline {
     if(!obj.room.includes(room_id)) {
       obj.room.push(room_id);
     }
-    this._timelines.push(obj);
+    if(tline != -1) {
+      obj = this._timelines[tline] = obj;
+    }
+    else {
+      this._timelines.push(obj);
+    }
     log.info('Timeline', "Added Timeline: %s", twitter_id);
   }
 
@@ -182,10 +192,9 @@ class Timeline {
       else if(feed.length == TIMELINE_TWEET_FETCH_COUNT) {
         log.info("Timeline", "Timeline poll request hit count limit. Request likely incomplete.");
       }
-
-      const since = feed[0].id;
-      this.twitter.storage.set_since("@"+tline.twitter_id, since);
-      log.silly("Timeline", "Storing since: %s", since);
+      const s = feed[0].id;
+      this.twitter.storage.set_since("@"+tline.twitter_id, s);
+      log.silly("Timeline", "Storing since: %s", s);
       this.twitter.processor.process_tweets(tline.room, feed.reverse(), TWEET_REPLY_MAX_DEPTH);
     }).catch((error) =>{
       log.error("Timeline", "_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
@@ -222,15 +231,15 @@ class Timeline {
         return;
       }
       else{
-        log.verbose("Timeline","Got %s for %s",results.statuses.length, req.q);
+        log.verbose("Timeline", "Got %s for %s", results.statuses.length, req.q);
         if(results.statuses.length == HASHTAG_TWEET_FETCH_COUNT) {
           log.info("Timeline", "Hashtag poll request hit count limit. Request likely incomplete.");
         }
       }
 
-      const since = results.statuses[0].id;
-      this.twitter.storage.set_since(feed.hashtag, since);
-      log.silly("Timeline", "Storing since: %s", since);
+      const s = results.statuses[0].id;
+      this.twitter.storage.set_since(feed.hashtag, s);
+      log.silly("Timeline", "Storing since: %s", s);
       this.twitter.processor.process_tweets(feed.room, results.statuses.reverse(), 0);
     }).catch((error) => {
       log.error("Timeline", "_process_hashtag_feed: GET /search/tweets returned: %s", error);
