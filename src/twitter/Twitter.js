@@ -134,7 +134,7 @@ class Twitter {
       return;
     }
 
-    return this._storage.get_profile_by_id(user_profile.id).then((old)=>{
+    return this._storage.get_profile_by_id(user_profile.id_str).then((old)=>{
       var update_name = true;
       var update_avatar = true;
       if(old) {
@@ -171,7 +171,7 @@ class Twitter {
             );
         });
       }
-      return this._storage.cache_user_profile(user_profile.id, user_profile.screen_name, user_profile, ts);
+      return this._storage.cache_user_profile(user_profile.id_str, user_profile.screen_name, user_profile, ts);
     });
   }
 

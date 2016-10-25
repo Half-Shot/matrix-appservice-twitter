@@ -37,7 +37,6 @@ class UserStream {
       client = c;
       return this.twitter.storage.get_timeline_room(user_id);
     }).then(room => {
-      console.log(room);
       var stream = client.stream('user', {with: room.with, replies: room.replies});
       stream.on('data',  (data) => { this._on_stream_data(user_id, data); });
       stream.on('error', (error) => {

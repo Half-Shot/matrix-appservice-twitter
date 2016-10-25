@@ -9,7 +9,7 @@ module.exports = {
 
     twit_db._create(`
       CREATE TABLE user_cache (
-        id	INTEGER UNIQUE NOT NULL,
+        id	TEXT UNIQUE NOT NULL,
         screenname TEXT NOT NULL,
         profile	TEXT NOT NULL,
         timestamp	INTEGER NOT NULL,

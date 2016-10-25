@@ -19,8 +19,7 @@ class TwitterDB {
       }
     });
     this.db = Promise.promisifyAll(this.db);
-    this._profile_cache_ts = new Map();
-    this._profile_cache = new Map();
+
   }
 
   /**
@@ -96,7 +95,7 @@ class TwitterDB {
    */
   get_profile_by_id (id) {
     log.silly("SQL", "get_profile_by_id => %s", id);
-    return this.db.runAsync(
+    return this.db.getAsync(
       `
       SELECT profile, timestamp
       FROM user_cache
@@ -138,10 +137,9 @@ class TwitterDB {
     }).then((profile) =>{
       if(profile !== undefined) {
         var ts = new Date().getTime();
-        if(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS) {
-          return null;
-        }
-        return JSON.parse(profile.profile);
+        var pro = JSON.parse(profile.profile);
+        pro._outofdate =(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
+        return pro;
       }
       else {
         return null;
@@ -162,14 +160,6 @@ class TwitterDB {
   cache_user_profile (id, name, data, timestamp) {
     log.silly("SQL", "cache_user_profile => %s", id);
 
-    if (this._profile_cache_ts.has(id)) {
-      let nextCache = this._profile_cache_ts.get(id) + RATELIMIT_PROFILE_CACHE;
-      if(nextCache > Date.now()) {
-        log.verbose("TwitDB", "Didn't cache profile because it was too soon. %s", id);
-        return Promise.resolve();
-      }
-    }
-
     return this.db.runAsync(
       `
       REPLACE INTO user_cache (id,screenname,profile,timestamp) VALUES ($id,$name,$data,$timestamp);
@@ -179,8 +169,6 @@ class TwitterDB {
       $name: name,
       $data: JSON.stringify(data),
       $timestamp: timestamp
-    }).then(() => {
-      this._profile_cache_ts.set(id, Date.now());
     }).catch( err => {
       log.error("TwitDB", "Error storing profile: %s", err);
       throw err;

@@ -19,6 +19,7 @@ class Timeline {
     this._h_intervalID = null;
     this._timelines = [] // {twitter_id:string, room:[string]}
     this._hashtags = [] // {hashtag:string, room:[string]}
+    this._newtags = new Set();
     this._h = 0;
     this._t = 0;
   }
@@ -70,7 +71,7 @@ class Timeline {
    * @param  {string} hashtag The twitter ID of a timeline. (without the #)
    * @param  {string} room_id The room_id to insert tweets into.
    */
-  add_hashtag (hashtag, room_id) {
+  add_hashtag (hashtag, room_id, isnew) {
     var htag = this._find_hashtag(hashtag);
     var obj;
     if(htag != -1) {
@@ -78,6 +79,9 @@ class Timeline {
     }
     else {
       obj = {hashtag, room: [] }
+      if(isnew) {
+        this._newtags.add("#"+hashtag);
+      }
     }
     if(!obj.room.includes(room_id)) {
       obj.room.push(room_id);
@@ -98,7 +102,7 @@ class Timeline {
    * @param  {string} twitter_id The twitter ID of a timeline.
    * @param  {string} room_id The room_id to insert tweets into.
    */
-  add_timeline (twitter_id, room_id) {
+  add_timeline (twitter_id, room_id, isnew) {
     var tline = this._find_timeline(twitter_id);
     var obj;
     if(tline != -1) {
@@ -106,6 +110,9 @@ class Timeline {
     }
     else {
       obj = {twitter_id, room: [] }
+      if(isnew) {
+        this._newtags.add(twitter_id);
+      }
     }
     if(!obj.room.includes(room_id)) {
       obj.room.push(room_id);
@@ -177,6 +184,11 @@ class Timeline {
       count: TIMELINE_TWEET_FETCH_COUNT
     };
 
+    if(this._newtags.has(req.user_id)) {
+      req.count = 1;
+      this._newtags.delete(req.user_id);
+    }
+
     this.twitter.storage.get_since("@"+tline.twitter_id).then((since) => {
       log.silly("Timeline", "Polling %s, since value: %s", "@"+tline.twitter_id, since);
       if (since) {
@@ -192,7 +204,7 @@ class Timeline {
       else if(feed.length == TIMELINE_TWEET_FETCH_COUNT) {
         log.info("Timeline", "Timeline poll request hit count limit. Request likely incomplete.");
       }
-      const s = feed[0].id;
+      const s = feed[0].id_str;
       this.twitter.storage.set_since("@"+tline.twitter_id, s);
       log.silly("Timeline", "Storing since: %s", s);
       this.twitter.processor.process_tweets(tline.room, feed.reverse(), TWEET_REPLY_MAX_DEPTH);
@@ -218,6 +230,11 @@ class Timeline {
       count: HASHTAG_TWEET_FETCH_COUNT
     };
 
+    if(this._newtags.has("#"+feed.hashtag)) {
+      req.count = 1;
+      this._newtags.delete("#"+feed.hashtag);
+    }
+
     this.twitter.storage.get_since(feed.hashtag).then((since) => {
       log.silly("Timeline", "Polling %s, since value: %s", feed.hashtag, since);
       if (since) {
@@ -236,8 +253,7 @@ class Timeline {
           log.info("Timeline", "Hashtag poll request hit count limit. Request likely incomplete.");
         }
       }
-
-      const s = results.statuses[0].id;
+      const s = results.statuses[0].id_str;
       this.twitter.storage.set_since(feed.hashtag, s);
       log.silly("Timeline", "Storing since: %s", s);
       this.twitter.processor.process_tweets(feed.room, results.statuses.reverse(), 0);

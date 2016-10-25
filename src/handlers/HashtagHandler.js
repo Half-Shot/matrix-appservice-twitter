@@ -25,7 +25,8 @@ class HashtagHandler {
   onRoomCreated (alias, entry) {
     this.twitter.timeline.add_hashtag(
       entry.remote.getId().substr("hashtag_".length),
-      entry.matrix.getId()
+      entry.matrix.getId(),
+      true
     );
   }
 

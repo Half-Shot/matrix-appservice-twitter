@@ -25,7 +25,8 @@ class TimelineHandler {
   onRoomCreated (alias, entry) {
     this.twitter.timeline.add_timeline(
         entry.remote.data.twitter_user,
-        entry.matrix.getId()
+        entry.matrix.getId(),
+        true
     );
   }
 
@@ -102,7 +103,7 @@ class TimelineHandler {
     var powers = util.roomPowers(users);
     var remote = new RemoteRoom("timeline_" + user.id_str);
     remote.set("twitter_type", "timeline");
-    remote.set("twitter_user", user.id);
+    remote.set("twitter_user", user.id_str);
 
     var opts = {
       visibility: "public",
