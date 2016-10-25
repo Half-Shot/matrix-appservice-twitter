@@ -357,6 +357,9 @@ class Twitter {
         return;
       }
       var intent = this.get_intent(profile.id_str);
+      var users = {};
+      users[user] = 100;
+      var powers = util.roomPowers(users);
       //Create the room
       return intent.createRoom(
         {
@@ -366,6 +369,14 @@ class Twitter {
             name: "[Twitter] Your Timeline",
             visibility: "private",
             initial_state: [
+              powers,
+              {
+                "type": "m.room.join_rules",
+                "content": {
+                  "join_rule": "public"
+                },
+                "state_key": ""
+              },
               {
                 "type": "m.room.join_rules",
                 "content": {

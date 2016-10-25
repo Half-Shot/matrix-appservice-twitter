@@ -2,31 +2,6 @@ const log  = require('npmlog');
 const util  = require('../util.js');
 const RemoteRoom  = require("matrix-appservice-bridge").RemoteRoom;
 
-function roomPowers (users) {
-  return {
-    "content": {
-      "ban": 50,
-      "events": {
-        "m.room.name": 100,
-        "m.room.power_levels": 100,
-        "m.room.topic": 100,
-        "m.room.join_rules": 100,
-        "m.room.avatar": 100,
-        "m.room.aliases": 75,
-        "m.room.canonical_alias": 75
-      },
-      "events_default": 10,
-      "kick": 75,
-      "redact": 75,
-      "state_default": 0,
-      "users": users,
-      "users_default": 10
-    },
-    "state_key": "",
-    "type": "m.room.power_levels"
-  };
-}
-
 /**
  * TimelineHandler - Handler for timeline room creation and messaging
  */
@@ -124,7 +99,7 @@ class TimelineHandler {
     var users = {};
     users[botID] = 100;
     users[roomOwner] = 75;
-    var powers = roomPowers(users);
+    var powers = util.roomPowers(users);
     var remote = new RemoteRoom("timeline_" + user.id_str);
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", user.id);

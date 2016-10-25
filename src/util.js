@@ -126,6 +126,31 @@ function isAlphanumeric (str) {
   return /^[a-z0-9]+$/i.test(str)
 }
 
+function roomPowers (users) {
+  return {
+    "content": {
+      "ban": 50,
+      "events": {
+        "m.room.name": 100,
+        "m.room.power_levels": 100,
+        "m.room.topic": 100,
+        "m.room.join_rules": 100,
+        "m.room.avatar": 100,
+        "m.room.aliases": 75,
+        "m.room.canonical_alias": 75
+      },
+      "events_default": 10,
+      "kick": 75,
+      "redact": 75,
+      "state_default": 0,
+      "users": users,
+      "users_default": 10
+    },
+    "state_key": "",
+    "type": "m.room.power_levels"
+  };
+}
+
 /**
  * isStrInteger - Checks a string is a integer
  *
@@ -141,5 +166,6 @@ module.exports = {
   downloadFile: downloadFile,
   isStrInteger: isStrInteger,
   isRoomId: isRoomId,
-  isAlphanumeric: isAlphanumeric
+  isAlphanumeric: isAlphanumeric,
+  roomPowers: roomPowers
 }
