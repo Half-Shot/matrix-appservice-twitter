@@ -197,8 +197,12 @@ class TweetProcessor {
         rooms = [rooms];
       }
       rooms.forEach((roomid) => {
-        if(!this.processed_tweets.contains(roomid, tweet.text)) {
-          this.processed_tweets.push(roomid, tweet.text);
+        var isRetweet = false;
+        if(tweet.retweeted_status) {
+          isRetweet = this.processed_tweets.contains(roomid, tweet.retweeted_status.id_str);
+        }
+        if(!this.processed_tweets.contains(roomid, tweet.id_str) && !isRetweet) {
+          this.processed_tweets.push(roomid, tweet.id_str);
           this._push_to_msg_queue('@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type);
           return;
         }
