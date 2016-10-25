@@ -379,18 +379,18 @@ ${dm_rooms}`
       })
 
     });
+    var get_twitter_feed;
+    if(feed_id[0] === '#' && util.isAlphanumeric(feed_id.substr(1))) {
+      get_twitter_feed = Promise.resolve(feed_id.substr(1));//hashtag
+    }
+    else if(feed_id[0] === '@') {
+      get_twitter_feed = this._twitter.get_profile_by_screenname(feed_id.substr(1));
+    }
+    else{
+      throw "You need to specify a valid Twitter username or hashtag.";
+    }
 
-    const get_twitter_feed = new Promise((resolve, reject) => {
-      if(feed_id[0] === '#' && util.isAlphanumeric(feed_id.substr(1))) {
-        resolve(feed_id.substr(1));//hashtag
-      }
-      else if(feed_id[0] === '@') {
-        resolve(this._twitter.get_profile_by_screenname(feed_id.substr(1)));
-      }
-      else{
-        reject("You need to specify a valid Twitter username or hashtag.");
-      }
-    }).then(item => {
+    get_twitter_feed.then(item => {
       var remote;
       if(typeof item == "string") {
         remote = new RemoteRoom("hashtag_" + item);

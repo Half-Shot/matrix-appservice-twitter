@@ -303,8 +303,10 @@ class Twitter {
   get_profile_by_id (user_id) {
     log.info("Twitter", "Looking up T" + user_id);
     return this._storage.get_profile_by_id(user_id).then((profile)=>{
-      if(profile != null || !profile._outofdate) {
-        return profile;
+      if(profile != null) {
+        if(!profile._outofdate) {
+          return profile;
+        }
       }
       return this._get_profile({user_id});
     });
@@ -331,7 +333,7 @@ class Twitter {
   }
 
   _get_profile (data) {
-    this._client_factory.get_client().then(client => {
+    return this._client_factory.get_client().then(client => {
       return client.getAsync('users/show', data);
     }).then(user => {
       return this.update_profile(user).thenReturn(user);
