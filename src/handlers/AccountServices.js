@@ -94,10 +94,10 @@ class AccountServices {
       this._bridgeRoom(event);
     }
     else if(body.startsWith("bridge.unbridge")) {
-
+      return;
     }
     else if(body.startsWith("bridge.unbridge_all")) {
-
+      return;
     }
     else if(body.startsWith("timeline.filter")) {
       this._setFilter(event);

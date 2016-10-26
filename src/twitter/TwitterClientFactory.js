@@ -164,9 +164,9 @@ class TwitterClientFactory {
         client.last_auth = ts;
         this._tclients.set(id, client);
         return client;
-      }).catch(error => {
+      }).catch(() => {
         log.info("TClientFactory", "Credentials for " + id + " are no longer valid.");
-        var returningUser = this._tclients.has(id);
+        //var returningUser = this._tclients.has(id);
         this._tclients.delete(id);//Invalidate it
         // return returningUser ? this._get_twitter_client(sender) : Promise.reject(
         //   `Couldn't authenticate with the supplied access token for ${id}. Look into this. ${error}`

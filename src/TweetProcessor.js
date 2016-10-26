@@ -49,7 +49,7 @@ class TweetProcessor {
       }
       var msgs = this.msg_queue.pop();
       var promises = [];
-      for(let msg of msgs) {
+      for(const msg of msgs) {
         var intent = this._bridge.getIntent(msg.userId);
         promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).catch(reason =>{
           log.error("TwitterProcessor", "Failed send tweet to room: %s", reason);

@@ -288,7 +288,7 @@ class Twitter {
     });
   }
 
-  upload_media (user, media) {
+  upload_media () { //(user, media) {
     log.warn("STUB", "Twitter.upload_media");
     return Promise.reject("upload_media not implemented");
   }

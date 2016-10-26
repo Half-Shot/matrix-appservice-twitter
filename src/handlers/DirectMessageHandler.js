@@ -24,7 +24,7 @@ class DirectMessageHandler {
    * @param  {Request} request The request itself.
    * @param  {Context} context Context given by the appservice.
    */
-  processInvite (event, request, context) {
+  processInvite () {//event, request, context) {
 
   }
 
