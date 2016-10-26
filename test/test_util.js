@@ -23,9 +23,25 @@ describe('Util', function () {
       assert.equal(false, util.isRoomId("!asd94 dd:12 74dd"));
     });
 
-
     it('should return true when the value is in the correct format', function () {
       assert.equal(true, util.isRoomId("!foo:bar"));
+    });
+  });
+
+  describe('isAlphanumeric', function () {
+    it('should return false when the string is empty', function () {
+      assert.equal(false, util.isAlphanumeric(""));
+    });
+
+    it('should return false when the string is the wrong format', function () {
+      assert.equal(false, util.isAlphanumeric("ds sz ed "));
+      assert.equal(false, util.isAlphanumeric("#dff2!313c."));
+    });
+
+    it('should return true when the value is in the correct format', function () {
+      assert.equal(true, util.isAlphanumeric("123"));
+      assert.equal(true, util.isAlphanumeric("abc"));
+      assert.equal(true, util.isAlphanumeric("123abc"));
     });
   });
 
