@@ -5,6 +5,7 @@
   "main": "twitter-as.js",
   "scripts": {
     "test": "mocha",
+    "lint": "eslint twitter-as.js src",
     "coverage": "istanbul cover _mocha -- test/ -R spec",
     "start": "node twitter-as.js -p 9000 -c config.yaml",
     "debug": "node --debug=5858 twitter-as.js -p 9000 -c config.yaml"
@@ -36,6 +37,7 @@
   "devDependencies": {
     "chai": "^3.5.0",
     "chai-as-promised": "^6.0.0",
-    "mocha": "^3.1.2"
+    "mocha": "^3.1.2",
+    "eslint": "^3.8.1"
   }
 }
