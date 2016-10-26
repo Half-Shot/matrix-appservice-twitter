@@ -222,7 +222,7 @@ ${dm_rooms}`
    */
   _unlinkAccount (event) {
     var intent = this._bridge.getIntent();
-    this._storage.remove_client_data(event.sender);
+    this._storage.remove_twitter_account(event.sender);
     this._storage.remove_timeline_room(event.sender);
     this._twitter.user_stream.detach(event.sender);
     intent.sendMessage(event.room_id, {
