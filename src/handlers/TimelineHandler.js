@@ -97,6 +97,7 @@ class TimelineHandler {
     var botID = this._bridge.getBot().getUserId();
 
     var roomOwner = "@twitter_" + user.id_str + ":" + this._bridge.opts.domain;
+    var roomOwner = "@_twitter_" + user.id_str + ":" + this._bridge.opts.domain;
     var users = {};
     users[botID] = 100;
     users[roomOwner] = 75;
