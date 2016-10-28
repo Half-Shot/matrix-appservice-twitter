@@ -117,7 +117,7 @@ class Twitter {
 
   notify_matrix_user (user, message) {
     var roomstore = this._bridge.getRoomStore();//changed
-    roomstore.getEntriesByRemoteId("service_@testuser:localhost").then((items) =>{
+    roomstore.getEntriesByRemoteId("service_"+user).then((items) =>{
       if(items.length == 0) {
         log.warn("Twitter", "Couldn't find service room for %s, so couldn't send notice.", user);
         return;
@@ -365,8 +365,9 @@ class Twitter {
       if(troom != null) {
         return;
       }
-      var intent = this.get_intent(profile.id_str);
+      var intent = this._bridge.getIntent();
       var users = {};
+      users["@_twitter_bot:"+this._bridge.opts.domain] = 100;
       users[user] = 100;
       var powers = util.roomPowers(users);
       //Create the room

@@ -37,6 +37,10 @@ class UserStream {
       client = c;
       return this.twitter.storage.get_timeline_room(user_id);
     }).then(room => {
+      if(room == null) {
+        this._user_streams.delete(user_id);
+        throw "User has no attached timeline room. This is probably a bug.";
+      }
       var stream = client.stream('user', {with: room.with, replies: room.replies});
       stream.on('data',  (data) => { this._on_stream_data(user_id, data); });
       stream.on('error', (error) => {

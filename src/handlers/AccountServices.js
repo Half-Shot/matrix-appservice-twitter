@@ -254,8 +254,9 @@ ${dm_rooms}`
           "body": "All good. You should now be able to use your Twitter account on Matrix.",
           "msgtype": "m.text"
         });
-        this._twitter.create_user_timeline(event.sender, profile);
-        this._twitter.user_stream.attach(event.sender);
+        return this._twitter.create_user_timeline(event.sender, profile);
+      }).then(() => {
+        return this._twitter.user_stream.attach(event.sender);
       }).catch(err => {
         intent.sendMessage(event.room_id, {
           "body": "We couldn't verify this PIN :(. Maybe you typed it wrong or you"
