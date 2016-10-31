@@ -142,7 +142,7 @@ class Twitter {
         update_name = (old.name != user_profile.name)
         update_name = update_name || (old.screen_name != user_profile.screen_name);
         update_avatar = (old.profile_image_url_https != user_profile.profile_image_url_https)
-         && this._media_cfg.enable_profile_images;
+         && this._config.media.enable_profile_images;
       }
 
       var intent = this.get_intent(user_profile.id_str);
