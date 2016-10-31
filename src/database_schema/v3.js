@@ -8,6 +8,6 @@ module.exports = {
         timestamp	INTEGER NOT NULL,
         PRIMARY KEY(event_id)
       )
-      `, "user_cache");
+      `, "event_tweet");
   }
 }

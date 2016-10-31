@@ -356,10 +356,9 @@ class Twitter {
    * a matrix user's personal timeline, it will be created here.
    *
    * @param  {string} user The user's matrix ID.
-   * @param  {object}      The user's Twitter profile.
    * @return {Promise}     A promise that returns once the operation has completed.
    */
-  create_user_timeline (user, profile) {
+  create_user_timeline (user) {
     //Check if room exists.
     return this._storage.get_timeline_room(user).then(troom =>{
       if(troom != null) {
@@ -386,18 +385,12 @@ class Twitter {
                   "join_rule": "public"
                 },
                 "state_key": ""
-              },
-              {
-                "type": "m.room.join_rules",
-                "content": {
-                  "join_rule": "public"
-                },
-                "state_key": ""
               }
             ]
           }
         }
       ).then(room =>{
+        log.verbose("Twitter", "Created new user timeline room %s", room.room_id);
         var mroom = new Bridge.MatrixRoom(room.room_id);
         var rroom = new Bridge.RemoteRoom("tl_"+user);
         rroom.set("twitter_type", "user_timeline");

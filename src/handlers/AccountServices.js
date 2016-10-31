@@ -249,12 +249,12 @@ ${dm_rooms}`
         });
         return;
       }
-      this._oauth_getAccessToken(pin, client_data, event.sender).then((profile) => {
+      this._oauth_getAccessToken(pin, client_data, event.sender).then(() => {
         intent.sendMessage(event.room_id, {
           "body": "All good. You should now be able to use your Twitter account on Matrix.",
           "msgtype": "m.text"
         });
-        return this._twitter.create_user_timeline(event.sender, profile);
+        return this._twitter.create_user_timeline(event.sender);
       }).then(() => {
         return this._twitter.user_stream.attach(event.sender);
       }).catch(err => {
@@ -396,6 +396,7 @@ ${dm_rooms}`
       if(typeof item == "string") {
         remote = new RemoteRoom("hashtag_" + item);
         remote.set("twitter_type", "hashtag");
+        remote.set("twitter_hashtag", item);
         this._twitter.timeline.add_hashtag(item, room_id, true);
       }
       else if(typeof item == "object") {
