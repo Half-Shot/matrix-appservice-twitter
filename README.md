@@ -3,6 +3,12 @@ matrix-appservice-twitter
 
 Twitter bridge for Matrix.
 
+### Using master is discouraged right now. Please use the develop branch until a release is made.
+
+### Please [visit this page](https://half-shot.github.io/matrix-appservice-twitter/) for a prettier introduction.
+
+See [#twitter:half-shot.uk](https://matrix.to/#/#twitter:half-shot.uk) for dev discussion and help.
+
 # Requirements
 
 - NodeJS
