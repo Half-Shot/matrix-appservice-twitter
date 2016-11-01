@@ -85,14 +85,14 @@ the DB. This shouldn't happen.`;
   }
 
   _put_dm_in_room (room_id, msg) {
-    var intent = this.twitter.get_intent(msg.sender_id_str);
+    var intent = this.twitter.get_intent(msg.sender.id_str);
 
     log.verbose(
       "DirectMessage",
       "Recieved DM from %s(%s) => %s(%s)",
-      msg.sender_id_str, msg.sender_screen_name,
-      msg.recipient_id_str,
-      msg.recipient_screen_name
+      msg.sender.id_str, msg.sender.screen_name,
+      msg.recipient.id_str,
+      msg.recipient.screen_name
     );
     intent.sendMessage(room_id, {"msgtype": "m.text", "body": msg.text});
   }
@@ -101,17 +101,17 @@ the DB. This shouldn't happen.`;
     log.info(
       "DirectMessage",
       "Creating a new room for DMs from %s(%s) => %s(%s)",
-      msg.sender_id_str,
-      msg.sender_screen_name,
-      msg.recipient_id_str,
-      msg.recipient_screen_name
+      msg.sender.id_str,
+      msg.sender.screen_name,
+      msg.recipient.id_str,
+      msg.recipient.screen_name
     );
     return Promise.all([
-      this.twitter.storage.get_matrixid_from_twitterid(msg.sender_id_str),
-      this.twitter.storage.get_matrixid_from_twitterid(msg.recipient_id_str)
+      this.twitter.storage.get_matrixid_from_twitterid(msg.sender.id_str),
+      this.twitter.storage.get_matrixid_from_twitterid(msg.recipient.id_str)
     ]).then(user_ids =>{
       var invitees = new Set([
-        "@_twitter_" + msg.recipient_id_str + ":" + this.twitter.bridge.opts.domain
+        "@_twitter_" + msg.recipient.id_str + ":" + this.twitter.bridge.opts.domain
       ]);
       for(var user_id of user_ids) {
         if(user_id != null) {
@@ -120,14 +120,14 @@ the DB. This shouldn't happen.`;
       }
       return [...invitees];
     }).then(invitees => {
-      var intent = this.twitter.get_intent();
+      var intent = this.twitter.get_intent(msg.sender.id_str);
       return intent.createRoom(
         {
           createAsClient: true,
           options: {
             invite: invitees,
             is_direct: true,
-            name: "[Twitter] DM "+msg.sender_screen_name+":"+msg.recipient_screen_name,
+            name: "[Twitter] DM "+msg.sender.screen_name+" : "+msg.recipient.screen_name,
             visibility: "private",
             initial_state: [
               {
