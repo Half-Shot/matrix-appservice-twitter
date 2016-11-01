@@ -28,6 +28,7 @@ class TwitterDB {
     this.handlers.twitter_account = require("./db/twitter_account.js");
 
     this.get_profile_by_id = this.handlers.profile.get_profile_by_id;
+    this.get_profile_by_name = this.handlers.profile.get_profile_by_name;
     this.cache_user_profile = this.handlers.profile.cache_user_profile;
 
     this.get_twitter_account = this.handlers.twitter_account.get_twitter_account;
