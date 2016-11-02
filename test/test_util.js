@@ -14,7 +14,7 @@ describe('Util', function () {
     });
   });
 
-  describe('isRoomId', function () {
+  describe('isRoomId()', function () {
     it('should return false when the string is in the wrong format', function () {
       assert.equal(false, util.isRoomId(""));
       assert.equal(false, util.isRoomId("!:"));
@@ -28,7 +28,7 @@ describe('Util', function () {
     });
   });
 
-  describe('isAlphanumeric', function () {
+  describe('isAlphanumeric()', function () {
     it('should return false when the string is empty', function () {
       assert.equal(false, util.isAlphanumeric(""));
     });
