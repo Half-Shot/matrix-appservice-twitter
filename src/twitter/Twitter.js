@@ -394,6 +394,7 @@ class Twitter {
         var mroom = new Bridge.MatrixRoom(room.room_id);
         var rroom = new Bridge.RemoteRoom("tl_"+user);
         rroom.set("twitter_type", "user_timeline");
+        rroom.set("twitter_bidirectional", true);
         rroom.set("twitter_owner", user);
         this._bridge.getRoomStore().linkRooms(mroom, rroom);
         this._storage.set_timeline_room(user, room.room_id, 'user', 'all');

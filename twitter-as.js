@@ -125,6 +125,14 @@ var cli = new AppService.Cli({
           else if(type == 'hashtag') {
             twitter.timeline.add_hashtag(entry.remote.roomId.substr("hashtag_".length), entry.matrix.getId());
           }
+          //Fix old user timeline rooms not being bidirectional.
+          else if(type == 'user_timeline') {
+            const bidrectional = entry.remote.get('twitter_bidirectional');
+            if(!(bidrectional === false && bidrectional === true)) {
+              entry.remote.set('twitter_bidirectional', true);
+              roomstore.linkRooms(entry.matrix, entry.remote);
+            }
+          }
         }
       });
     });
