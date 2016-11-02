@@ -116,15 +116,16 @@ class Twitter {
   }
 
   notify_matrix_user (user, message) {
-    var roomstore = this._bridge.getRoomStore();//changed
-    roomstore.getEntriesByRemoteId("service_"+user).then((items) =>{
+    const roomstore = this._bridge.getRoomStore();
+    roomstore.getEntriesByRemoteId("service_"+user).then((items) => {
+      log.info("Twitter", 'Sending %s "%s"', user, message);
       if(items.length == 0) {
         log.warn("Twitter", "Couldn't find service room for %s, so couldn't send notice.", user);
         return;
       }
-      this._bridge.getIntent().sendMessage(items[0].matrix.getId(), {"msgtype": "m.notice", "body": message});
+      const latest_service = items[items.length-1].matrix.getId();
+      this._bridge.getIntent().sendMessage(latest_service, {"msgtype": "m.notice", "body": message});
     });
-    log.info("Twitter", 'Sending %s "%s"', user, message);
   }
 
   update_profile (user_profile) {
