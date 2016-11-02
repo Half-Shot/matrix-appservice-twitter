@@ -27,7 +27,7 @@ module.exports = {
       `
       SELECT *
       FROM event_tweet
-      WHERE twitter_since.event_id = $event_id;
+      WHERE event_tweet.event_id = $event_id;
       `
     , {
       $event_id: event_id
@@ -45,12 +45,32 @@ module.exports = {
       `
       SELECT *
       FROM event_tweet
-      WHERE twitter_since.tweet_id = $tweet_id;
+      WHERE event_tweet.tweet_id = $tweet_id;
       `
     , {
       $tweet_id: tweet_id
     }).then(row => {
       return row !== undefined ? row : null;
+    }).catch( err => {
+      log.error("TwitDB", "Error getting since value: %s", err.Error);
+      throw err;
+    });
+  },
+
+  room_has_tweet: function (room_id, tweet_id) {
+    log.silly("SQL", "room_has_tweet => %s, %s", room_id, tweet_id);
+    return this.db.getAsync(
+      `
+      SELECT *
+      FROM event_tweet
+      WHERE event_tweet.tweet_id = $tweet_id;
+      WHERE event_tweet.room_id = $room_id;
+      `
+    , {
+      $tweet_id: tweet_id,
+      $room_id: room_id
+    }).then(row => {
+      return row !== undefined;
     }).catch( err => {
       log.error("TwitDB", "Error getting since value: %s", err.Error);
       throw err;

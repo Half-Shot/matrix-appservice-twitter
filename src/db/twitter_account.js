@@ -19,6 +19,32 @@ module.exports = {
     });
   },
 
+  get_profile_from_userid: function (user_id) {
+    return this.db.getAsync(
+    `
+    SELECT profile
+    FROM user_cache, twitter_account
+    WHERE user_cache.id == twitter_account.twitter_id
+    AND twitter_account.user_id = $id
+    `
+    , {
+      $id: user_id
+    }).then((profile) => {
+      if(profile !== undefined) {
+        var ts = new Date().getTime();
+        var pro = JSON.parse(profile.profile);
+        pro._outofdate =(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
+        return pro;
+      }
+      else {
+        return null;
+      }
+    }).catch( err => {
+      log.error("TwitDB", "Error retrieving profile: %s", err.Error);
+      throw err;
+    });
+  },
+
   get_matrixid_from_twitterid: function (twitter_id) {
     log.silly("SQL", "get_matrixid_from_twitterid => %s", twitter_id);
     return this.db.getAsync(
@@ -97,7 +123,7 @@ module.exports = {
     });
   },
 
-  remove_twitter_account (user_id) {
+  remove_twitter_account: function (user_id) {
     log.silly("SQL", "remove_client_data => %s", user_id);
     return this.db.runAsync(
       `

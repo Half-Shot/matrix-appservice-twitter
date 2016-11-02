@@ -1,11 +1,9 @@
 const log = require('npmlog');
 const HTMLDecoder = new require('html-entities').AllHtmlEntities;
 
-const ProcessedTweetList = require("./ProcessedTweetList.js");
 const util = require("./util.js");
 
 const TWITTER_MSG_QUEUE_INTERVAL_MS = 150;
-//const TWITTER_LOOKUP_INTERVAL = 60000;
 const MSG_QUEUE_LAGGING_THRESHOLD = 50; // The number of messages to be stored in the msg queue before we complain about lag.
 
 class TweetProcessor {
@@ -20,7 +18,6 @@ class TweetProcessor {
     this.tweetids_to_lookup = [];
     this.lookup_tweets = [];
     this.msg_queue_intervalID = null;
-    this.processed_tweets = new ProcessedTweetList(256, 32);  //This will contain all the tweet IDs of things we don't want to repeat.
   }
 
 
@@ -51,7 +48,11 @@ class TweetProcessor {
       var promises = [];
       for(const msg of msgs) {
         var intent = this._bridge.getIntent(msg.userId);
-        promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).catch(reason =>{
+        promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).then(res => {
+          if (msg.content.msgtype != "m.text" ) {
+            this._storage.add_event(res.event_id, msg.userId, msg.roomId, msg.content.tweet_id, Date.now());
+          }
+        }).catch(reason =>{
           log.error("TwitterProcessor", "Failed send tweet to room: %s", reason);
         }));
       }
@@ -199,10 +200,9 @@ class TweetProcessor {
       rooms.forEach((roomid) => {
         var isRetweet = false;
         if(tweet.retweeted_status) {
-          isRetweet = this.processed_tweets.contains(roomid, tweet.retweeted_status.id_str);
+          isRetweet = this._storage.room_has_tweet(roomid, tweet.retweeted_status.id_str);
         }
-        if(!this.processed_tweets.contains(roomid, tweet.id_str) && !isRetweet) {
-          this.processed_tweets.push(roomid, tweet.id_str);
+        if(!this._storage.room_has_tweet(roomid, tweet.id_str) && !isRetweet) {
           this._push_to_msg_queue('@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type);
           return;
         }

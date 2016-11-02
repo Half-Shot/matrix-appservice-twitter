@@ -64,6 +64,32 @@ module.exports = {
     });
   },
 
+  get_profile_from_mxid: function (user_id) {
+    return this.db.getAsync(
+    `
+    SELECT profile
+    FROM user_cache, twitter_account
+    WHERE user_cache.id == twitter_account.twitter_id
+    AND twitter_account.user_id = $id
+    `
+    , {
+      $id: user_id
+    }).then((profile) => {
+      if(profile !== undefined) {
+        var ts = new Date().getTime();
+        var pro = JSON.parse(profile.profile);
+        pro._outofdate =(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
+        return pro;
+      }
+      else {
+        return null;
+      }
+    }).catch( err => {
+      log.error("TwitDB", "Error retrieving profile: %s", err.Error);
+      throw err;
+    });
+  },
+
   /**
    * Insert/Update a Twitter profile into the database.
    * @param  {type} id          Twitter ID of the profile.

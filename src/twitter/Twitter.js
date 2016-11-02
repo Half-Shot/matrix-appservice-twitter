@@ -6,7 +6,9 @@ const TweetProcessor = require("../TweetProcessor.js");
 const DirectMessage = require('./DirectMessage.js');
 const UserStream    = require('./UserStream.js');
 const Timeline      = require('./Timeline.js');
+const Status      = require('./Status.js');
 const util = require('../util.js');
+
 /**
  * This class handles the connections between the Twitter API
  * and the bridge.
@@ -32,6 +34,7 @@ class Twitter {
     this._timeline = new Timeline(this);
     this._userstream = new UserStream(this);
     this._client_factory = new TwitterClientFactory(config.app_auth, storage);
+    this._status = new Status(this);
 
     this._processor = null;
     this._start_promise = null;
@@ -95,6 +98,11 @@ class Twitter {
     return this._timeline;
   }
 
+  get status () {
+    return this._status;
+  }
+
+
   get user_stream () {
     return this._userstream;
   }
@@ -132,7 +140,7 @@ class Twitter {
     var ts = new Date().getTime();
     if(user_profile == null) {
       log.warn("Twitter", "Tried to preform a profile update with a null profile.");
-      return;
+      return Promise.resolve();
     }
 
     return this._storage.get_profile_by_id(user_profile.id_str).then((old)=>{
@@ -174,124 +182,6 @@ class Twitter {
       }
       return this._storage.cache_user_profile(user_profile.id_str, user_profile.screen_name, user_profile, ts);
     });
-  }
-
-  /**
-   * Takes a message event from a room and tries
-   * to identify the sender and the correct format before processing it
-   * in {@see send_tweet}.
-   *
-   * @param  {MatrixEvent}         event Matrix event data
-   * @param  {external:MatrixUser} user  The user who sent the event.
-   * @param  {external:RemoteRoom} room  The remote room that got the message.
-   */
-  send_matrix_event_as_tweet (event, user, room) {
-    if(user == null) {
-      log.warn("Twitter", "User tried to send a tweet without being known by the AS.");
-      return;
-    }
-
-    if(!room.get("twitter_bidirectional")) {
-      log.silly("Twitter", "Room is not bidirectional.");
-      return;
-    }
-
-    //Check the user can send tweets.
-    this._storage.get_twitter_account(user.getId()).then((account) => {
-      if(account == null) {
-        throw "Matrix account isn't linked to any twitter account.";
-      }
-      else if (account.access_type == "read") {
-        this.notify_matrix_user(
-          user.getId(),
-          "Your account doesn't have the correct access level to send tweets."
-        );
-        throw "Account only has read permissions.";
-      }
-
-    }).then(() =>{
-      if(event.content.msgtype == "m.text") {
-        log.info("Twitter", "Got message: %s", event.content.body);
-        var text = event.content.body.substr(0, 140);
-        return this.send_tweet(room, user, text);
-      }
-      else if(event.content.msgtype == "m.image") {
-        log.info("Twitter", "Got image: %s", event.content.body);
-        //Get the url
-        var url = event.content.url;
-        if(url.startsWith("mxc://")) {
-          url = this._bridge.opts.homeserverUrl + "/_matrix/media/r0/download/" + url.substr("mxc://".length);
-        }
-        return util.downloadFile(url).then((buffer) => {
-          return this.upload_media(user, buffer);
-        }).then ((mediaId) => {
-          return this.send_tweet(room, user, "", {media: [mediaId]});
-        }).catch(err => {
-          log.error("Twitter", "Failed to send image to timeline. %s", err);
-        });
-      }
-    }).catch((err) => {
-      log.error("Twitter", "Failed to send tweet. %s", err);
-    });
-
-
-  }
-
-  send_tweet (remote, sender, body, extras) {
-    var type = remote.get("twitter_type");
-    if(!["timeline", "hashtag", "user_timeline"].includes(type)) {
-      throw `Tried to send a tweet to a type of room not understood ${type}`;//Where am I meant to send it :(
-    }
-
-    var client;
-
-    return this._client_factory.get_client(sender.getId()).then((c) => {
-      client = c;
-      if(type == "timeline") {
-        var timelineID = remote.getId().substr("timeline_".length);
-        log.info("Twitter", "Trying to tweet " + timelineID);
-        return this.get_profile_by_id(timelineID);
-      }
-    }).then(tuser => {
-      var status = {status: body};
-      if(type == "timeline") {
-        var name = "@"+tuser.screen_name;
-        if(!body.startsWith(name) && client.profile.screen_name != tuser.screen_name) {
-          status.status = (name + " " + body);
-        }
-      }
-      else if(type == "hashtag") {
-        var htag = "#" + remote.roomId.substr("hashtag_".length);
-        if(!body.toLowerCase().includes(htag.toLowerCase())) {
-          status.status = (htag + " " + body);
-        }
-      }
-
-      if(extras !== undefined) {
-        if(extras.hasOwnProperty("media")) {
-          status.media_ids = extras.media.join(',');
-        }
-      }
-
-      status.status = status.status.substr(0, 140);
-
-      this._processor.push_processed_tweet(remote.roomId, status.status);
-      client.post("statuses/update", status, (error) => {
-        if(error) {
-          log.error("Twitter", "Failed to send tweet. %s", error);
-          return;
-        }
-        var id = sender.getId();
-        log.info("Twitter", "Tweet sent from %s!", id);
-      });
-    }).catch(err =>{
-      log.error("Twitter", "Failed to send tweet. %s", err);
-    });
-  }
-
-  upload_media () { //(user, media) {
-    log.warn("STUB", "Twitter.upload_media");
-    return Promise.reject("upload_media not implemented");
   }
 
   /**

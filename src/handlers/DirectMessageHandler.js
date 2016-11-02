@@ -1,3 +1,5 @@
+const log = require('npmlog');
+
 /**
  * Handler for direct messages sent from users
  * to the appservice
@@ -11,8 +13,9 @@ class DirectMessageHandler {
    * @param  {MatrixTwitter}   twitter
    * @param  {matrix-appservice-bridge.Bridge}   bridge
    */
-  constructor (bridge, twitter) {
-    this._bridge;
+  constructor (bridge, twitter, storage) {
+    this._bridge = bridge;
+    this._storage = storage;
     this.twitter = twitter;
   }
 
@@ -24,7 +27,28 @@ class DirectMessageHandler {
    * @param  {Request} request The request itself.
    * @param  {Context} context Context given by the appservice.
    */
-  processInvite () {//event, request, context) {
+  processInvite (event, request, context) {
+    var user_id = context.senders.matrix.getId();
+    var sender = null;
+    var recipient = null;
+    return this.twitter.dm.can_use(context.senders.matrix.getId(user_id)).then(() =>{
+      //Get the senders account.
+      return this._storage.get_profile_from_mxid(user_id);
+    }).then(profile => {
+      if(profile == null) {
+        throw "No profile found for sender";
+      }
+      sender = profile;
+      var remote_id = event.state_key.substr(0, event.state_key.indexOf(':')).substr("@_twitter_".length);
+      return this.twitter.get_profile_by_id(remote_id);
+    }).then(profile =>{
+      if(profile == null) {
+        throw "No profile found for recipient";
+      }
+      return this.twitter.db.get_room(sender, recipient);
+    }).catch(err => {
+      log.error("Handler.DirectMessage", "Failed to process an invite for a DM. %s", err);
+    })
 
   }
 

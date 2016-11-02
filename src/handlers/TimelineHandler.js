@@ -52,7 +52,7 @@ class TimelineHandler {
    * @param  {object} context Context given by the appservice.
    */
   processMessage (event, request, context) {
-    this.twitter.send_matrix_event_as_tweet(event, context.senders.matrix, context.rooms.remote);
+    this.twitter.status.send_matrix_event(event, context.senders.matrix, context.rooms.remotes);
   }
 
   /**

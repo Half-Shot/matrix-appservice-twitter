@@ -1,5 +1,4 @@
 const log  = require('npmlog');
-const ProcessedTweetList = require("../ProcessedTweetList.js");
 const Bridge = require("matrix-appservice-bridge");
 
 /**
@@ -8,37 +7,64 @@ const Bridge = require("matrix-appservice-bridge");
 class DirectMessage {
   constructor (twitter) {
     this.twitter = twitter;
-    this._sent_dms = new ProcessedTweetList(1, 1);  //This will contain the body of the DM posted to a room to avoid reposting it.
+    this._sent_dms = new Map();  //This will contain the body of the DM posted to a room to avoid reposting it.
   }
 
-  process_dm (msg) {
-    var users = [msg.sender_id_str, msg.recipient_id_str].sort().join(';');
-
-    this.twitter.update_profile(msg.sender);
-    this.twitter.update_profile(msg.recipient);
-
-    if(this._sent_dms.contains(users, msg.id_str)) {
-      log.verbose("DirectMessage", "DM has already been processed, ignoring.");
-      return;
+  can_use (user_id) {
+    if(user_id == null) {
+      return Promise.reject("User isn't known by the AS");
     }
-
-    this.twitter.storage.get_dm_room(users).then(room_id =>{
-      if(room_id) {
-        this._put_dm_in_room(room_id, msg);
+    return this._twitter._storage.get_twitter_account(user_id).then((account) => {
+      if(account == null) {
+        throw "Matrix account isn't linked to any twitter account.";
+      }
+      else if (account.access_type != "dm") {
+        throw  {
+          "notify": "Your account doesn't have the correct permission level to send tweets.",
+          "error": `Account only has ${account.access_type} permissions.`
+        }
+      }
+      else{
         return;
       }
-      //Create a new room.
-      return this._create_dm_room(msg).then(room => {
-        return this.twitter.storage.add_dm_room(room.room_id, users).then(() =>{
+    });
+  }
+
+  get_room (sender, recipient) {
+    var users = [sender.id_str, recipient.id_str].sort().join(';');
+    return this.twitter.storage.get_dm_room(users).then(room_id =>{
+      if(room_id) {
+        return room_id;
+      }
+      return this._create_dm_room(users).then(room => {
+        return this.twitter.storage.add_dm_room(room.room_id, users).then(() => {
           var mroom = new Bridge.MatrixRoom(room.room_id);
           var rroom = new Bridge.RemoteRoom("dm_"+users);
           rroom.set("twitter_type", "dm");
           this.twitter.bridge.getRoomStore().linkRooms(mroom, rroom);
-          this._put_dm_in_room(room.room_id, msg);
+          return room.room_id;
         });
       });
     }).catch(reason =>{
-      log.error("DirectMessage", reason);
+      throw "Couldn't create/get new room. " + reason;
+    });
+  }
+
+  process_dm (msg) {
+    const users = [msg.sender.id_str, msg.recipient.id_str].sort().join(';');
+
+    this.twitter.update_profile(msg.sender);
+    this.twitter.update_profile(msg.recipient);
+
+    if(this._sent_dms.get(users) == msg.id_str) {
+      log.verbose("DirectMessage", "DM has already been processed, ignoring.");
+      return;
+    }
+
+    return this.get_room(msg.sender, msg.recipient).then(room_id => {
+      this._put_dm_in_room(room_id, msg);
+    }).catch(reason =>{
+      log.error("DirectMessage", "Couldn't process incoming DM: %s", reason);
     });
   }
 
@@ -74,7 +100,7 @@ the DB. This shouldn't happen.`;
       );
 
       return client.postAsync("direct_messages/new", {user_id: otheruser, text: text}).then(msg => {
-        this._sent_dms.push(users, msg.id_str);
+        this._sent_dms.set(users, msg.id_str);
 
       }).catch( error => {
         throw "direct_messages/new failed. Reason: " + error;
@@ -97,21 +123,21 @@ the DB. This shouldn't happen.`;
     intent.sendMessage(room_id, {"msgtype": "m.text", "body": msg.text});
   }
 
-  _create_dm_room (msg) {
+  _create_dm_room (sender, recipient) {
     log.info(
       "DirectMessage",
       "Creating a new room for DMs from %s(%s) => %s(%s)",
-      msg.sender.id_str,
-      msg.sender.screen_name,
-      msg.recipient.id_str,
-      msg.recipient.screen_name
+      sender.id_str,
+      sender.screen_name,
+      recipient.id_str,
+      recipient.screen_name
     );
     return Promise.all([
-      this.twitter.storage.get_matrixid_from_twitterid(msg.sender.id_str),
-      this.twitter.storage.get_matrixid_from_twitterid(msg.recipient.id_str)
+      this.twitter.storage.get_matrixid_from_twitterid(sender.id_str),
+      this.twitter.storage.get_matrixid_from_twitterid(recipient.id_str)
     ]).then(user_ids =>{
       var invitees = new Set([
-        "@_twitter_" + msg.recipient.id_str + ":" + this.twitter.bridge.opts.domain
+        "@_twitter_" + recipient.id_str + ":" + this.twitter.bridge.opts.domain
       ]);
       for(var user_id of user_ids) {
         if(user_id != null) {
@@ -120,14 +146,14 @@ the DB. This shouldn't happen.`;
       }
       return [...invitees];
     }).then(invitees => {
-      var intent = this.twitter.get_intent(msg.sender.id_str);
+      var intent = this.twitter.get_intent(sender.id_str);
       return intent.createRoom(
         {
           createAsClient: true,
           options: {
             invite: invitees,
             is_direct: true,
-            name: "[Twitter] DM "+msg.sender.screen_name+" : "+msg.recipient.screen_name,
+            name: "[Twitter] DM "+sender.screen_name+" : "+recipient.screen_name,
             visibility: "private",
             initial_state: [
               {

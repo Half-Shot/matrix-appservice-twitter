@@ -93,7 +93,7 @@ var cli = new AppService.Cli({
         services: new RoomHandlers.AccountServices(opt),
         timeline: new RoomHandlers.TimelineHandler(bridge, twitter),
         hashtag: new RoomHandlers.HashtagHandler(bridge, twitter),
-        directmessage: new RoomHandlers.DirectMessageHandler(bridge, twitter)
+        directmessage: new RoomHandlers.DirectMessageHandler(bridge, twitter, tstorage)
       }
     );
     var roomstore;

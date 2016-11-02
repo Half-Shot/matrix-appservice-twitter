@@ -27,13 +27,16 @@ class TwitterRoomHandler {
   processInvite (event, request, context) {
     var remote = context.rooms.remote;
     var twitbot = "@"+this._bridge.opts.registration.sender_localpart+":"+this._bridge.opts.domain;
-    if(remote == null
-       && event.sender != twitbot
-       && event.state_key == twitbot)
-    {
-      //Services bot
-      this.handlers.services.processInvite(event, request, context);
+    if(remote != null && event.sender != twitbot) {
       return;
+    }
+
+    if(event.state_key == twitbot)
+    {
+      this.handlers.services.processInvite(event, request, context);
+    }
+    else {
+      this.handlers.directmessage.processInvite(event, request, context);
     }
   }
 
@@ -100,9 +103,6 @@ class TwitterRoomHandler {
     else if(type[0] == '#' && this._hashtags.enable) { //Hashtag
       return this.handlers.hashtag.processAliasQuery(part);
     }
-    /*else if(type == 'DM') {
-      return this.handlers.directmessage.processAliasQuery(part.substr(1));
-    }*/
     else {
       //Unknown
       return null;
