@@ -248,7 +248,6 @@ class Timeline {
         return;
       }
       else{
-        log.verbose("Timeline", "Got %s for %s", results.statuses.length, req.q);
         if(results.statuses.length == HASHTAG_TWEET_FETCH_COUNT) {
           log.info("Timeline", "Hashtag poll request hit count limit. Request likely incomplete.");
         }
