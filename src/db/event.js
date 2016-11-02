@@ -34,7 +34,7 @@ module.exports = {
     }).then(row => {
       return row !== undefined ? row : null;
     }).catch( err => {
-      log.error("TwitDB", "Error getting since value: %s", err.Error);
+      log.error("TwitDB", "Error getting event: %s", err.Error);
       throw err;
     });
   },
@@ -52,7 +52,7 @@ module.exports = {
     }).then(row => {
       return row !== undefined ? row : null;
     }).catch( err => {
-      log.error("TwitDB", "Error getting since value: %s", err.Error);
+      log.error("TwitDB", "Error getting event: %s", err.Error);
       throw err;
     });
   },
@@ -63,8 +63,8 @@ module.exports = {
       `
       SELECT *
       FROM event_tweet
-      WHERE event_tweet.tweet_id = $tweet_id;
-      WHERE event_tweet.room_id = $room_id;
+      WHERE event_tweet.tweet_id = $tweet_id
+      AND event_tweet.room_id = $room_id;
       `
     , {
       $tweet_id: tweet_id,
@@ -72,7 +72,7 @@ module.exports = {
     }).then(row => {
       return row !== undefined;
     }).catch( err => {
-      log.error("TwitDB", "Error getting since value: %s", err.Error);
+      log.error("TwitDB", "Error checking room_has_tweet: %s", err.Error);
       throw err;
     });
   }

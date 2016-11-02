@@ -52,5 +52,22 @@ module.exports = {
       log.error("TwitDB", "Error storing dm room: %s", err);
       throw err;
     });
+  },
+
+  remove_dm_room: function (users) {
+    log.silly("SQL", "remove_dm_room => %s", users);
+    return this.db.runAsync(
+      `
+      DELETE FROM dm_room
+      WHERE dm_room.users = $users;
+      `
+    , {
+      $users: users
+    }).then(() => {
+      log.info("TwitDB", "Deleted dm room %s", users);
+    }).catch(err =>{
+      log.error("TwitDB", "Error deleting dm room: %s", err);
+      throw err;
+    });
   }
 }

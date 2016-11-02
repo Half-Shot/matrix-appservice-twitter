@@ -14,7 +14,7 @@ class DirectMessage {
     if(user_id == null) {
       return Promise.reject("User isn't known by the AS");
     }
-    return this._twitter._storage.get_twitter_account(user_id).then((account) => {
+    return this.twitter.storage.get_twitter_account(user_id).then((account) => {
       if(account == null) {
         throw "Matrix account isn't linked to any twitter account.";
       }
@@ -30,6 +30,24 @@ class DirectMessage {
     });
   }
 
+  set_room (sender, recipient, room_id) {
+    var users = [sender.id_str, recipient.id_str].sort().join(';');
+    return this.twitter.storage.get_dm_room(users).then(room_id =>{
+      if(room_id) {
+        return this.twitter.storage.remove_dm_room(users);
+      }
+      return;
+    }).then(() => {
+      return this.twitter.storage.add_dm_room(room_id, users).then(() => {
+        var mroom = new Bridge.MatrixRoom(room_id);
+        var rroom = new Bridge.RemoteRoom("dm_"+users);
+        rroom.set("twitter_type", "dm");
+        this.twitter.bridge.getRoomStore().linkRooms(mroom, rroom);
+        return room_id;
+      });
+    });
+  }
+
   get_room (sender, recipient) {
     var users = [sender.id_str, recipient.id_str].sort().join(';');
     return this.twitter.storage.get_dm_room(users).then(room_id =>{
@@ -37,13 +55,7 @@ class DirectMessage {
         return room_id;
       }
       return this._create_dm_room(users).then(room => {
-        return this.twitter.storage.add_dm_room(room.room_id, users).then(() => {
-          var mroom = new Bridge.MatrixRoom(room.room_id);
-          var rroom = new Bridge.RemoteRoom("dm_"+users);
-          rroom.set("twitter_type", "dm");
-          this.twitter.bridge.getRoomStore().linkRooms(mroom, rroom);
-          return room.room_id;
-        });
+        return this.set_room(sender, recipient, room.room_id);
       });
     }).catch(reason =>{
       throw "Couldn't create/get new room. " + reason;
@@ -137,6 +149,7 @@ the DB. This shouldn't happen.`;
       this.twitter.storage.get_matrixid_from_twitterid(recipient.id_str)
     ]).then(user_ids =>{
       var invitees = new Set([
+        "@_twitter_" + sender.id_str + ":" + this.twitter.bridge.opts.domain,
         "@_twitter_" + recipient.id_str + ":" + this.twitter.bridge.opts.domain
       ]);
       for(var user_id of user_ids) {

@@ -29,8 +29,7 @@ class DirectMessageHandler {
    */
   processInvite (event, request, context) {
     var user_id = context.senders.matrix.getId();
-    var sender = null;
-    var recipient = null;
+    var sender, recipient, intentS, intentR = null;
     return this.twitter.dm.can_use(context.senders.matrix.getId(user_id)).then(() =>{
       //Get the senders account.
       return this._storage.get_profile_from_mxid(user_id);
@@ -45,7 +44,16 @@ class DirectMessageHandler {
       if(profile == null) {
         throw "No profile found for recipient";
       }
-      return this.twitter.db.get_room(sender, recipient);
+      recipient = profile;
+      intentS = this.twitter.get_intent(sender.id_str);
+      intentR = this.twitter.get_intent(recipient.id_str);
+      return this.twitter.dm.set_room(sender, recipient, event.room_id);
+    }).then(()=>{
+      return intentR.join(event.room_id);
+    }).then(()=>{
+      return intentR.invite(event.room_id, intentS.client.credentials.userId);
+    }).then(()=>{
+      return intentS.join(event.room_id);
     }).catch(err => {
       log.error("Handler.DirectMessage", "Failed to process an invite for a DM. %s", err);
     })

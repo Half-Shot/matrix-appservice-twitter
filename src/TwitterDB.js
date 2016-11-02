@@ -1,7 +1,7 @@
 const SQLite3 = require('sqlite3').verbose();
 const log = require('npmlog');
 
-const CURRENT_SCHEMA = 3;
+const CURRENT_SCHEMA = 4;
 /**
  * Stores data for specific users and data not specific to rooms.
  */
@@ -19,40 +19,19 @@ class TwitterDB {
     this._target_schema = CURRENT_SCHEMA;
     this.db = Promise.promisifyAll(this.db);
     this.version = null;
-    this.handlers = {};
-    this.handlers.profile = require("./db/profile.js");
-    this.handlers.event = require("./db/event.js");
-    this.handlers.dm = require("./db/dm.js");
-    this.handlers.since = require("./db/since.js");
-    this.handlers.timeline_room = require("./db/timeline_room.js");
-    this.handlers.twitter_account = require("./db/twitter_account.js");
+    const handlers = {};
+    handlers.profile = require("./db/profile.js");
+    handlers.event = require("./db/event.js");
+    handlers.dm = require("./db/dm.js");
+    handlers.since = require("./db/since.js");
+    handlers.timeline_room = require("./db/timeline_room.js");
+    handlers.twitter_account = require("./db/twitter_account.js");
 
-    this.get_profile_by_id = this.handlers.profile.get_profile_by_id;
-    this.get_profile_by_name = this.handlers.profile.get_profile_by_name;
-    this.cache_user_profile = this.handlers.profile.cache_user_profile;
-
-    this.get_twitter_account = this.handlers.twitter_account.get_twitter_account;
-    this.get_matrixid_from_twitterid = this.handlers.twitter_account.get_matrixid_from_twitterid;
-    this.get_linked_user_ids = this.handlers.twitter_account.get_linked_user_ids;
-    this.set_twitter_account = this.handlers.twitter_account.set_twitter_account;
-    this.remove_twitter_account = this.handlers.twitter_account.remove_twitter_account;
-
-    this.get_timeline_room = this.handlers.timeline_room.get_timeline_room;
-    this.set_timeline_with_option = this.handlers.timeline_room.set_timeline_with_option;
-    this.set_timeline_replies_option = this.handlers.timeline_room.set_timeline_replies_option;
-    this.set_timeline_room = this.handlers.timeline_room.set_timeline_room;
-    this.remove_timeline_room = this.handlers.timeline_room.remove_timeline_room;
-
-    this.get_dm_room = this.handlers.dm.get_dm_room;
-    this.get_users_from_dm_room = this.handlers.dm.get_users_from_dm_room;
-    this.add_dm_room = this.handlers.dm.add_dm_room;
-
-    this.get_since = this.handlers.since.get_since;
-    this.set_since = this.handlers.since.set_since;
-
-    this.add_event = this.handlers.event.add_event;
-    this.get_event_by_event_id = this.handlers.event.get_event_by_event_id;
-    this.get_event_by_twitter_id = this.handlers.event.get_event_by_twitter_id;
+    for(var handler of Object.keys(handlers)) {
+      for(var func of Object.keys(handlers[handler])) {
+        this[func] = handlers[handler][func];
+      }
+    }
 
   }
 
