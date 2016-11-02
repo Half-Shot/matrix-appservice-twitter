@@ -43,12 +43,14 @@
 	<section>
 		<h2 id="install">Installation</h2>
 		<p class="note">We expect you to be running a standard synapse setup for these instructions</p>
+		<p class="note">The master release for this project is currently unsupported. While work is ongoing to release a version, #develop should be used.</p>
 
 		<p>Clone this repo and install the npm dependencies as usual.</p>
 
 		<pre>
-			git clone https://github.com/Half-Shot/matrix-appservice-twitter
-			npm install
+    git clone https://github.com/Half-Shot/matrix-appservice-twitter]
+    git checkout develop
+    npm install
 		</pre>
 
 		<p>You will need a twitter application authentication token and secret to continue.</p>
@@ -58,7 +60,7 @@
 		<p>Next, we need to generate the appropriate registration config so that synapse can interface with the bridge.</p>
 
 		<pre>
-			node twitter-as.js -r -u "URL"
+    node twitter-as.js -r -u "URL"
 		</pre>
 
 		<p>The URL should be replaced by the domain/ip and port of the bridge. In this case you can usually leave it as http://localhost:9000 if you plan to run it on the same server as synapse and will be keeping the default port.</p>
@@ -66,7 +68,7 @@
 		<p>Copy/symlink the generated registration file to your synapse directory and finally edit your <code>homeserver.yaml</code> file for synapse so that the bridge is registered. This means changing <code>app_service_config_files</code> and inserting the name of your config file into the list. It should look similar to this:</p>
 
 		<pre>
-			app_service_config_files: ["twitter-registration.yaml"]
+    app_service_config_files: ["twitter-registration.yaml"]
 		</pre>
 
 		<p>You can restart synapse after this.</p>
@@ -74,7 +76,7 @@
 		<p> Finally, run the bridge! </p>
 
 		<pre>
-			node twitter-as.js -p 9000 -c config.yaml
+    node twitter-as.js -p 9000 -c config.yaml
 		</pre>
 
 		<h3>config.yaml</h3>
@@ -83,11 +85,11 @@
 				<ul>
 					<li> domain <span>http://localhost</span> <p>The homeserver's domain.</p> </li>
 					<li> homeserverUrl <span>http://localhost:8448</span> <p>The homeservers URL.</p>  </li>
+					<li> database_file <span>twitter.db</span> <p>The file to store SQLITE data in.</p>  </li>
 				</ul>
 			<li> app_auth </li>
 				<ul>
 					<li> consumer_key <p>The key obtained by registering a new Twitter API application.</p> </li>
-
 					<li> consumer_secret <p>The secret obtained by registering a new Twitter API application.</p> </li>
 				</ul>
 			<li> hashtags </li>
@@ -97,13 +99,19 @@
 			<li> timelines </li>
 				<ul>
 					<li> enable <span>true/false</span> <p>Should the bridge allow creation of new timeline rooms.</p> </li>
-					<li> enable </li>
 				</ul>
 			<li> media </li>
 				<ul>
 					<li> enable_download <span>true/false</span> <p>Should media inside tweets be uploaded to the homeserver, or just linked?</p> </li>
 					<li> enable_profile_images <span>true/false</span> <p> Should profile images be set for twitter accounts.</p> </li>
 				</ul>
+			<li> logging </li>
+				<ul>
+          <li>file <span>logs/twitter-db.log</span> <p> The file to log to. Please make sure to create any directories.</li>
+          <li>size <span>50m</span> <p>How big should files be before they are rotated. Use the suffix m for MB.</li>
+          <li>count <span>3</span> <p>How many files should be kept before old ones are deleted</p></li>
+          <li>compress <span>true/false</span> <p>Compress files using gzip?</p> </li>
+          <li>level <span>warn</span> <p>One of silent, error, warn, info, verbose, silly</p></li>
 	</ul>
 	</section>
 
@@ -112,21 +120,21 @@
 			<h3>Linking your Twitter account to your Matrix user</h3>
 				<p>Linking is not required for reading timelines/hashtags, but <strong>interactions must be completed under your own account</strong>.</p>
 				<ul>
-					<li>Create a room and invite <code>@twitbot:yourdomain</code>.</li>
-					<li>Send the message <code>link account</code></li>
+					<li>Create a room and invite <code>@_twitter_bot:yourdomain</code>.</li>
+					<li>Send the message <code>link.account</code></li>
 					<li>Follow the URL and instructions. Copy the PIN code</li>
 					<li>Enter the pin code directly into the room and your account should be linked up.</li>
 				</ul>
 			<h3>User Timelines</h3>
-				<p>Simply join <code>@twitter_@screennamegoeshere:yourdomain</code> to read a users timeline. Protected timelines are currently not available.</p>
+				<p>Simply join <code>@_twitter_@screennamegoeshere:yourdomain</code> to read a users timeline. Protected timelines are not available.</p>
 				<p>Accounts which are bridged (Twitter&lt;-&gt;Matrix) will be able to send tweets to these timelines (you do not need to put the @screen_name, it is done automatically)</p>
 			<h3>Hashtags</h3>
-				<p>Join <code>@twitter_#hashtaggoeshere</code> to follow a particular hashtag.</p>
+				<p>Join <code>@_twitter_#hashtaggoeshere</code> to follow a particular hashtag.</p>
 				<p>Accounts which are bridged (Twitter&lt;-&gt;Matrix) will be able to send tweets which will automatically apply this hashtag.</p>
 			<h3>Direct Messages</h3>
 				<p class="note">Due to limitations in the Twitter API, group DMs are not possible.</p>
 				<p> On recieving a DM, you will be invited to a room where you can message each other as if it was another Matrix user.</p>
-				<p> Rejoining previous conversations is not possible, but either parties sending a message will create a private room </p>
+				<p> Rejoining previous conversations is not possible, but either user sending a message will create a private room </p>
 	</section>
 
 	<section>
