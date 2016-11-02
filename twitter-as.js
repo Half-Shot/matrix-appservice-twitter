@@ -123,7 +123,11 @@ var cli = new AppService.Cli({
             twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId());
           }
           else if(type == 'hashtag') {
-            twitter.timeline.add_hashtag(entry.remote.roomId.substr("hashtag_".length), entry.matrix.getId());
+            if(entry.remote.get("twitter_hashtag") == undefined) { //Older versions didn't set this.
+              entry.remote.set("twitter_hashtag", entry.remote.roomId.substr("hashtag_".length));
+              bridge.getRoomStore().linkRooms(entry.matrix, entry.remote);
+            }
+            twitter.timeline.add_hashtag(entry.remote.get("twitter_hashtag"), entry.matrix.getId());
           }
           //Fix old user timeline rooms not being bidirectional.
           else if(type == 'user_timeline') {
