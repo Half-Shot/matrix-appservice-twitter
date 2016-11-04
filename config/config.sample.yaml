@@ -28,3 +28,6 @@ logging:
   count: 3
   compress: false
   level: verbose #One of error,warn,info,verbose,silly,silent
+
+provisioning:
+  enable: true

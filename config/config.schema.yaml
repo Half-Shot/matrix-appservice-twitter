@@ -61,3 +61,9 @@ properties:
             type: "boolean"
           level:
             type: "string"
+    provisioning:
+        type: "object"
+        required: ["enable"]
+        properties:
+            enable:
+              type: "boolean"

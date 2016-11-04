@@ -9,11 +9,12 @@ const TwitterRoomHandler = require("./src/TwitterRoomHandler.js");
 const RoomHandlers = require("./src/handlers/Handlers.js");
 const TwitterDB = require("./src/TwitterDB.js");
 const util = require('./src/util.js');
-
+const Provisioner = require("./src/Provisioner.js");
 global.Promise = require('bluebird');
 
 var twitter;
 var bridge;
+var provisioner;
 
 var cli = new AppService.Cli({
   registrationPath: "twitter-registration.yaml",
@@ -101,6 +102,12 @@ var cli = new AppService.Cli({
       return twitter.start();
     }).then(() => {
       bridge.run(port, config);
+
+      // Setup provisioning - If not enabled it will still return an error code.
+      if (config.provisioner) {
+        provisioner = new Provisioner(bridge, twitter, config);
+        provisioner.init();
+      }
 
       // Setup twitbot profile (this is needed for some actions)
       bridge.getClientFactory().getClientAs().register(regObj.sender_localpart).then( () => {
