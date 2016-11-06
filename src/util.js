@@ -126,6 +126,11 @@ function isRoomId (room_id) {
   return /^!(\w+):(\S+)$/.test(room_id)
 }
 
+function isUserId (user_id) {
+  return /^@(\w+):(\S+)$/.test(user_id)
+}
+
+
 function isAlphanumeric (str) {
   return /^[a-z0-9]+$/i.test(str)
 }
@@ -166,10 +171,11 @@ function isStrInteger (str) {
 }
 
 module.exports = {
-  uploadContentFromUrl: uploadContentFromUrl,
-  downloadFile: downloadFile,
-  isStrInteger: isStrInteger,
-  isRoomId: isRoomId,
-  isAlphanumeric: isAlphanumeric,
-  roomPowers: roomPowers
+  uploadContentFromUrl,
+  downloadFile,
+  isStrInteger,
+  isRoomId,
+  isUserId,
+  isAlphanumeric,
+  roomPowers
 }

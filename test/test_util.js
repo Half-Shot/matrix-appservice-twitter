@@ -25,6 +25,22 @@ describe('Util', function () {
 
     it('should return true when the value is in the correct format', function () {
       assert.equal(true, util.isRoomId("!foo:bar"));
+      assert.equal(true, util.isRoomId("!foo:bar.com"));
+    });
+  });
+
+  describe('isUserId', function () {
+    it('should return false when the string is in the wrong format', function () {
+      assert.equal(false, util.isRoomId(""));
+      assert.equal(false, util.isRoomId("@:"));
+      assert.equal(false, util.isRoomId("@sddsaas"));
+      assert.equal(false, util.isRoomId(":saddsd"));
+      assert.equal(false, util.isRoomId("@asd94 dd:12 74dd"));
+    });
+
+    it('should return true when the value is in the correct format', function () {
+      assert.equal(true, util.isRoomId("@foo:bar"));
+      assert.equal(true, util.isRoomId("@foo:bar.com"));
     });
   });
 
