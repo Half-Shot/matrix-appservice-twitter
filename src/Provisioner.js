@@ -53,19 +53,16 @@ class Provisioner {
       next();
     });
 
-    this._app.post("/_matrix/provision/link", (req, res) => {
-      Promise.coroutine(this._requestWrap(this._link, req, res));
-    });
-    this._app.post("/_matrix/provision/unlink", (req, res) => {
-      Promise.coroutine(this._requestWrap(this._unlink, req, res));
-    });
-    this._app.get("/_matrix/provision/listlinks/:roomId", (req, res) => {
+    const manageLink = (req, res) => {
+      Promise.coroutine(this._requestWrap(this._manageLink, req, res));
+    };
+
+    this._app.put("/_matrix/provision/:roomId/:type/:name", manageLink);
+    this._app.delete("/_matrix/provision/:roomId/:type/:name", manageLink);
+    this._app.get("/_matrix/provision/:roomId/links", (req, res) => {
       Promise.coroutine(this._requestWrap(this._listLinks, req, res));
     });
-    this._app.post("/_matrix/provision/querynetworks", (req, res) => {
-      Promise.coroutine(this._requestWrap(this._queryLink, req, res));
-    });
-    this._app.get("/_matrix/provision/querylink", (req, res) => {
+    this._app.get("/_matrix/provision/show/:screenName", (req, res) => {
       Promise.coroutine(this._requestWrap(this._queryNetworks, req, res));
     });
   }
@@ -74,10 +71,10 @@ class Provisioner {
     try {
       const result = yield func(req);
       if(result !== undefined) {
-        res.json(result);
-      }
-      else {
-        res.json({});
+        if(result.err) {
+          res = res.status(result.err);
+        }
+        res.json(result.body);
       }
     }
     catch (err) {
@@ -86,159 +83,119 @@ class Provisioner {
     }
   }
 
-  _link (req) {
-    const body = req.body;
-    const room_id = body.matrix_room_id;
-    if(!util.isRoomId(room_id)) {
-      throw new Error("Malformed matrix_room_id");
-    }
-    if(!body.user_id) {
-      throw new Error("No user_id given.");
-    }
-    Promise.coroutine(this._userHasProvisioningPower)(body.user_id, room_id).then(has_power =>{
-      if(!has_power) {
-        throw new Error("User does not have power to create bridges.");
-      }
-      if (body.twitter_screenname) {
-        this._linkTimeline(room_id, body.twitter_screenname);
-      }
-      else if(body.twitter_hashtag) {
-        this._linkHashtag(room_id, body.twitter_hashtag);
-      }
-      else{
-        throw new Error("Specify either a screename or a hashtag.");
-      }
-    });
-  }
+  *_manageLink (req) {
+    const user_id = req.query.user_id;
+    const room_id = req.params.roomid;
+    const type = req.params.type;
+    const name = req.params.name;
+    const createLink = req.method = "PUT";
 
-  _unlink (req) {
+    if(!util.isRoomId(room_id)) {
+      return {err: 400, body: "No/malformed room_id given."};
+    }
+    if(!util.isUserId(user_id)) {
+      return {err: 400, body: "No/malformed user_id given."};
+    }
+    const has_power = yield this._userHasProvisioningPower(user_id, room_id);
+    if(!has_power) {
+      return {err: 401, body: "User does not have power to create bridges"}
+    }
+    if(!["timeline", "hashtag"].contains(type)) {
+      return {err: 400, body: "'type' was not a timeline or a hashtag."};
+    }
+
+    // PUT
+    if(createLink) {
+      if (type == "timeline") {
+        return this._linkTimeline(room_id, name);
+      }
+      else if(type == "hashtag") {
+        return this._linkHashtag(room_id, name);
+      }
+    }
+
+    // DELETE
     const roomstore = this._bridge.roomstore.getRoomStore();
-    const body = req.body;
-    const room_id = body.matrix_room_id;
-    if(!util.isRoomId(room_id)) {
-      throw new Error("Malformed matrix_room_id");
-    }
-    if(!body.user_id) {
-      throw new Error("No user_id given.");
-    }
-    Promise.coroutine(this._userHasProvisioningPower)(body.user_id, room_id).then(has_power =>{
-      if(!has_power) {
-        throw new Error("User does not have power to create bridges.");
+    const rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
+      if(item.remote) {
+        if(type == "timeline" && item.remote.data.twitter_type == "timeline") {
+          return this._twitter.get_profile_by_screenname(item.remote.data.twitter_user).then(profile =>{
+            if(!profile) {
+              return false;
+            }
+            return profile.screen_name == name;
+          });
+        }
+        else if(type == "hashtag" && item.remote.data.twitter_type == "hashtag") {
+          return item.remote.data.twitter_hashtag == name;
+        }
       }
-
-      if(!body.twitter_screenname && !body.twitter_hashtag) {
-        throw new Error("Specify either a screename or a hashtag.");
-      }
-
-      const remote = Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
-        if(item.remote) {
-          if(body.twitter_screenname && item.remote.data.twitter_type == "timeline") {
-            return this._twitter.get_profile_by_screenname(item.remote.data.twitter_user).then(profile =>{
-              if(!profile) {
-                return false;
-              }
-              return profile.screen_name == body.twitter_screenname;
-            });
-          }
-          else if(body.twitter_hashtag && item.remote.data.twitter_type == "hashtag") {
-            return item.remote.data.twitter_hashtag == body.twitter_hashtag;
-          }
-        }
-      });
-
-      remote.then(rooms =>{
-        if(rooms.length == 0) {
-          throw new Error("Bridged entry not found.");
-        }
-
-        //roomstore.removeEntriesByRemoteId(rooms[0].remote.getId());
-
-        if (body.twitter_screenname) {
-          this._twitter.timeline.remove_timeline(room_id, body.twitter_screenname);
-        }
-        else if(body.twitter_hashtag) {
-          this._twitter.timeline.remove_hashtag(room_id, body.twitter_hashtag);
-        }
-      })
-
-
-
     });
+
+    if(rooms.length == 0) {
+      return {err: 404, body: "Bridged entry not found."};
+    }
+
+    roomstore.removeEntriesByRemoteId(rooms[0].remote.getId());
+
+    if (type == "timeline") {
+      this._twitter.timeline.remove_timeline(room_id, name);
+    }
+    else if(type == "hashtag") {
+      this._twitter.timeline.remove_hashtag(room_id, name);
+    }
+
 
   }
 
-
-  /**
-   * {
-   *  matrix_room_id,
-   *  twitter_profile:
-   *    avatar,
-   *    screen_name,
-   *    description
-   *  twitter_hashtag: hashtag
-   * }
-   */
-  _listLinks (req) {
+  *_listLinks (req) {
     const roomId = req.params.roomId;
     if(!util.isRoomId(roomId)) {
       throw new Error("Malformed userId");
     }
 
     const rooms = this._bridge.getRoomStore().getEntriesByMatrixId(roomId);
-    return Promise.map(rooms).then(room =>{
+    const body = {
+      "timelines": [],
+      "hashtags": []
+    }
+    yield Promise.each(rooms).then(room =>{
       if(room.remote.data.twitter_type == "timeline") {
         return this._twitter.get_profile_by_id(room.remote.data.twitter_user).then(profile =>{
-          return {
-            matrix_room_id: roomId,
-            twitter_profile: {
-              avatar: profile.profile_image_url_https,
-              name: profile.name,
-              screen_name: profile.screen_name,
-              description: profile.description
-            }
-          }
+          body.timelines.push({
+            twitterId: profile.id_str,
+            avatarUrl: profile.profile_image_url_https,
+            name: profile.name,
+            screenName: profile.screen_name,
+            description: profile.description
+          });
         });
       }
       else if (room.remote.data.twitter_type == "hashtag") {
-        return {
-          matrix_room_id: roomId,
-          twitter_hashtag: room.remote.getId().substr("hashtag_".length)
-        }
-      }
-      else {
-        return null;
+        body.hashtags.push(room.remote.getId().substr("hashtag_".length));
       }
     });
+    return body;
   }
 
   // Returns basic profile information if a timeline
   // or empty object for hashtags
   _queryLink (req) {
-    const body = req.body;
-    if (body.twitter_hashtag) {
-      return Promise.resolve({});
-    }
-    else if(body.twitter_screenname) {
-      return this._twitter.get_profile_by_screenname(body.twitter_screenname).then(profile =>{
-        if (!profile) {
-          throw new Error("User not found!");
+    const name = req.params.screenName;
+    return this._twitter.get_profile_by_screenname(name).then(profile =>{
+      if (!profile) {
+        throw new Error("User not found!");
+      }
+      else{
+        return {
+          twitterId: profile.id_str,
+          avatarUrl: profile.profile_image_url_https,
+          name: profile.name,
+          screenName: profile.screen_name,
+          description: profile.description
         }
-        else{
-          return {
-            avatar: profile.profile_image_url_https,
-            name: profile.name,
-            screen_name: profile.screen_name,
-            description: profile.description
-          }
-        }
-      });
-    }
-  }
-
-  //TODO: What to do about this. Twitter is a silo, hence only one network.
-  _queryNetworks (req) {
-    //const body = req.body;
-    return {};
+      }
+    });
   }
 
   _linkTimeline (room_id, screenname) {
@@ -285,11 +242,7 @@ class Provisioner {
   }
 
   isProvisionRequest (req) {
-    return req.url === '/_matrix/provision/unlink' ||
-      req.url === '/_matrix/provision/link'||
-      req.url.match(/^\/_matrix\/provision\/listlinks/) ||
-      req.url === '/_matrix/provision/querynetworks' ||
-      req.url === "/_matrix/provision/querylink"
+    return req.url.match(/^\/_matrix\/provision\/(\S+)\/(link|links|timeline)/)
   }
 
   _updateBridgingState (roomId, userId, status, skey) {
@@ -306,7 +259,6 @@ class Provisioner {
     }
   }
 
-  //Call with Promise.coroutine
   *_userHasProvisioningPower (userId, roomId) {
     log.info(`Check power level of ${userId} in room ${roomId}`);
     const matrixClient = this._bridge.getClientFactory().getClientAs();

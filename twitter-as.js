@@ -1,3 +1,5 @@
+global.Promise = require('bluebird');
+
 const log = require('npmlog');
 const yaml = require("js-yaml");
 const fs = require("fs");
@@ -10,7 +12,6 @@ const RoomHandlers = require("./src/handlers/Handlers.js");
 const TwitterDB = require("./src/TwitterDB.js");
 const util = require('./src/util.js');
 const Provisioner = require("./src/Provisioner.js");
-global.Promise = require('bluebird');
 
 var twitter;
 var bridge;
