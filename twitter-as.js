@@ -105,7 +105,7 @@ var cli = new AppService.Cli({
       bridge.run(port, config);
 
       // Setup provisioning - If not enabled it will still return an error code.
-      if (config.provisioner) {
+      if (config.provisioning) {
         provisioner = new Provisioner(bridge, twitter, config);
         provisioner.init();
       }

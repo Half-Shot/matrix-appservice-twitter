@@ -1,6 +1,6 @@
 /*eslint no-invalid-this: 0*/ // eslint doesn't understand Promise.coroutine wrapping
 const log = require('npmlog');
-const util = require('./src/util.js');
+const util = require('./util.js');
 
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 const MatrixRoom = require("matrix-appservice-bridge").MatrixRoom;
@@ -14,16 +14,16 @@ class Provisioner {
     this._as = bridge.appService;
     this._app = bridge.appService.app;
     this._twitter = twitter;
-    this._config = config.provisioner;
+    this._config = config.provisioning;
   }
 
   init () {
-    if (this._config.enabled && !(this._app.use && this._app.get && this._app.post)) {
+    if (this._config.enable && !(this._app.use && this._app.get && this._app.post)) {
       log.error('Could not start provisioning.');
       return;
     }
 
-    if(!this._config.enabled) {
+    if(!this._config.enable) {
       log.info("Provisioner", "Disabled provisoning");
       this._app.use((req, res, next) => {
         // Disable all provision endpoints by not calling 'next' and returning an error instead
@@ -54,36 +54,36 @@ class Provisioner {
     });
 
     const manageLink = (req, res) => {
-      Promise.coroutine(this._requestWrap(this._manageLink, req, res));
+      Promise.coroutine(this._requestWrap)(this, this._manageLink, req, res);
     };
 
     this._app.put("/_matrix/provision/:roomId/:type/:name", manageLink);
     this._app.delete("/_matrix/provision/:roomId/:type/:name", manageLink);
     this._app.get("/_matrix/provision/:roomId/links", (req, res) => {
-      Promise.coroutine(this._requestWrap(this._listLinks, req, res));
+      Promise.coroutine(this._requestWrap)(this, this._listLinks, req, res);
     });
     this._app.get("/_matrix/provision/show/:screenName", (req, res) => {
-      Promise.coroutine(this._requestWrap(this._queryNetworks, req, res));
+      Promise.coroutine(this._requestWrap)(this, this._queryProfile, req, res);
     });
   }
 
-  *_requestWrap (func, req, res) {
+  * _requestWrap (self, func, req, res) {
     try {
-      const result = yield func(req);
+      const result = yield Promise.coroutine(func)(self, req);
       if(result !== undefined) {
         if(result.err) {
           res = res.status(result.err);
         }
-        res.json(result.body);
+        res.json(result);
       }
     }
     catch (err) {
-      res.status(500).json({error: err.message});
+      res.status(500).json({error: "An internal error occured."});
       log.error("Provisioner", "Error occured: %s", err);
     }
   }
 
-  *_manageLink (req) {
+  * _manageLink (req) {
     const user_id = req.query.user_id;
     const room_id = req.params.roomid;
     const type = req.params.type;
@@ -148,7 +148,7 @@ class Provisioner {
 
   }
 
-  *_listLinks (req) {
+  * _listLinks (req) {
     const roomId = req.params.roomId;
     if(!util.isRoomId(roomId)) {
       throw new Error("Malformed userId");
@@ -180,11 +180,11 @@ class Provisioner {
 
   // Returns basic profile information if a timeline
   // or empty object for hashtags
-  _queryLink (req) {
+  * _queryProfile (self, req) {
     const name = req.params.screenName;
-    return this._twitter.get_profile_by_screenname(name).then(profile =>{
+    return self._twitter.get_profile_by_screenname(name).then(profile =>{
       if (!profile) {
-        throw new Error("User not found!");
+        return {err: 404, body: "User not found."}
       }
       else{
         return {
@@ -243,6 +243,7 @@ class Provisioner {
 
   isProvisionRequest (req) {
     return req.url.match(/^\/_matrix\/provision\/(\S+)\/(link|links|timeline)/)
+      || req.url.startsWith("/_matrix/provision/show");
   }
 
   _updateBridgingState (roomId, userId, status, skey) {
@@ -259,7 +260,7 @@ class Provisioner {
     }
   }
 
-  *_userHasProvisioningPower (userId, roomId) {
+  * _userHasProvisioningPower (userId, roomId) {
     log.info(`Check power level of ${userId} in room ${roomId}`);
     const matrixClient = this._bridge.getClientFactory().getClientAs();
 
