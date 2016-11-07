@@ -34,6 +34,10 @@ class UserStream {
     this._user_streams.set(user_id, "pending");//Block race attempts;
     var client;
     return this.twitter.client_factory.get_client(user_id).then((c) => {
+      if(!c) {
+        this._user_streams.delete(user_id);
+        throw "get_client didn't resolve to a client, so something's up.";
+      }
       client = c;
       return this.twitter.storage.get_timeline_room(user_id);
     }).then(room => {
@@ -44,7 +48,7 @@ class UserStream {
       var stream = client.stream('user', {with: room.with, replies: room.replies});
       stream.on('data',  (data) => { this._on_stream_data(user_id, data); });
       stream.on('error', (error) => {
-        log.error("UserStream", "Stream gave an error %s", error);
+        log.error("UserStream", "Stream gave an error.", error);
         this.detach(user_id);
         setTimeout(() => {this.attach(user_id); }, STREAM_RETRY_INTERVAL);
       });
@@ -59,7 +63,7 @@ class UserStream {
     if(this._user_streams.has(user_id)) {
       this._user_streams.get(user_id).destroy();
       this._user_streams.delete(user_id);
-      log.info("UserStream", "Detached stream for " + user_id);
+      log.info("UserStream", "Detached stream for ", user_id);
     }
   }
 
