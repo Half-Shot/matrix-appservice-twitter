@@ -23,6 +23,8 @@ class TimelineHandler {
    * @param  {external:RoomBridgeStore.Entry} entry description
    */
   onRoomCreated (alias, entry) {
+    entry.matrix.set("twitter_user", entry.remote.data.twitter_user);
+    this._bridge.getRoomStore().upsertEntry(entry);
     this.twitter.timeline.add_timeline(
         entry.remote.data.twitter_user,
         entry.matrix.getId(),
@@ -105,12 +107,12 @@ class TimelineHandler {
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", user.id_str);
     remote.set("twitter_bidirectional", false);
-
+    var description = (user.description ? user.description : "") + ` | https://twitter.com/${user.screen_name}`;
     var opts = {
       visibility: "public",
       room_alias_name: "_twitter_@"+alias,
       name: "[Twitter] " + user.name,
-      topic: user.description,
+      topic: description,
       invite: [roomOwner],
       initial_state: [
         powers, {

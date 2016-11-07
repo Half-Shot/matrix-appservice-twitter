@@ -136,32 +136,27 @@ class Twitter {
     }
 
     return this._storage.get_profile_by_id(user_profile.id_str).then((old)=>{
-      var update_name = true;
-      var update_avatar = true;
+      let update_name = true;
+      let update_avatar = true;
+      let update_description = false;
       if(old) {
         //If either the real name (name) or the screen_name (handle) are out of date, update the screen name.
         update_name = (old.name != user_profile.name)
         update_name = update_name || (old.screen_name != user_profile.screen_name);
         update_avatar = (old.profile_image_url_https != user_profile.profile_image_url_https)
          && this._config.media.enable_profile_images;
+        update_description = (old.description != user_profile.description) && user_profile.description != null;
       }
 
-      var intent = this.get_intent(user_profile.id_str);
-      if(update_name) {
-        if(user_profile != null && user_profile.name != null && user_profile.screen_name != null ) {
-          intent.setDisplayName(user_profile.name + " (@" + user_profile.screen_name + ")");
-        }
-        else {
-          log.warn("Twitter", "Tried to preform a user display name update with a null profile.");
-        }
-      }
-
+      const intent = this.get_intent(user_profile.id_str);
+      var url;
       if(update_avatar) {
         if(user_profile == null || user_profile.profile_image_url_https == null) {
           log.warn("Twitter", "Tried to preform a user avatar update with a null profile.");
           return;
         }
         util.uploadContentFromUrl(this._bridge, user_profile.profile_image_url_https, intent).then((uri) =>{
+          url = uri;
           return intent.setAvatarUrl(uri);
         }).catch(err => {
           log.error(
@@ -172,6 +167,34 @@ class Twitter {
             );
         });
       }
+
+      if(update_description || update_avatar || update_name) {
+        //Update any rooms with this
+        var description = user_profile.description + ` | https://twitter.com/${user_profile.screen_name}`;
+        this._bridge.getRoomStore().getEntriesByMatrixRoomData(
+          {"twitter_user": user_profile.id_str}
+        ).each(entry => {
+          if(update_description) {
+            intent.setRoomTopic(entry.matrix.getId(), description);
+          }
+          if(update_avatar) {
+            //intent.setRoomAvatar(entry.matrix.getId(), url);
+          }
+          if(old.name != user_profile.name) {
+            intent.setRoomName(entry.matrix.getId(), "[Twitter] " + user_profile.name);
+          }
+        })
+      }
+
+      if(update_name) {
+        if(user_profile != null && user_profile.name != null && user_profile.screen_name != null ) {
+          intent.setDisplayName(user_profile.name + " (@" + user_profile.screen_name + ")");
+        }
+        else {
+          log.warn("Twitter", "Tried to preform a user display name update with a null profile.");
+        }
+      }
+
       return this._storage.cache_user_profile(user_profile.id_str, user_profile.screen_name, user_profile, ts);
     });
   }

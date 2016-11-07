@@ -119,10 +119,35 @@ var cli = new AppService.Cli({
       entries.forEach((entry) => {
         if (entry.remote.data.hasOwnProperty('twitter_type')) {
           var type = entry.remote.data.twitter_type;
-          if(type == 'timeline') {
-            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId());
+
+          //Fix rooms that are alias rooms
+          // Criteria: canonical_alias is #_twitter_@*+:domain
+          if (type == "timeline" && entry.matrix.get("twitter_user") == undefined) {
+            log.info("Init", `Checking ${entry.remote.getId()} to see if it's an alias room.`);
+            var stateLookup = new AppService.StateLookup(
+              {client: bridge.getIntent(), eventTypes: ["m.room.canonical_alias"]}
+            );
+            stateLookup.trackRoom(entry.matrix.getId()).then(() => {
+              var evt = stateLookup.getState(entry.matrix.getId(), "m.room.canonical_alias", "");
+              if(evt == null) {
+                return;
+              }
+              if(!evt.content.alias) {
+                return;
+              }
+
+              if(/^#_twitter_@(\w+):/.test(evt.content.alias)) {
+                entry.matrix.set("twitter_user", entry.remote.data.twitter_user);
+                roomstore.upsertEntry(entry);
+              }
+            });
           }
-          else if(type == 'hashtag') {
+
+          if(type == 'timeline' && config.timelines.enable) {
+            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId());
+
+          }
+          else if(type == 'hashtag' && config.hashtags.enable) {
             twitter.timeline.add_hashtag(entry.remote.roomId.substr("hashtag_".length), entry.matrix.getId());
           }
           //Fix old user timeline rooms not being bidirectional.
