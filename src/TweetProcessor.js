@@ -76,7 +76,8 @@ class TweetProcessor {
       "reblogs": tweet.retweet_count,
       "tweet_id": tweet.id_str,
       "tags": tweet.entities.hashtags,
-      "msgtype": type
+      "msgtype": type,
+      "external_url": `https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`
     }
   }
 
