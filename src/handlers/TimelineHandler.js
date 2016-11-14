@@ -38,6 +38,7 @@ class TimelineHandler {
       log.info("Handler.AccountServices", "User %s left room. Leaving", event.sender);
       this.twitter.user_stream.detach(event.sender);
       var intent = this._bridge.getIntent();
+      this.twitter.storage.remove_timeline_room(event.sender);
       intent.leave(event.room_id).then(() =>{
         var roomstore = this._bridge.getRoomStore();
         roomstore.removeEntriesByRemoteRoomData(context.rooms.remote.data);
