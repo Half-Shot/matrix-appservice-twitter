@@ -68,7 +68,8 @@ var cli = new AppService.Cli({
         onLog: function (line, isError) {
           if(isError) {
             if(line.indexOf("M_USER_IN_USE") == -1) {//QUIET!
-              log.error("matrix-appservice-bridge", line);
+              log.warn("matrix-appservice-bridge", line);
+              log.warn("matrix-appservice-bridge", "Stack Trace:%s", new Error().stack);
             }
           }
         }
