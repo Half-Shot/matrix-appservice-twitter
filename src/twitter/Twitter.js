@@ -155,9 +155,8 @@ class Twitter {
           log.warn("Twitter", "Tried to preform a user avatar update with a null profile.");
           return;
         }
-        util.uploadContentFromUrl(this._bridge, user_profile.profile_image_url_https, intent).then((uri) =>{
-          url = uri;
-          return intent.setAvatarUrl(uri);
+        util.uploadContentFromUrl(this._bridge, user_profile.profile_image_url_https, intent).then((obj) =>{
+          return intent.setAvatarUrl(obj.mxc_url);
         }).catch(err => {
           log.error(
               'Twitter',

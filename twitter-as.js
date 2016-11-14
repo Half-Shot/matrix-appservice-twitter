@@ -183,10 +183,10 @@ function userQuery (queriedUser) {
   return twitter.get_profile_by_id(queriedUser.localpart.substr("_twitter_".length)).then( (twitter_user) => {
     /* Even users with a default avatar will still have an avatar url set.
        This *should* always work. */
-    return util.uploadContentFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((uri) => {
+    return util.uploadContentFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((obj) => {
       return {
         name: twitter_user.name + " (@" + twitter_user.screen_name + ")",
-        url: uri,
+        url: obj.mxc_url,
         remote: new AppService.RemoteUser(twitter_user.id_str)
       };
     });
