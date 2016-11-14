@@ -41,6 +41,8 @@ describe('Util', function () {
     it('should return true when the value is in the correct format', function () {
       assert.equal(true, util.isRoomId("@foo:bar"));
       assert.equal(true, util.isRoomId("@foo:bar.com"));
+      assert.equal(true, util.isRoomId("@foo-bar:bar.com"));
+      assert.equal(true, util.isRoomId("@foo$bar:bar.com"));
     });
   });
 

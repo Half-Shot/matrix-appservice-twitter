@@ -127,7 +127,7 @@ function isRoomId (room_id) {
 }
 
 function isUserId (user_id) {
-  return /^@(\w+):(\S+)$/.test(user_id)
+  return /^@(\S+):(\S+)$/.test(user_id)
 }
 
 
