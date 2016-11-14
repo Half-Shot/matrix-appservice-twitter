@@ -28,6 +28,7 @@
     "matrix-appservice-bridge": "^1.3.0",
     "matrix-js-sdk": "^0.5.3",
     "mime": "^1.3.4",
+    "mime-types": "^2.1.12",
     "npmlog": "^3.0.0",
     "oauth": "^0.9.14",
     "request": "^2.76.0",

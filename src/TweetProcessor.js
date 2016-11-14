@@ -1,4 +1,5 @@
 const log = require('npmlog');
+const mime = require('mime-types')
 const HTMLDecoder = new require('html-entities').AllHtmlEntities;
 
 const ProcessedTweetList = require("./ProcessedTweetList.js");
@@ -97,12 +98,21 @@ class TweetProcessor {
         if(media.type != 'photo') {
           continue;
         }
+        const mimetype = mime.lookup(media.media_url_https);
+        const media_info = {
+          w: media.sizes.large.w,
+          h: media.sizes.large.h,
+          mimetype,
+          size: 0
+
+        }
         media_promises.push(
           util.uploadContentFromUrl(
             this._bridge,
             media.media_url_https,
             this._bridge.getIntentFromLocalpart("_twitter_" + tweet.id_str)
-          ).then( (mxc_url) => {
+          ).then( (obj) => {
+            media_info.size = obj.size;
             return {
               userId: muser,
               roomId: roomid,
@@ -110,8 +120,9 @@ class TweetProcessor {
               type: "m.room.message",
               content: {
                 body: media.display_url,
+                info: media_info,
                 msgtype: "m.image",
-                url: mxc_url
+                url: obj.mxc_url
               }
             }
           })

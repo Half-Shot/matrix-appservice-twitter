@@ -57,6 +57,7 @@ function uploadContentFromUrl (bridge, url, id, name) {
   var contenttype;
   id = id || null;
   name = name || null;
+  var size;
   return new Promise((resolve, reject) => {
 
     var ht = url.startsWith("https") ? https : http;
@@ -74,7 +75,7 @@ function uploadContentFromUrl (bridge, url, id, name) {
         name = url.split("/");
         name = name[name.length - 1];
       }
-      var size = parseInt(res.headers["content-length"]);
+      size = parseInt(res.headers["content-length"]);
       if(isNaN(size)) {
         reject("Content-Length was not an integer, which is weird.");
         return;
@@ -111,7 +112,10 @@ function uploadContentFromUrl (bridge, url, id, name) {
   }).then((response) => {
     var content_uri = JSON.parse(response).content_uri;
     log.verbose("UploadContent", "Media uploaded to %s", content_uri);
-    return content_uri;
+    return {
+      mxc_url: content_uri,
+      size
+    };
   }).catch(function (reason) {
     log.error("UploadContent", "Failed to upload content:\n%s", reason)
   })
