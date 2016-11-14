@@ -31,18 +31,18 @@ describe('Util', function () {
 
   describe('isUserId', function () {
     it('should return false when the string is in the wrong format', function () {
-      assert.equal(false, util.isRoomId(""));
-      assert.equal(false, util.isRoomId("@:"));
-      assert.equal(false, util.isRoomId("@sddsaas"));
-      assert.equal(false, util.isRoomId(":saddsd"));
-      assert.equal(false, util.isRoomId("@asd94 dd:12 74dd"));
+      assert.equal(false, util.isUserId(""));
+      assert.equal(false, util.isUserId("@:"));
+      assert.equal(false, util.isUserId("@sddsaas"));
+      assert.equal(false, util.isUserId(":saddsd"));
+      assert.equal(false, util.isUserId("@asd94 dd:12 74dd"));
     });
 
     it('should return true when the value is in the correct format', function () {
-      assert.equal(true, util.isRoomId("@foo:bar"));
-      assert.equal(true, util.isRoomId("@foo:bar.com"));
-      assert.equal(true, util.isRoomId("@foo-bar:bar.com"));
-      assert.equal(true, util.isRoomId("@foo$bar:bar.com"));
+      assert.equal(true, util.isUserId("@foo:bar"));
+      assert.equal(true, util.isUserId("@foo:bar.com"));
+      assert.equal(true, util.isUserId("@foo-bar:bar.com"));
+      assert.equal(true, util.isUserId("@foo$bar:bar.com"));
     });
   });
 
