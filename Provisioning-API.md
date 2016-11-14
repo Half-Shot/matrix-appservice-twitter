@@ -1,7 +1,7 @@
 All of these API requests can return a 500 if something fails that wasn't expected.
 
-## /_matrix/provision/%roomId%/link/timeline/%screenName%?=%userId
-## /_matrix/provision/%roomId%/link/hashtag/%hashtag%?=%userId
+## /_matrix/provision/%roomId%/link/timeline/%screenName%?userId=%userId
+## /_matrix/provision/%roomId%/link/hashtag/%hashtag%?userId=%userId
 
 PUT - Create a new link
 
