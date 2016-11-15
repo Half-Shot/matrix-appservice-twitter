@@ -107,6 +107,7 @@ class TimelineHandler {
     var remote = new RemoteRoom("timeline_" + user.id_str);
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", user.id_str);
+    remote.set("twitter_exclude_replies", false);
     remote.set("twitter_bidirectional", false);
     var description = (user.description ? user.description : "") + ` | https://twitter.com/${user.screen_name}`;
     var opts = {

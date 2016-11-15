@@ -144,8 +144,8 @@ var cli = new AppService.Cli({
           }
 
           if(type == 'timeline' && config.timelines.enable) {
-            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId());
-
+            const exclude_replies = entry.remote.data.twitter_exclude_replies;
+            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId(), {exclude_replies});
           }
           else if(type == 'hashtag' && config.hashtags.enable) {
             twitter.timeline.add_hashtag(entry.remote.roomId.substr("hashtag_".length), entry.matrix.getId());

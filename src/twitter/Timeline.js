@@ -70,16 +70,27 @@ class Timeline {
    *
    * @param  {string} hashtag The twitter ID of a timeline. (without the #)
    * @param  {string} room_id The room_id to insert tweets into.
+   * @param  {object} opts Options
+   * @param  {boolean} opts.isnew Is the room 'new', and we shouldn't do a full poll.
    */
-  add_hashtag (hashtag, room_id, isnew) {
+  add_hashtag (hashtag, room_id, opts) {
     var htag = this._find_hashtag(hashtag);
     var obj;
+
+    if(opts === undefined) {
+      opts = {};
+    }
+
+    if(opts.isnew === undefined) {
+      opts.isnew = false;
+    }
+
     if(htag != -1) {
       obj = this._hashtags[htag]
     }
     else {
       obj = {hashtag, room: [] }
-      if(isnew) {
+      if(opts.isnew) {
         this._newtags.add("#"+hashtag);
       }
     }
@@ -101,16 +112,32 @@ class Timeline {
    *
    * @param  {string} twitter_id The twitter ID of a timeline.
    * @param  {string} room_id The room_id to insert tweets into.
+   * @param  {object} opts Options
+   * @param  {boolean} opts.isnew Is the room 'new', and we shouldn't do a full poll.
+   * @param  {boolean} opts.exclude_replies Should we not fetch replies.
    */
-  add_timeline (twitter_id, room_id, isnew) {
+  add_timeline (twitter_id, room_id, opts) {
     var tline = this._find_timeline(twitter_id);
     var obj;
+
+    if(opts === undefined) {
+      opts = {};
+    }
+
+    if(opts.isnew === undefined) {
+      opts.isnew = false;
+    }
+
+    if(opts.exclude_replies === undefined) {
+      opts.exclude_replies = false;
+    }
+
     if(tline != -1) {
       obj = this._timelines[tline]
     }
     else {
-      obj = {twitter_id, room: [] }
-      if(isnew) {
+      obj = {twitter_id, room: [], exclude_replies: opts.exclude_replies }
+      if(opts.isnew) {
         this._newtags.add(twitter_id);
       }
     }
@@ -181,7 +208,8 @@ class Timeline {
     var tline = this._timelines[this._t];
     var req = {
       user_id: tline.twitter_id,
-      count: TIMELINE_TWEET_FETCH_COUNT
+      count: TIMELINE_TWEET_FETCH_COUNT,
+      exclude_replies: tline.exclude_replies
     };
 
     if(this._newtags.has(req.user_id)) {
