@@ -153,18 +153,20 @@ class Twitter {
       if(update_avatar) {
         if(user_profile == null || user_profile.profile_image_url_https == null) {
           log.warn("Twitter", "Tried to preform a user avatar update with a null profile.");
-          return;
         }
-        util.uploadContentFromUrl(this._bridge, user_profile.profile_image_url_https, intent).then((obj) =>{
-          return intent.setAvatarUrl(obj.mxc_url);
-        }).catch(err => {
-          log.error(
-              'Twitter',
-              "Couldn't set new avatar for @%s because of %s",
-              user_profile.screen_name,
-              err
-            );
-        });
+        else{
+          util.uploadContentFromUrl(this._bridge, user_profile.profile_image_url_https, intent).then((obj) =>{
+            url = obj.mxc_url;
+            return intent.setAvatarUrl(obj.mxc_url);
+          }).catch(err => {
+            log.error(
+                'Twitter',
+                "Couldn't set new avatar for @%s because of %s",
+                user_profile.screen_name,
+                err
+              );
+          });
+        }
       }
 
       if(update_description || update_avatar || update_name) {
@@ -177,7 +179,7 @@ class Twitter {
             intent.setRoomTopic(entry.matrix.getId(), description);
           }
           if(update_avatar) {
-            //intent.setRoomAvatar(entry.matrix.getId(), url);
+            intent.setRoomAvatar(entry.matrix.getId(), url);
           }
           if(old.name != user_profile.name) {
             intent.setRoomName(entry.matrix.getId(), "[Twitter] " + user_profile.name);
