@@ -63,4 +63,42 @@ describe('Util', function () {
     });
   });
 
+  describe('isTwitterScreenName', function () {
+    it('should return false when the string is empty', function () {
+      assert.equal(false, util.isTwitterScreenName(""));
+    });
+
+    it('should return false when the string is the wrong format', function () {
+      assert.equal(false, util.isTwitterScreenName("foo bar"));
+      assert.equal(false, util.isTwitterScreenName("#foobar"));
+    });
+
+    it('should return false when the string is over 15 characters', function () {
+      assert.equal(false, util.isTwitterScreenName("1234567890123456"));
+    });
+
+    it('should return true when the value is in the correct format', function () {
+      assert.equal(true, util.isTwitterScreenName("foobar"));
+      assert.equal(true, util.isTwitterScreenName("foo_bar"));
+      assert.equal(true, util.isTwitterScreenName("123456789012345"));
+    });
+  });
+
+  describe('isTwitterHashtag', function () {
+    it('should return false when the string is empty', function () {
+      assert.equal(false, util.isTwitterHashtag(""));
+    });
+
+    it('should return false when the string is the wrong format', function () {
+      assert.equal(false, util.isTwitterHashtag("foo bar"));
+      assert.equal(false, util.isTwitterHashtag("#foobar"));
+    });
+
+    it('should return true when the value is in the correct format', function () {
+      assert.equal(true, util.isTwitterHashtag("foobar"));
+      assert.equal(true, util.isTwitterHashtag("foo_bar"));
+      assert.equal(true, util.isTwitterHashtag("123456789012345123456789012345"));
+    });
+  });
+
 });

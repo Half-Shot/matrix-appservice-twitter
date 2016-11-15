@@ -29,7 +29,7 @@ class Twitter {
     this._storage = storage;
 
     this._dm = new DirectMessage(this);
-    this._timeline = new Timeline(this);
+    this._timeline = new Timeline(this, this.config.timelines, this.config.hashtags);
     this._userstream = new UserStream(this);
     this._client_factory = new TwitterClientFactory(config.app_auth, storage);
 
@@ -178,7 +178,7 @@ class Twitter {
           if(update_description) {
             intent.setRoomTopic(entry.matrix.getId(), description);
           }
-          if(update_avatar) {
+          if(update_avatar && url) {
             intent.setRoomAvatar(entry.matrix.getId(), url);
           }
           if(old.name != user_profile.name) {

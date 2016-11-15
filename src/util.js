@@ -170,6 +170,15 @@ function isStrInteger (str) {
   return /^[0-9]+$/.test(str);
 }
 
+function isTwitterScreenName (str) {
+  return /^[a-zA-Z0-9_]{1,15}$/.test(str);
+}
+
+function isTwitterHashtag (str) {
+  return /^[a-zA-Z0-9_]+$/.test(str);
+}
+
+
 module.exports = {
   uploadContentFromUrl,
   downloadFile,
@@ -177,5 +186,7 @@ module.exports = {
   isRoomId,
   isUserId,
   isAlphanumeric,
-  roomPowers
+  roomPowers,
+  isTwitterScreenName,
+  isTwitterHashtag
 }

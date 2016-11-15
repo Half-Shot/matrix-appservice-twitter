@@ -13,7 +13,7 @@ const TWEET_REPLY_MAX_DEPTH = 0;
 */
 
 class Timeline {
-  constructor (twitter) {
+  constructor (twitter, cfg_timelines, cfg_hashtags) {
     this.twitter = twitter;
     this._t_intervalID = null;
     this._h_intervalID = null;
@@ -22,6 +22,10 @@ class Timeline {
     this._newtags = new Set();
     this._h = 0;
     this._t = 0;
+    this.config = {
+      timelines: cfg_timelines,
+      hashtags: cfg_hashtags
+    }
   }
 
   /**
@@ -77,6 +81,10 @@ class Timeline {
     var htag = this._find_hashtag(hashtag);
     var obj;
 
+    if (this.config.hashtags.enable) {
+      return;
+    }
+
     if(opts === undefined) {
       opts = {};
     }
@@ -119,6 +127,10 @@ class Timeline {
   add_timeline (twitter_id, room_id, opts) {
     var tline = this._find_timeline(twitter_id);
     var obj;
+
+    if (this.config.timelines.enable) {
+      return;
+    }
 
     if(opts === undefined) {
       opts = {};
@@ -176,24 +188,34 @@ class Timeline {
   }
 
   _remove_from_queue (isTimeline, id, room_id) {
-    var i = isTimeline ? this._find_timeline(id) : this._find_hashtag(id);
+    const i = isTimeline ? this._find_timeline(id) : this._find_hashtag(id);
     var queue = isTimeline ? this._timelines : this._hashtags;
     if(i != -1) {
       if(room_id) {
-        var r = queue[i].room.findIndxex(room_id);
+        var r = queue[i].room.indexOf(room_id);
         if (r != -1) {
           delete queue[i].room[r];
         }
         else{
           log.warn("Timeline", "Tried to remove %s for %s but it didn't exist", room_id, id);
+          return;
         }
       }
       else {
         queue[i].room = []
       }
+
       if(queue[i].room.length == 0) {
-        queue = this._timelines.splice(i, 1);
+        queue = queue.splice(i, 1);
       }
+
+      if(isTimeline) {
+        this._timelines = queue;
+      }
+      else{
+        this._hashtags = queue;
+      }
+
     }
     else {
       log.warn("Timeline", "Tried to remove %s but it doesn't exist", id);

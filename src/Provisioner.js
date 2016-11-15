@@ -83,16 +83,33 @@ class Provisioner {
     }
     catch (err) {
       res.status(500).json({error: "An internal error occured."});
-      log.error("Provisioner", "Error occured: %s", err);
+      log.error("Provisioner", "Error occured: ", err.message, err.stack);
     }
   }
+
 
   * _manageLink (self, req) {
     const user_id = req.query.userId;
     const room_id = req.params.roomId;
-    const type = req.params.type;
-    const name = req.params.name;
+    const type = req.params.type; //Type of link to create/remove (one of timeline, hashtag)
+    const name = req.params.name; //Name of the timeline/hashtag to use.
+    const opts = req.body;
     const createLink = req.method == "PUT";
+
+    if(type === "timeline") {
+      if(!util.isTwitterScreenName(name)) {
+        return {err: 400, body: "No/malformed screenname given."};
+      }
+    }
+    else if(type === "hashtag") {
+      if(!util.isTwitterHashtag(name)) {
+        return {err: 400, body: "No/malformed hashtag given."};
+      }
+    }
+    else {
+      return {err: 400, body: "'type' was not a timeline or a hashtag."};
+    }
+
 
     if(!util.isRoomId(room_id)) {
       return {err: 400, body: "No/malformed roomId given."};
@@ -100,6 +117,14 @@ class Provisioner {
 
     if(!util.isUserId(user_id)) {
       return {err: 400, body: "No/malformed userId given."};
+    }
+    if(opts.exclude_replies !== undefined) {
+      if(typeof(opts.exclude_replies) !== 'boolean') {
+        return {err: 400, body: "Invalid exclude_replies given. Must be boolean"};
+      }
+    }
+    else {
+      opts.exclude_replies = false;
     }
 
     const has_power = yield Promise.coroutine(self._userHasProvisioningPower)(self, user_id, room_id);
@@ -113,12 +138,11 @@ class Provisioner {
     // PUT
     if(createLink) {
       if (type == "timeline") {
-        return self._linkTimeline(room_id, name);
+        return self._linkTimeline(room_id, name, opts);
       }
       else if(type == "hashtag") {
-        return self._linkHashtag(room_id, name);
+        return self._linkHashtag(room_id, name, opts);
       }
-      return {err: 400, body: "'type' was not a timeline or a hashtag."};
     }
 
     // DELETE
@@ -209,7 +233,7 @@ class Provisioner {
     }
   }
 
-  _linkTimeline (room_id, screenname) {
+  _linkTimeline (room_id, screenname, opts) {
     const roomstore = this._bridge.getRoomStore();
     var profile;
     return this._twitter.get_profile_by_screenname(screenname).then(p =>{
@@ -228,14 +252,28 @@ class Provisioner {
       const isLinked = rooms.filter(item => {return item.matrix.getId() == room_id}).length > 0;
 
       if(isLinked) {
-        return {body: "Timeline already bridged!"};
+        log.info("Provisioner", "Reconfiguring %s %s", profile.id_str, room_id);
+        //Reconfigure and bail.
+        this._twitter.timeline.remove_timeline(profile.id_str, room_id);
+        var entry = rooms[0];
+        entry.remote.set("twitter_exclude_replies", opts.exclude_replies);
+        roomstore.upsertEntry(entry);
+        this._twitter.timeline.add_timeline(profile.id_str, room_id, {
+          isnew: true,
+          exclude_replies: opts.exclude_replies
+        });
+        return {};
       }
 
       var remote = new RemoteRoom("timeline_" + profile.id_str);
       remote.set("twitter_type", "timeline");
       remote.set("twitter_user", profile.id_str);
+      remote.set("twitter_exclude_replies", opts.exclude_replies);
       roomstore.linkRooms(new MatrixRoom(room_id), remote);
-      this._twitter.timeline.add_timeline(profile.id_str, room_id, {isnew: true});
+      this._twitter.timeline.add_timeline(profile.id_str, room_id, {
+        isnew: true,
+        exclude_replies: opts.exclude_replies
+      });
       return {};
     });
   }

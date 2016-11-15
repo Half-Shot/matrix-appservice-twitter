@@ -67,3 +67,5 @@ properties:
         properties:
             enable:
               type: "boolean"
+            required_power_level:
+              type: "integer"

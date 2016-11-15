@@ -2,21 +2,35 @@ All of these API requests can return a 500 if something fails that wasn't expect
 
 ## /_matrix/provision/%roomId%/link/timeline/%screenName%?userId=%userId
 ## /_matrix/provision/%roomId%/link/hashtag/%hashtag%?userId=%userId
+### Methods
 
-PUT - Create a new link
+PUT Create a new link. Can also be used to reconfigure an existing room.
 
-DELETE - Remove an existing link
+DELETE Remove an existing link
+
+### Parameters
 
 | Param          | Description     |
-| :------------- | :------------- |
+| :------------- | :-------------  |
 | roomId | Matrix Room ID |
 | screenName | The screenname of the timeline to add (without @) |
 | hashtag | The hashtag to add (without #) |
 | userId | The user that is requesting the bridge |
 
-| Return Code    | Reason     |
+## Body
+The body is used to pass additional options to the room.
+
+Only used for PUT
+
+| Option          | Description    |
+| :-------------  | :------------- |
+| exclude_replies | Don't show replies to mentions by the user. |
+
+### Return Codes
+
+| Return Code    | Reason         |
 | :------------- | :------------- |
-| 200 | the bridge OKed it or the link already exists |
+| 200 | the bridge OKed it |
 | 401 | the user is unauthorized to create links |
 | 403 | the bridge could not join the room itself |
 | 404 | the room or the profile wasn't found |
@@ -27,11 +41,14 @@ DELETE - Remove an existing link
 }
 ```
 
-## GET /_matrix/provision/%roomId%/links
+## /_matrix/provision/%roomId%/links
+### Methods
 
-Retrieve links for the given room.
+GET Retrieve links for the given room.
 
-| Param          | Description     |
+### Parameters
+
+| Param          | Description    |
 | :------------- | :------------- |
 | roomId | Matrix Room ID |
 
@@ -39,6 +56,8 @@ Retrieve links for the given room.
 | :------------- | :------------- |
 | 200 | the bridge OKd it and 0 or more results exist |
 | 404 | the room  wasn't found |
+
+### Return Codes
 
 ```
 {
@@ -54,14 +73,19 @@ Retrieve links for the given room.
 }
 ```
 
-## GET /_matrix/provision/show/timeline/%screenName%
+## /_matrix/provision/show/timeline/%screenName%
+### Methods
 
-Retrive some profile information about a timeline.
+GET Retrive some profile information about a timeline.
+
+### Parameters
 
 | Return Code    | Reason     |
 | :------------- | :------------- |
 | 200 | the bridge OKd it and 0 or more results exist |
 | 404 | the room  wasn't found |
+
+### Return Codes
 
 | Param          | Description     |
 | :------------- | :------------- |

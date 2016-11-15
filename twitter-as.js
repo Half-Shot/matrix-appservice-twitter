@@ -163,7 +163,7 @@ var cli = new AppService.Cli({
             const bidrectional = entry.remote.get('twitter_bidirectional');
             if(!(bidrectional === false && bidrectional === true)) {
               entry.remote.set('twitter_bidirectional', true);
-              roomstore.linkRooms(entry.matrix, entry.remote);
+              roomstore.upsertEntry(entry);
             }
           }
         }
