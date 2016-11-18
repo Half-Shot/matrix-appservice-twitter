@@ -1,6 +1,7 @@
 /*eslint no-invalid-this: 0*/ // eslint doesn't understand Promise.coroutine wrapping
 const log = require('npmlog');
 const util = require('./util.js');
+const Promise = require('bluebird');
 
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 const MatrixRoom = require("matrix-appservice-bridge").MatrixRoom;
@@ -264,7 +265,7 @@ class Provisioner {
         is_new: true,
         exclude_replies: opts.exclude_replies
       });
-      return {};
+      return {err: 201, body: "Linked successfully"};
     }
 
     var remote = new RemoteRoom("timeline_" + profile.id_str);
@@ -299,7 +300,7 @@ class Provisioner {
     roomstore.linkRooms(new MatrixRoom(room_id), remote);
 
     this._twitter.timeline.add_hashtag(hashtag, room_id, {is_new: true} );
-    return {};
+    return {err: 201, body: "Linked successfully"};
   }
 
   isProvisionRequest (req) {
@@ -329,6 +330,7 @@ class Provisioner {
     try {
       yield matrixClient.joinRoom(roomId).timeout(ROOM_JOIN_TIMEOUT_MS);
     } catch (e) {
+      log.error("Provisoning", `Couldn't join room. ${e.message}`);
       return Promise.reject({err: 403, body: "Couldn't join room. Perhaps room permissions are not set to public?"});
     }
     var powerState;
@@ -343,7 +345,7 @@ class Provisioner {
       return Promise.reject({err: 403, body: 'Could not retrieve your power levels for the room'});
     }
 
-    //Leave if not setup within 10 minutes.
+    //Leave if not setup within LEAVE_UNPROVIS_AFTER_MS.
     setTimeout(() => {
       self._leaveIfUnprovisioned(roomId);
     }, LEAVE_UNPROVIS_AFTER_MS);
@@ -354,6 +356,10 @@ class Provisioner {
     }
     else if (powerState.users_default !== undefined) {
       actualPower = powerState.users_default;
+    }
+    else {
+      log.error("Provisioning", `Error getting power level of ${userId} in ${roomId}`);
+      return Promise.reject({err: 403, body: 'Could not determine power level of the user.'});
     }
 
     let requiredPower = self._config.required_power_level;
