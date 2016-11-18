@@ -4,7 +4,7 @@ const Twitter = require('twitter');
 const log = require('npmlog');
 const OAuth = require('oauth');
 const util = require('../util.js');
-
+const Promise = require('bluebird');
 /**
   * This class is a handler for conversation between users and the bridge bot to
   * link accounts together

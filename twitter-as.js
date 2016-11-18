@@ -1,5 +1,3 @@
-global.Promise = require('bluebird');
-
 const log = require('npmlog');
 const yaml = require("js-yaml");
 const fs = require("fs");

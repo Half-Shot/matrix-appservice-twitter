@@ -3,6 +3,7 @@ const Request  = require('request');
 const FS       = require('fs');
 const Buffer   = require('buffer').Buffer;
 const Twitter  = require('twitter');
+const Promise = require('bluebird');
 
 const TWITTER_CLIENT_INTERVAL_MS    = 60000*10;
 

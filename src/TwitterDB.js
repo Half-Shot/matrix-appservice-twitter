@@ -1,5 +1,6 @@
 const SQLite3 = require('sqlite3').verbose();
 const log = require('npmlog');
+const Promise = require('bluebird');
 
 const CURRENT_SCHEMA = 3;
 /**

@@ -4,6 +4,7 @@ var http   = require('http');
 var Buffer  = require("buffer").Buffer;
 var log     = require('npmlog');
 var mime    = require('mime');
+const Promise = require('bluebird');
 
 /**
   Utility module for regularly used functions.

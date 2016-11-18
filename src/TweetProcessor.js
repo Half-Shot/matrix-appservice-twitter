@@ -4,6 +4,7 @@ const HTMLDecoder = new require('html-entities').AllHtmlEntities;
 
 const ProcessedTweetList = require("./ProcessedTweetList.js");
 const util = require("./util.js");
+const Promise = require('bluebird');
 
 const TWITTER_MSG_QUEUE_INTERVAL_MS = 150;
 //const TWITTER_LOOKUP_INTERVAL = 60000;

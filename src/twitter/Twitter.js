@@ -7,6 +7,7 @@ const DirectMessage = require('./DirectMessage.js');
 const UserStream    = require('./UserStream.js');
 const Timeline      = require('./Timeline.js');
 const util = require('../util.js');
+const Promise = require('bluebird');
 /**
  * This class handles the connections between the Twitter API
  * and the bridge.
