@@ -397,14 +397,14 @@ ${dm_rooms}`
         remote = new RemoteRoom("hashtag_" + item);
         remote.set("twitter_type", "hashtag");
         remote.set("twitter_hashtag", item);
-        this._twitter.timeline.add_hashtag(item, room_id, {isnew: true});
+        this._twitter.timeline.add_hashtag(item, room_id, {is_new: true});
       }
       else if(typeof item == "object") {
         remote = new RemoteRoom("timeline_" + item.id_str);
         remote.set("twitter_type", "timeline");
         remote.set("twitter_exclude_replies", false);
         remote.set("twitter_user", item.id_str);
-        this._twitter.timeline.add_timeline(item.id_str, room_id, {isnew: true});
+        this._twitter.timeline.add_timeline(item.id_str, room_id, {is_new: true});
       }
       else {
         throw "Unable to find Twitter feed.";

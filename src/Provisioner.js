@@ -138,9 +138,9 @@ class Provisioner {
     // PUT
     if(createLink) {
       if (type === "timeline") {
-        return self._linkTimeline(room_id, name, opts);
+        return yield Promise.coroutine(self._linkTimeline)(self, room_id, name, opts);
       }
-      return self._linkHashtag(room_id, name, opts);
+      return yield Promise.coroutine(self._linkHashtag)(self, room_id, name, opts);
     }
 
     // DELETE
@@ -234,71 +234,72 @@ class Provisioner {
     return {body: "Bridged entry removed."};
   }
 
-  _linkTimeline (room_id, screenname, opts) {
-    const roomstore = this._bridge.getRoomStore();
-    var profile;
-    return this._twitter.get_profile_by_screenname(screenname).then(p =>{
-      if (!p) {
-        return {err: 404, body: "Twitter profile not found!"};
-      }
-      profile = p;
-      return roomstore.getEntriesByRemoteRoomData({
-        twitter_type: "timeline",
-        twitter_user: profile.id_str
-      })
-    }).then(rooms => {
-      if(rooms.err) {
-        return rooms;
-      }
-      const isLinked = rooms.filter(item => {return item.matrix.getId() === room_id}).length > 0;
+  * _linkTimeline (self, room_id, screenname, opts) {
+    const roomstore = self._bridge.getRoomStore();
+    const profile = yield self._twitter.get_profile_by_screenname(screenname);
 
-      if(isLinked) {
-        log.info("Provisioner", "Reconfiguring %s %s", profile.id_str, room_id);
-        //Reconfigure and bail.
-        this._twitter.timeline.remove_timeline(profile.id_str, room_id);
-        var entry = rooms[0];
-        entry.remote.set("twitter_exclude_replies", opts.exclude_replies);
-        roomstore.upsertEntry(entry);
-        this._twitter.timeline.add_timeline(profile.id_str, room_id, {
-          isnew: true,
-          exclude_replies: opts.exclude_replies
-        });
-        return {};
-      }
+    if (!profile) {
+      return {err: 404, body: "Twitter profile not found!"};
+    }
 
-      var remote = new RemoteRoom("timeline_" + profile.id_str);
-      remote.set("twitter_type", "timeline");
-      remote.set("twitter_user", profile.id_str);
-      remote.set("twitter_exclude_replies", opts.exclude_replies);
-      roomstore.linkRooms(new MatrixRoom(room_id), remote);
+    const rooms = yield roomstore.getEntriesByRemoteRoomData({
+      twitter_type: "timeline",
+      twitter_user: profile.id_str
+    })
+
+    if(rooms.err) {
+      return rooms;
+    }
+
+    const isLinked = rooms.filter(item => {return item.matrix.getId() === room_id}).length > 0;
+
+    if(isLinked) {
+      log.info("Provisioner", "Reconfiguring %s %s", profile.id_str, room_id);
+      //Reconfigure and bail.
+      this._twitter.timeline.remove_timeline(profile.id_str, room_id);
+      var entry = rooms[0];
+      entry.remote.set("twitter_exclude_replies", opts.exclude_replies);
+      roomstore.upsertEntry(entry);
       this._twitter.timeline.add_timeline(profile.id_str, room_id, {
-        isnew: true,
+        is_new: true,
         exclude_replies: opts.exclude_replies
       });
       return {};
+    }
+
+    var remote = new RemoteRoom("timeline_" + profile.id_str);
+    remote.set("twitter_type", "timeline");
+    remote.set("twitter_user", profile.id_str);
+    remote.set("twitter_exclude_replies", opts.exclude_replies);
+    roomstore.linkRooms(new MatrixRoom(room_id), remote);
+    this._twitter.timeline.add_timeline(profile.id_str, room_id, {
+      is_new: true,
+      exclude_replies: opts.exclude_replies
     });
+    return {};
   }
 
-  _linkHashtag (room_id, hashtag) {
+  * _linkHashtag (self, room_id, hashtag) {
     const roomstore = this._bridge.getRoomStore();
     hashtag = hashtag.replace("#", "");
-    return roomstore.getEntriesByRemoteId("hashtag_"+hashtag).then(rooms => {
-      const isLinked = rooms.length > 0;
-
-      if(isLinked) {
-        return {body: "Hashtag already bridged!"};
-      }
-
-      var remote = new RemoteRoom("hashtag_" + hashtag);
-      remote.set("twitter_type", "hashtag");
-      remote.set("twitter_hashtag", hashtag);
-      roomstore.linkRooms(new MatrixRoom(room_id), remote);
-
-      this._twitter.timeline.add_hashtag(hashtag, room_id, {isnew: true} );
-      return {};
+    const rooms = yield roomstore.getEntriesByRemoteRoomData({
+      twitter_type: "hashtag",
+      twitter_hashtag: hashtag
     })
 
+    const isLinked = rooms.filter(item => {return item.matrix.getId() === room_id}).length > 0;
 
+    if(isLinked) {
+      return {body: "Hashtag already bridged!"};
+    }
+
+    var remote = new RemoteRoom("hashtag_" + hashtag);
+    remote.set("twitter_type", "hashtag");
+    remote.set("twitter_hashtag", hashtag);
+    roomstore.linkRooms(new MatrixRoom(room_id), remote);
+
+    this._twitter.timeline.add_hashtag(hashtag, room_id, {is_new: true} );
+    return {};
   }
 
   isProvisionRequest (req) {

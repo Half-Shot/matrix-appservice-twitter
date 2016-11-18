@@ -75,7 +75,7 @@ class Timeline {
    * @param  {string} hashtag The twitter ID of a timeline. (without the #)
    * @param  {string} room_id The room_id to insert tweets into.
    * @param  {object} opts Options
-   * @param  {boolean} opts.isnew Is the room 'new', and we shouldn't do a full poll.
+   * @param  {boolean} opts.is_new Is the room 'new', and we shouldn't do a full poll.
    */
   add_hashtag (hashtag, room_id, opts) {
     var htag = this._find_hashtag(hashtag);
@@ -89,8 +89,8 @@ class Timeline {
       opts = {};
     }
 
-    if(opts.isnew === undefined) {
-      opts.isnew = false;
+    if(opts.is_new === undefined) {
+      opts.is_new = false;
     }
 
     if(htag !== -1) {
@@ -98,7 +98,7 @@ class Timeline {
     }
     else {
       obj = {hashtag, room: [] }
-      if(opts.isnew) {
+      if(opts.is_new) {
         this._newtags.add("#"+hashtag);
       }
     }
@@ -121,7 +121,7 @@ class Timeline {
    * @param  {string} twitter_id The twitter ID of a timeline.
    * @param  {string} room_id The room_id to insert tweets into.
    * @param  {object} opts Options
-   * @param  {boolean} opts.isnew Is the room 'new', and we shouldn't do a full poll.
+   * @param  {boolean} opts.is_new Is the room 'new', and we shouldn't do a full poll.
    * @param  {boolean} opts.exclude_replies Should we not fetch replies.
    */
   add_timeline (twitter_id, room_id, opts) {
@@ -136,8 +136,8 @@ class Timeline {
       opts = {};
     }
 
-    if(opts.isnew === undefined) {
-      opts.isnew = false;
+    if(opts.is_new === undefined) {
+      opts.is_new = false;
     }
 
     if(opts.exclude_replies === undefined) {
@@ -149,7 +149,7 @@ class Timeline {
     }
     else {
       obj = {twitter_id, room: [], exclude_replies: opts.exclude_replies }
-      if(opts.isnew) {
+      if(opts.is_new) {
         this._newtags.add(twitter_id);
       }
     }
