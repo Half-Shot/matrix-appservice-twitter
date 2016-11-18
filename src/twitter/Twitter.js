@@ -119,7 +119,7 @@ class Twitter {
     const roomstore = this._bridge.getRoomStore();
     roomstore.getEntriesByRemoteId("service_"+user).then((items) => {
       log.info("Twitter", 'Sending %s "%s"', user, message);
-      if(items.length == 0) {
+      if(items.length === 0) {
         log.warn("Twitter", "Couldn't find service room for %s, so couldn't send notice.", user);
         return;
       }
@@ -136,16 +136,21 @@ class Twitter {
     }
 
     return this._storage.get_profile_by_id(user_profile.id_str).then((old)=>{
-      let update_name = true;
-      let update_avatar = true;
-      let update_description = false;
-      if(old) {
-        //If either the real name (name) or the screen_name (handle) are out of date, update the screen name.
-        update_name = (old.name != user_profile.name)
-        update_name = update_name || (old.screen_name != user_profile.screen_name);
-        update_avatar = (old.profile_image_url_https != user_profile.profile_image_url_https)
-         && this._config.media.enable_profile_images;
-        update_description = (old.description != user_profile.description) && user_profile.description != null;
+      let update_name = user_profile.name != null;
+      let update_avatar = user_profile.profile_image_url_https != null;
+      let update_description = user_profile.description != null; //Update if exists.
+      if(old) { //Does an older profile exist. If not, update everything!
+        update_name = update_name &&
+         (old.name !== user_profile.name) ||
+         (old.screen_name !== user_profile.screen_name);
+
+        //Has the avatar changed.
+        update_avatar = update_avatar &&
+         (old.profile_image_url_https !== user_profile.profile_image_url_https) &&
+         this._config.media.enable_profile_images; // Do we care?
+
+        update_description = update_description &&
+         (old.description !== user_profile.description);
       }
 
       const intent = this.get_intent(user_profile.id_str);
@@ -181,7 +186,7 @@ class Twitter {
           if(update_avatar && url) {
             intent.setRoomAvatar(entry.matrix.getId(), url);
           }
-          if(old.name != user_profile.name) {
+          if(old.name !== user_profile.name) {
             intent.setRoomName(entry.matrix.getId(), "[Twitter] " + user_profile.name);
           }
         })
@@ -222,10 +227,10 @@ class Twitter {
 
     //Check the user can send tweets.
     this._storage.get_twitter_account(user.getId()).then((account) => {
-      if(account == null) {
+      if(account === null) {
         throw "Matrix account isn't linked to any twitter account.";
       }
-      else if (account.access_type == "read") {
+      else if (account.access_type === "read") {
         this.notify_matrix_user(
           user.getId(),
           "Your account doesn't have the correct access level to send tweets."
@@ -234,12 +239,12 @@ class Twitter {
       }
 
     }).then(() =>{
-      if(event.content.msgtype == "m.text") {
+      if(event.content.msgtype === "m.text") {
         log.info("Twitter", "Got message: %s", event.content.body);
         var text = event.content.body.substr(0, 140);
         return this.send_tweet(room, user, text);
       }
-      else if(event.content.msgtype == "m.image") {
+      else if(event.content.msgtype === "m.image") {
         log.info("Twitter", "Got image: %s", event.content.body);
         //Get the url
         var url = event.content.url;
@@ -271,20 +276,20 @@ class Twitter {
 
     return this._client_factory.get_client(sender.getId()).then((c) => {
       client = c;
-      if(type == "timeline") {
+      if(type === "timeline") {
         var timelineID = remote.getId().substr("timeline_".length);
         log.info("Twitter", "Trying to tweet " + timelineID);
         return this.get_profile_by_id(timelineID);
       }
     }).then(tuser => {
       var status = {status: body};
-      if(type == "timeline") {
+      if(type === "timeline") {
         var name = "@"+tuser.screen_name;
-        if(!body.startsWith(name) && client.profile.screen_name != tuser.screen_name) {
+        if(!body.startsWith(name) && client.profile.screen_name !== tuser.screen_name) {
           status.status = (name + " " + body);
         }
       }
-      else if(type == "hashtag") {
+      else if(type === "hashtag") {
         var htag = "#" + remote.roomId.substr("hashtag_".length);
         if(!body.toLowerCase().includes(htag.toLowerCase())) {
           status.status = (htag + " " + body);

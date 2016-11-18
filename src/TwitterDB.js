@@ -105,7 +105,7 @@ class TwitterDB {
       FROM schema
       `
     ).then((row) =>{
-      return row == undefined ? 0 : row.version;
+      return row === undefined ? 0 : row.version;
     }).catch( ()  => {
       return 0;
     });

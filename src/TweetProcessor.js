@@ -95,7 +95,7 @@ class TweetProcessor {
     var media_promises = [];
     if(tweet.entities.hasOwnProperty("media") && this.media_cfg.enable_download) {
       for(var media of tweet.entities.media) {
-        if(media.type != 'photo') {
+        if(media.type !== 'photo') {
           continue;
         }
         const mimetype = mime.lookup(media.media_url_https);

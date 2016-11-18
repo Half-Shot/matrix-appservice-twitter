@@ -94,7 +94,7 @@ class Provisioner {
     const type = req.params.type; //Type of link to create/remove (one of timeline, hashtag)
     const name = req.params.name; //Name of the timeline/hashtag to use.
     const opts = req.body;
-    const createLink = req.method == "PUT";
+    const createLink = req.method === "PUT";
 
     if(type === "timeline") {
       if(!util.isTwitterScreenName(name)) {
@@ -137,10 +137,10 @@ class Provisioner {
 
     // PUT
     if(createLink) {
-      if (type == "timeline") {
+      if (type === "timeline") {
         return self._linkTimeline(room_id, name, opts);
       }
-      else if(type == "hashtag") {
+      else if(type === "hashtag") {
         return self._linkHashtag(room_id, name, opts);
       }
     }
@@ -149,30 +149,30 @@ class Provisioner {
     const roomstore = self._bridge.getRoomStore();
     const rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
       if(item.remote) {
-        if(type == "timeline" && item.remote.data.twitter_type == "timeline") {
+        if(type === "timeline" && item.remote.data.twitter_type === "timeline") {
           return self._twitter.get_profile_by_screenname(item.remote.data.twitter_user).then(profile =>{
             if(!profile) {
               return false;
             }
-            return profile.screen_name == name;
+            return profile.screen_name === name;
           });
         }
-        else if(type == "hashtag" && item.remote.data.twitter_type == "hashtag") {
-          return item.remote.data.twitter_hashtag == name;
+        else if(type === "hashtag" && item.remote.data.twitter_type === "hashtag") {
+          return item.remote.data.twitter_hashtag === name;
         }
       }
     });
 
 
-    if(rooms.length == 0) {
+    if(rooms.length === 0) {
       return {err: 404, body: "Link not found."};
     }
 
 
-    if (type == "timeline") {
+    if (type === "timeline") {
       self._twitter.timeline.remove_timeline(name, room_id);
     }
-    else if(type == "hashtag") {
+    else if(type === "hashtag") {
       self._twitter.timeline.remove_hashtag(name, room_id);
     }
 
@@ -197,7 +197,7 @@ class Provisioner {
     yield self._bridge.getRoomStore().getEntriesByMatrixId(roomId).then(rooms => {
       return rooms;
     }).each(room =>{
-      if(room.remote.data.twitter_type == "timeline") {
+      if(room.remote.data.twitter_type === "timeline") {
         return self._twitter.get_profile_by_id(room.remote.data.twitter_user).then(profile =>{
           body.timelines.push({
             twitterId: profile.id_str,
@@ -208,7 +208,7 @@ class Provisioner {
           });
         });
       }
-      else if (room.remote.data.twitter_type == "hashtag") {
+      else if (room.remote.data.twitter_type === "hashtag") {
         body.hashtags.push(room.remote.getId().substr("hashtag_".length));
       }
     });
@@ -249,7 +249,7 @@ class Provisioner {
       if(rooms.err) {
         return rooms;
       }
-      const isLinked = rooms.filter(item => {return item.matrix.getId() == room_id}).length > 0;
+      const isLinked = rooms.filter(item => {return item.matrix.getId() === room_id}).length > 0;
 
       if(isLinked) {
         log.info("Provisioner", "Reconfiguring %s %s", profile.id_str, room_id);
@@ -367,7 +367,7 @@ class Provisioner {
 
   _leaveIfUnprovisioned (roomId) {
     const roomstore = this._bridge.getRoomStore();
-    if(roomstore.getEntriesByMatrixId(roomId).length == 0) {
+    if(roomstore.getEntriesByMatrixId(roomId).length === 0) {
       const matrixClient = this._bridge.getClientFactory().getClientAs();
       matrixClient.leaveRoom(roomId);
     }

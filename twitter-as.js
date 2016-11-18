@@ -69,7 +69,7 @@ var cli = new AppService.Cli({
         onAliasQueried: (alias, roomId) => { return room_handler.onRoomCreated(alias, roomId); },
         onLog: function (line, isError) {
           if(isError) {
-            if(line.indexOf("M_USER_IN_USE") == -1) {//QUIET!
+            if(line.indexOf("M_USER_IN_USE") === -1) {//QUIET!
               log.warn("matrix-appservice-bridge", line);
             }
           }
@@ -130,7 +130,7 @@ var cli = new AppService.Cli({
 
           //Fix rooms that are alias rooms
           // Criteria: canonical_alias is #_twitter_@*+:domain
-          if (type == "timeline" && entry.matrix.get("twitter_user") == undefined) {
+          if (type === "timeline" && entry.matrix.get("twitter_user") == null) {
             log.info("Init", `Checking ${entry.remote.getId()} to see if it's an alias room.`);
             var stateLookup = new AppService.StateLookup(
               {client: bridge.getIntent(), eventTypes: ["m.room.canonical_alias"]}
@@ -151,15 +151,15 @@ var cli = new AppService.Cli({
             });
           }
 
-          if(type == 'timeline' && config.timelines.enable) {
+          if(type === 'timeline' && config.timelines.enable) {
             const exclude_replies = entry.remote.data.twitter_exclude_replies;
             twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId(), {exclude_replies});
           }
-          else if(type == 'hashtag' && config.hashtags.enable) {
+          else if(type === 'hashtag' && config.hashtags.enable) {
             twitter.timeline.add_hashtag(entry.remote.roomId.substr("hashtag_".length), entry.matrix.getId());
           }
           //Fix old user timeline rooms not being bidirectional.
-          else if(type == 'user_timeline') {
+          else if(type === 'user_timeline') {
             const bidrectional = entry.remote.get('twitter_bidirectional');
             if(!(bidrectional === false && bidrectional === true)) {
               entry.remote.set('twitter_bidirectional', true);

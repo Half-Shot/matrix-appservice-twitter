@@ -78,16 +78,16 @@ class AccountServices {
    */
   processMessage (event) {
     const body = event.content.body.toLowerCase();
-    if (event.sender == "@"+this._sender_localpart+":" + this._bridge.opts.domain) {
+    if (event.sender === "@"+this._sender_localpart+":" + this._bridge.opts.domain) {
       return;//Don't talk to ourselves.
     }
     if (body.startsWith("account.link")) {
       this._beginLinkAccount(event);
     }
-    else if (body == "account.unlink") {
+    else if (body === "account.unlink") {
       this._unlinkAccount(event);
     }
-    else if (body == "account.list") {
+    else if (body === "account.list") {
       this._listAccountDetails(event);
     }
     else if(body.startsWith("bridge.room")) {
@@ -105,7 +105,7 @@ class AccountServices {
     else if(body.startsWith("timeline.replies")) {
       this._setReplies(event);
     }
-    else if (event.content.body == "help") {
+    else if (event.content.body === "help") {
       this._helpText(event.room_id);
     }
     else if (util.isStrInteger(event.content.body)) {
@@ -279,7 +279,7 @@ ${dm_rooms}`
    */
   _oauth_getAccessToken (pin, client_data, id) {
     return new Promise((resolve, reject) => {
-      if (!client_data || client_data.oauth_token == "" || client_data.oauth_secret == "") {
+      if (!client_data || client_data.oauth_token === "" || client_data.oauth_secret === "") {
         reject("User has no associated token request data");
         return;
       }
@@ -432,7 +432,7 @@ ${dm_rooms}`
   _setFilter (event) {
     const intent = this._bridge.getIntent();
     var option = event.content.body.substr("timeline.filter ".length);
-    if(['followings', 'user'].indexOf(option) == -1) {
+    if(['followings', 'user'].indexOf(option) === -1) {
       intent.sendMessage(event.room_id, {
         "msgtype": "m.text",
         "body": "Please select one of: followings, user."
@@ -457,7 +457,7 @@ ${dm_rooms}`
   _setReplies (event) {
     const intent = this._bridge.getIntent();
     var option = event.content.body.substr("timeline.replies ".length);
-    if(['all', 'mutual'].indexOf(option) == -1) {
+    if(['all', 'mutual'].indexOf(option) === -1) {
       intent.sendMessage(event.room_id, {
         "msgtype": "m.text",
         "body": "Please select one of: followings, user."

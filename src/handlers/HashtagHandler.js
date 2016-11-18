@@ -1,4 +1,5 @@
 const log  = require('npmlog');
+const util = require('../util.js');
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 
 /**
@@ -56,8 +57,8 @@ class HashtagHandler {
   processAliasQuery (name) {
     log.info("Handler.Hashtag", "Got alias request '%s'", name);
 
-    if(/^[a-z0-9]+$/i.test(name) == false) {
-      return null; //Not alphanumeric
+    if(!util.isTwitterHashtag(name)) {
+      return null;
     }
 
     var remote = new RemoteRoom("hashtag_" + name);

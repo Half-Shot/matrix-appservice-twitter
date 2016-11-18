@@ -93,7 +93,7 @@ class Timeline {
       opts.isnew = false;
     }
 
-    if(htag != -1) {
+    if(htag !== -1) {
       obj = this._hashtags[htag]
     }
     else {
@@ -105,7 +105,7 @@ class Timeline {
     if(!obj.room.includes(room_id)) {
       obj.room.push(room_id);
     }
-    if(htag != -1) {
+    if(htag !== -1) {
       obj = this._hashtags[htag] = obj;
     }
     else {
@@ -144,7 +144,7 @@ class Timeline {
       opts.exclude_replies = false;
     }
 
-    if(tline != -1) {
+    if(tline !== -1) {
       obj = this._timelines[tline]
     }
     else {
@@ -156,7 +156,7 @@ class Timeline {
     if(!obj.room.includes(room_id)) {
       obj.room.push(room_id);
     }
-    if(tline != -1) {
+    if(tline !== -1) {
       obj = this._timelines[tline] = obj;
     }
     else {
@@ -190,10 +190,10 @@ class Timeline {
   _remove_from_queue (isTimeline, id, room_id) {
     const i = isTimeline ? this._find_timeline(id) : this._find_hashtag(id);
     var queue = isTimeline ? this._timelines : this._hashtags;
-    if(i != -1) {
+    if(i !== -1) {
       if(room_id) {
         var r = queue[i].room.indexOf(room_id);
-        if (r != -1) {
+        if (r !== -1) {
           delete queue[i].room[r];
         }
         else{
@@ -205,7 +205,7 @@ class Timeline {
         queue[i].room = []
       }
 
-      if(queue[i].room.length == 0) {
+      if(queue[i].room.length === 0) {
         queue = queue.splice(i, 1);
       }
 
@@ -251,7 +251,7 @@ class Timeline {
       if (feed.length === 0) {
         return;
       }
-      else if(feed.length == TIMELINE_TWEET_FETCH_COUNT) {
+      else if(feed.length === TIMELINE_TWEET_FETCH_COUNT) {
         log.info("Timeline", "Timeline poll request hit count limit. Request likely incomplete.");
       }
       const s = feed[0].id_str;
@@ -298,7 +298,7 @@ class Timeline {
         return;
       }
       else{
-        if(results.statuses.length == HASHTAG_TWEET_FETCH_COUNT) {
+        if(results.statuses.length === HASHTAG_TWEET_FETCH_COUNT) {
           log.info("Timeline", "Hashtag poll request hit count limit. Request likely incomplete.");
         }
       }
@@ -319,14 +319,14 @@ class Timeline {
   _find_timeline (twitter_id) {
     return this._timelines.findIndex((tline) =>
     {
-      return tline.twitter_id == twitter_id;
+      return tline.twitter_id === twitter_id;
     });
   }
 
   _find_hashtag (hashtag) {
     return this._hashtags.findIndex((item) =>
     {
-      return item.hashtag == hashtag;
+      return item.hashtag === hashtag;
     });
   }
 
