@@ -140,46 +140,11 @@ class Provisioner {
       if (type === "timeline") {
         return self._linkTimeline(room_id, name, opts);
       }
-      else if(type === "hashtag") {
-        return self._linkHashtag(room_id, name, opts);
-      }
+      return self._linkHashtag(room_id, name, opts);
     }
 
     // DELETE
-    const roomstore = self._bridge.getRoomStore();
-    const rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
-      if(item.remote) {
-        if(type === "timeline" && item.remote.data.twitter_type === "timeline") {
-          return self._twitter.get_profile_by_screenname(item.remote.data.twitter_user).then(profile =>{
-            if(!profile) {
-              return false;
-            }
-            return profile.screen_name === name;
-          });
-        }
-        else if(type === "hashtag" && item.remote.data.twitter_type === "hashtag") {
-          return item.remote.data.twitter_hashtag === name;
-        }
-      }
-    });
-
-
-    if(rooms.length === 0) {
-      return {err: 404, body: "Link not found."};
-    }
-
-
-    if (type === "timeline") {
-      self._twitter.timeline.remove_timeline(name, room_id);
-    }
-    else if(type === "hashtag") {
-      self._twitter.timeline.remove_hashtag(name, room_id);
-    }
-
-    roomstore.removeEntriesByRemoteRoomId(rooms[0].remote.getId());
-
-    return {body: "Bridged entry removed."};
-
+    return yield Promise.coroutine(self._unlink)(self, type, room_id, name);
 
   }
 
@@ -231,6 +196,42 @@ class Provisioner {
         description: profile.description
       }
     }
+  }
+
+  * _unlink (self, type, room_id, name) {
+    const roomstore = self._bridge.getRoomStore();
+    const rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
+      if(item.remote) {
+        if(type === "timeline" && item.remote.data.twitter_type === "timeline") {
+          return self._twitter.get_profile_by_screenname(item.remote.data.twitter_user).then(profile =>{
+            if(!profile) {
+              return false;
+            }
+            return profile.screen_name === name;
+          });
+        }
+        else if(type === "hashtag" && item.remote.data.twitter_type === "hashtag") {
+          return item.remote.data.twitter_hashtag === name;
+        }
+      }
+    });
+
+
+    if(rooms.length === 0) {
+      return {err: 404, body: "Link not found."};
+    }
+
+
+    if (type === "timeline") {
+      self._twitter.timeline.remove_timeline(name, room_id);
+    }
+    else {
+      self._twitter.timeline.remove_hashtag(name, room_id);
+    }
+
+    roomstore.removeEntriesByRemoteRoomId(rooms[0].remote.getId());
+
+    return {body: "Bridged entry removed."};
   }
 
   _linkTimeline (room_id, screenname, opts) {
