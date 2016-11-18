@@ -8,26 +8,26 @@ app_auth: #Get these from twitter by creating an application through the API sit
   consumer_secret: BLAHBLAHBLAH
 
 hashtags:
-  enable: true
-  admin_only: false
+  enable: true # Enable processing hashtag rooms and creating new ones
+  admin_only: false # NOT USED. Only an admin listed can create these rooms.
 
 timelines:
-  enable: true
-  admin_only: false
+  enable: true # Enable processing timeline rooms and creating new ones
+  admin_only: false # NOT USED. Only an admin listed can create these rooms.
 
-admins:
+admins: # NOT USED. List of users that can modify the bridge.
   - @test:localhost
 
 media:
-  enable_download: true
-  enable_profile_images: true
+  enable_download: true # Enable download of media attached to tweets
+  enable_profile_images: true # Enable download of profile images
 
 logging:
-  file: logs/twitter-bridge.log
-  size: 50m
-  count: 3
-  compress: false
+  file: logs/twitter-bridge.log #Filepath of the current log file. (old ones are rotated.)
+  size: 50m #Maximum size (m,k,b) of a log file before it is rotated.
+  count: 3 # Number of files to keep before rotation.
+  compress: false # Compress the files in GZip format?
   level: verbose #One of error,warn,info,verbose,silly,silent
 
-provisioning:
-  enable: true
+provisioning: # Provisioning system for scalar-enabled clients such as Riot.
+  enable: true # Enable the system. This does not disable existing registered rooms.
