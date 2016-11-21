@@ -4,6 +4,7 @@ var http   = require('http');
 var Buffer  = require("buffer").Buffer;
 var log     = require('npmlog');
 var mime    = require('mime');
+const Promise = require('bluebird');
 
 /**
   Utility module for regularly used functions.
@@ -126,6 +127,11 @@ function isRoomId (room_id) {
   return /^!(\w+):(\S+)$/.test(room_id)
 }
 
+function isUserId (user_id) {
+  return /^@(\S+):(\S+)$/.test(user_id)
+}
+
+
 function isAlphanumeric (str) {
   return /^[a-z0-9]+$/i.test(str)
 }
@@ -165,11 +171,23 @@ function isStrInteger (str) {
   return /^[0-9]+$/.test(str);
 }
 
+function isTwitterScreenName (str) {
+  return /^[a-zA-Z0-9_]{1,15}$/.test(str);
+}
+
+function isTwitterHashtag (str) {
+  return /^[a-zA-Z0-9_]+$/.test(str);
+}
+
+
 module.exports = {
-  uploadContentFromUrl: uploadContentFromUrl,
-  downloadFile: downloadFile,
-  isStrInteger: isStrInteger,
-  isRoomId: isRoomId,
-  isAlphanumeric: isAlphanumeric,
-  roomPowers: roomPowers
+  uploadContentFromUrl,
+  downloadFile,
+  isStrInteger,
+  isRoomId,
+  isUserId,
+  isAlphanumeric,
+  roomPowers,
+  isTwitterScreenName,
+  isTwitterHashtag
 }

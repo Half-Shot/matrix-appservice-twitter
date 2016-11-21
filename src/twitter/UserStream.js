@@ -128,7 +128,7 @@ class UserStream {
   }
 
   _handle_disconnect (user_id, data) {
-    if(data.disconnect.code == 2) {
+    if(data.disconnect.code === 2) {
       log.error(
         "UserStream",
         "Disconnect error for too many duplicate streams. Bailing on this user.\n%s",
@@ -141,7 +141,7 @@ class UserStream {
          "We had an issue connecting to your Twitter account. Services may be distrupted"
        );
     }
-    else if(data.disconnect.code == 6 ) {
+    else if(data.disconnect.code === 6 ) {
       log.error("UserStream", "Token revoked. We can't do any more here.\n%s",
        data.warning.message);
     }

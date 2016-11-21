@@ -1,5 +1,6 @@
 const SQLite3 = require('sqlite3').verbose();
 const log = require('npmlog');
+const Promise = require('bluebird');
 
 const CURRENT_SCHEMA = 3;
 /**
@@ -105,7 +106,7 @@ class TwitterDB {
       FROM schema
       `
     ).then((row) =>{
-      return row == undefined ? 0 : row.version;
+      return row === undefined ? 0 : row.version;
     }).catch( ()  => {
       return 0;
     });

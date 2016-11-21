@@ -4,6 +4,7 @@ const HTMLDecoder = new require('html-entities').AllHtmlEntities;
 
 const ProcessedTweetList = require("./ProcessedTweetList.js");
 const util = require("./util.js");
+const Promise = require('bluebird');
 
 const TWITTER_MSG_QUEUE_INTERVAL_MS = 150;
 //const TWITTER_LOOKUP_INTERVAL = 60000;
@@ -95,7 +96,7 @@ class TweetProcessor {
     var media_promises = [];
     if(tweet.entities.hasOwnProperty("media") && this.media_cfg.enable_download) {
       for(var media of tweet.entities.media) {
-        if(media.type != 'photo') {
+        if(media.type !== 'photo') {
           continue;
         }
         const mimetype = mime.lookup(media.media_url_https);

@@ -34,7 +34,7 @@ class TimelineHandler {
 
   processLeave (event, request, context) {
     var remote = context.rooms.remote;
-    if( remote.data.twitter_type == "user_timeline" && remote.data.twitter_owner == event.sender ) {
+    if( remote.data.twitter_type === "user_timeline" && remote.data.twitter_owner === event.sender ) {
       log.info("Handler.AccountServices", "User %s left room. Leaving", event.sender);
       this.twitter.user_stream.detach(event.sender);
       var intent = this._bridge.getIntent();

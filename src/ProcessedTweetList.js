@@ -42,7 +42,7 @@ class ProcessedTweetList {
     if(!this._roomIdToTweetIds.has(room_id)) {
       return false;
     }
-    return (this._roomIdToTweetIds.get(room_id).indexOf(tweet_id) != -1);
+    return (this._roomIdToTweetIds.get(room_id).indexOf(tweet_id) !== -1);
   }
 }
 

@@ -2,8 +2,6 @@ const chai = require('chai');
 chai.use(require("chai-as-promised"));
 const assert = chai.assert;
 const TwitterDB = require('../../src/TwitterDB.js');
-const log = require('npmlog');
-global.Promise = require('bluebird');
 
 
 describe('TwitterDB.dm', function () {

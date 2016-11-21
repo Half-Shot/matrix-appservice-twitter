@@ -13,7 +13,7 @@ const TWEET_REPLY_MAX_DEPTH = 0;
 */
 
 class Timeline {
-  constructor (twitter) {
+  constructor (twitter, cfg_timelines, cfg_hashtags) {
     this.twitter = twitter;
     this._t_intervalID = null;
     this._h_intervalID = null;
@@ -22,6 +22,10 @@ class Timeline {
     this._newtags = new Set();
     this._h = 0;
     this._t = 0;
+    this.config = {
+      timelines: cfg_timelines,
+      hashtags: cfg_hashtags
+    }
   }
 
   /**
@@ -71,33 +75,37 @@ class Timeline {
    * @param  {string} hashtag The twitter ID of a timeline. (without the #)
    * @param  {string} room_id The room_id to insert tweets into.
    * @param  {object} opts Options
-   * @param  {boolean} opts.isnew Is the room 'new', and we shouldn't do a full poll.
+   * @param  {boolean} opts.is_new Is the room 'new', and we shouldn't do a full poll.
    */
   add_hashtag (hashtag, room_id, opts) {
     var htag = this._find_hashtag(hashtag);
     var obj;
 
+    if (this.config.hashtags.enable === false) {
+      return;
+    }
+
     if(opts === undefined) {
       opts = {};
     }
 
-    if(opts.isnew === undefined) {
-      opts.isnew = false;
+    if(opts.is_new === undefined) {
+      opts.is_new = false;
     }
 
-    if(htag != -1) {
+    if(htag !== -1) {
       obj = this._hashtags[htag]
     }
     else {
       obj = {hashtag, room: [] }
-      if(opts.isnew) {
+      if(opts.is_new) {
         this._newtags.add("#"+hashtag);
       }
     }
     if(!obj.room.includes(room_id)) {
       obj.room.push(room_id);
     }
-    if(htag != -1) {
+    if(htag !== -1) {
       obj = this._hashtags[htag] = obj;
     }
     else {
@@ -113,38 +121,42 @@ class Timeline {
    * @param  {string} twitter_id The twitter ID of a timeline.
    * @param  {string} room_id The room_id to insert tweets into.
    * @param  {object} opts Options
-   * @param  {boolean} opts.isnew Is the room 'new', and we shouldn't do a full poll.
+   * @param  {boolean} opts.is_new Is the room 'new', and we shouldn't do a full poll.
    * @param  {boolean} opts.exclude_replies Should we not fetch replies.
    */
   add_timeline (twitter_id, room_id, opts) {
     var tline = this._find_timeline(twitter_id);
     var obj;
 
+    if (this.config.timelines.enable === false) {
+      return;
+    }
+
     if(opts === undefined) {
       opts = {};
     }
 
-    if(opts.isnew === undefined) {
-      opts.isnew = false;
+    if(opts.is_new === undefined) {
+      opts.is_new = false;
     }
 
     if(opts.exclude_replies === undefined) {
       opts.exclude_replies = false;
     }
 
-    if(tline != -1) {
+    if(tline !== -1) {
       obj = this._timelines[tline]
     }
     else {
       obj = {twitter_id, room: [], exclude_replies: opts.exclude_replies }
-      if(opts.isnew) {
+      if(opts.is_new) {
         this._newtags.add(twitter_id);
       }
     }
     if(!obj.room.includes(room_id)) {
       obj.room.push(room_id);
     }
-    if(tline != -1) {
+    if(tline !== -1) {
       obj = this._timelines[tline] = obj;
     }
     else {
@@ -176,24 +188,34 @@ class Timeline {
   }
 
   _remove_from_queue (isTimeline, id, room_id) {
-    var i = isTimeline ? this._find_timeline(id) : this._find_hashtag(id);
+    const i = isTimeline ? this._find_timeline(id) : this._find_hashtag(id);
     var queue = isTimeline ? this._timelines : this._hashtags;
-    if(i != -1) {
+    if(i !== -1) {
       if(room_id) {
-        var r = queue[i].room.findIndxex(room_id);
-        if (r != -1) {
+        var r = queue[i].room.indexOf(room_id);
+        if (r !== -1) {
           delete queue[i].room[r];
         }
         else{
           log.warn("Timeline", "Tried to remove %s for %s but it didn't exist", room_id, id);
+          return;
         }
       }
       else {
         queue[i].room = []
       }
-      if(queue[i].room.length == 0) {
-        queue = this._timelines.splice(i, 1);
+
+      if(queue[i].room.length === 0) {
+        queue = queue.splice(i, 1);
       }
+
+      if(isTimeline) {
+        this._timelines = queue;
+      }
+      else{
+        this._hashtags = queue;
+      }
+
     }
     else {
       log.warn("Timeline", "Tried to remove %s but it doesn't exist", id);
@@ -229,7 +251,7 @@ class Timeline {
       if (feed.length === 0) {
         return;
       }
-      else if(feed.length == TIMELINE_TWEET_FETCH_COUNT) {
+      else if(feed.length === TIMELINE_TWEET_FETCH_COUNT) {
         log.info("Timeline", "Timeline poll request hit count limit. Request likely incomplete.");
       }
       const s = feed[0].id_str;
@@ -276,7 +298,7 @@ class Timeline {
         return;
       }
       else{
-        if(results.statuses.length == HASHTAG_TWEET_FETCH_COUNT) {
+        if(results.statuses.length === HASHTAG_TWEET_FETCH_COUNT) {
           log.info("Timeline", "Hashtag poll request hit count limit. Request likely incomplete.");
         }
       }
@@ -297,14 +319,14 @@ class Timeline {
   _find_timeline (twitter_id) {
     return this._timelines.findIndex((tline) =>
     {
-      return tline.twitter_id == twitter_id;
+      return tline.twitter_id === twitter_id;
     });
   }
 
   _find_hashtag (hashtag) {
     return this._hashtags.findIndex((item) =>
     {
-      return item.hashtag == hashtag;
+      return item.hashtag === hashtag;
     });
   }
 
