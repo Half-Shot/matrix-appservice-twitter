@@ -13,10 +13,12 @@ hashtags:
 
 timelines:
   enable: true # Enable processing timeline rooms and creating new ones
-  admin_only: false # NOT USED. Only an admin listed can create these rooms.
+  # NOT CURRENTLY IN USE
+  #admin_only: false. Only an admin listed can create these rooms.
 
-admins: # NOT USED. List of users that can modify the bridge.
-  - @test:localhost
+# NOT CURRENTLY IN USE.
+#admins: List of users that can modify the bridge.
+#  - @test:localhost
 
 media:
   enable_download: true # Enable download of media attached to tweets
