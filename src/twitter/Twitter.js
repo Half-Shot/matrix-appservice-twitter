@@ -25,12 +25,13 @@ class Twitter {
   constructor (bridge, config, storage) {
     this._bridge = bridge;
     this._config = config;
-    this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
-    this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
     this._storage = storage;
 
     this._dm = new DirectMessage(this);
-    this._timeline = new Timeline(this, this.config.timelines, this.config.hashtags);
+    this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
+    this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
+    this._timeline = new Timeline(this, this._config.timelines, this._config.hashtags);
+
     this._userstream = new UserStream(this);
     this._client_factory = new TwitterClientFactory(config.app_auth, storage);
 

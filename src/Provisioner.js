@@ -334,7 +334,9 @@ class Provisioner {
       yield matrixClient.joinRoom(roomId).timeout(ROOM_JOIN_TIMEOUT_MS);
     } catch (e) {
       log.error("Provisoning", `Couldn't join room. ${e.message}`);
-      return Promise.reject({err: 403, body: {message: "Couldn't join room. Perhaps room permissions are not set to public?"}});
+      return Promise.reject({
+        err: 403, body: {message: "Couldn't join room. Perhaps room permissions are not set to public?"}
+      });
     }
     var powerState;
     try{

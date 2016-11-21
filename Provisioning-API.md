@@ -100,8 +100,8 @@ GET Retrive some profile information about a timeline.
 
 | Return Code    | Reason     |
 | :------------- | :------------- |
-| 200 | the bridge OKd it and 0 or more results exist |
-| 404 | the room  wasn't found |
+| 200 | The Twitter user was found. |
+| 404 | The Twitter user wasn't found |
 
 
 ```

@@ -128,7 +128,7 @@ var cli = new AppService.Cli({
 
           //Fix rooms that are alias rooms
           // Criteria: canonical_alias is #_twitter_@*+:domain
-          if (type === "timeline" && entry.matrix.get("twitter_user") == null) {
+          if (type === "timeline" && entry.matrix.get("twitter_user") === null) {
             log.info("Init", `Checking ${entry.remote.getId()} to see if it's an alias room.`);
             var stateLookup = new AppService.StateLookup(
               {client: bridge.getIntent(), eventTypes: ["m.room.canonical_alias"]}
