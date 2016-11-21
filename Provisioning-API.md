@@ -32,6 +32,7 @@ Only used for PUT
 | :------------- | :------------- |
 | 200 | the bridge has updated or deleted the link |
 | 201 | the bridge has created a new link |
+| 400 | One or more parameters were malformed or invalid |
 | 401 | the user is unauthorized to create links |
 | 403 | the bridge could not join the room itself |
 | 404 | the room or the profile wasn't found |
@@ -67,8 +68,8 @@ GET Retrieve links for the given room.
 
 | Return Code    | Reason     |
 | :------------- | :------------- |
-| 200 | the bridge OKd it and 0 or more results exist |
-| 404 | the room  wasn't found |
+| 200 | A set of results exist (which may be empty) |
+| 400 | One or more parameters were malformed or invalid |
 
 
 ```
@@ -88,7 +89,7 @@ GET Retrieve links for the given room.
 ## /_matrix/provision/show/timeline/%screenName%
 ### Methods
 
-GET Retrive some profile information about a timeline.
+GET Retrieve some profile information about a timeline.
 
 ### Parameters
 
@@ -101,6 +102,7 @@ GET Retrive some profile information about a timeline.
 | Return Code    | Reason     |
 | :------------- | :------------- |
 | 200 | The Twitter user was found. |
+| 400 | One or more parameters were malformed or invalid |
 | 404 | The Twitter user wasn't found |
 
 
