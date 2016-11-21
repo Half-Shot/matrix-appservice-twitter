@@ -1,5 +1,5 @@
-## /_matrix/provision/%roomId%/link/timeline/%screenName%?userId=%userId
-## /_matrix/provision/%roomId%/link/hashtag/%hashtag%?userId=%userId
+## /_matrix/provision/%roomId%/timeline/%screenName%?userId=%userId
+## /_matrix/provision/%roomId%/hashtag/%hashtag%?userId=%userId
 ### Methods
 
 PUT Create a new link. Can also be used to reconfigure an existing room.
