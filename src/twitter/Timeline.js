@@ -81,7 +81,7 @@ class Timeline {
     var htag = this._find_hashtag(hashtag);
     var obj;
 
-    if (this.config.hashtags.enable) {
+    if (this.config.hashtags.enable === false) {
       return;
     }
 
@@ -128,7 +128,7 @@ class Timeline {
     var tline = this._find_timeline(twitter_id);
     var obj;
 
-    if (this.config.timelines.enable) {
+    if (this.config.timelines.enable === false) {
       return;
     }
 
