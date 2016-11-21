@@ -3,7 +3,7 @@ bridge:
   homeserverUrl: http://localhost:8008
   database_file: twitter.db
 
-app_auth: #Get these from twitter by creating an application through the API site.
+app_auth: # Get these from twitter by creating an application through the API site.
   consumer_key: BLAHBLAHBLAH
   consumer_secret: BLAHBLAHBLAH
 
@@ -14,10 +14,10 @@ hashtags:
 timelines:
   enable: true # Enable processing timeline rooms and creating new ones
   # NOT CURRENTLY IN USE
-  #admin_only: false. Only an admin listed can create these rooms.
+  # admin_only: false. Only an admin listed can create these rooms.
 
 # NOT CURRENTLY IN USE.
-#admins: List of users that can modify the bridge.
+# admins: List of users that can modify the bridge.
 #  - @test:localhost
 
 media:
@@ -26,10 +26,10 @@ media:
 
 logging:
   file: logs/twitter-bridge.log #Filepath of the current log file. (old ones are rotated.)
-  size: 50m #Maximum size (m,k,b) of a log file before it is rotated.
-  count: 3 # Number of files to keep before rotation.
+  size: 50m # Maximum size (m,k,b) of a log file before it is rotated.
+  count: 3 # Maximum number of files to keep before old files are deleted.
   compress: false # Compress the files in GZip format?
-  level: verbose #One of error,warn,info,verbose,silly,silent
+  level: verbose # One of error,warn,info,verbose,silly,silent
 
 provisioning: # Provisioning system for scalar-enabled clients such as Riot.
   enable: true # Enable the system. This does not disable existing registered rooms.
