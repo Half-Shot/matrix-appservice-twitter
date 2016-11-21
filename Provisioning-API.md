@@ -1,5 +1,3 @@
-All of these API requests can return a 500 if something fails that wasn't expected.
-
 ## /_matrix/provision/%roomId%/link/timeline/%screenName%?userId=%userId
 ## /_matrix/provision/%roomId%/link/hashtag/%hashtag%?userId=%userId
 ### Methods
@@ -19,6 +17,8 @@ DELETE Remove an existing link
 
 ## Body
 The body is used to pass additional options to the room.
+These options can also be used to update the existing room, though currently
+only the timeline can be modified.
 
 Only used for PUT
 
@@ -30,14 +30,25 @@ Only used for PUT
 
 | Return Code    | Reason         |
 | :------------- | :------------- |
-| 200 | the bridge OKed it |
+| 200 | the bridge has updated or deleted the link |
+| 201 | the bridge has created a new link |
 | 401 | the user is unauthorized to create links |
 | 403 | the bridge could not join the room itself |
 | 404 | the room or the profile wasn't found |
 
+#### 200
+
 ```
 {
-  "message": Error message if did not complete successfully.
+  "message":"Link updated" || "Hashtag already bridged!"
+}
+```
+
+#### 201
+
+```
+{
+  "message":"Linked successfully"
 }
 ```
 
@@ -52,12 +63,13 @@ GET Retrieve links for the given room.
 | :------------- | :------------- |
 | roomId | Matrix Room ID |
 
+### Return Codes
+
 | Return Code    | Reason     |
 | :------------- | :------------- |
 | 200 | the bridge OKd it and 0 or more results exist |
 | 404 | the room  wasn't found |
 
-### Return Codes
 
 ```
 {
@@ -80,23 +92,36 @@ GET Retrive some profile information about a timeline.
 
 ### Parameters
 
+| Param          | Description     |
+| :------------- | :------------- |
+| screenName | The screenname of the timeline to add (without @) |
+
+### Return Codes
+
 | Return Code    | Reason     |
 | :------------- | :------------- |
 | 200 | the bridge OKd it and 0 or more results exist |
 | 404 | the room  wasn't found |
 
-### Return Codes
-
-| Param          | Description     |
-| :------------- | :------------- |
-| screenName | The screenname of the timeline to add (without @) |
 
 ```
 {
-  twitterId:
-  name:
-  screenName:
-  avatarUrl:
-  description:
+  twitterId: "366675043"
+  name: "Half-Shot"
+  screenName: "Half_Shot"
+  avatarUrl: "https://pbs.twimg.com/profile_images/796729706318012418/VdozW4mO.jpg"
+  description: "Software Dev | Woof. ❤ @MaxwellKepler . I do @matrixdotorg stuff sometimes."
+}
+```
+
+### Errors
+
+Errors will take the form of a non-``200`` status code and a object like below.
+In addition a ``500`` error can happen if something unexpected occurs on the
+server.
+
+```
+{
+  "message": "The toast was burnt."
 }
 ```

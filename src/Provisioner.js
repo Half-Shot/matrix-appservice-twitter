@@ -36,8 +36,8 @@ class Provisioner {
           res.header("Access-Control-Allow-Origin", "*");
           res.header("Access-Control-Allow-Headers",
                 "Origin, X-Requested-With, Content-Type, Accept");
-          res.status(500);
-          res.json({error: 'Provisioning is not enabled.'});
+          res.status(503);
+          res.json({message: "The provisioning service is currently disabled."});
         }
         else {
           next();
@@ -79,15 +79,16 @@ class Provisioner {
         if(result.err) {
           res = res.status(result.err);
         }
-        res.json(result);
+        if(result.body) {
+          res.json(result.body);
+        }
       }
     }
     catch (err) {
-      res.status(500).json({error: "An internal error occured."});
+      res.status(500).json({message: "An internal error occured."});
       log.error("Provisioner", "Error occured: ", err.message, err.stack);
     }
   }
-
 
   * _manageLink (self, req) {
     const user_id = req.query.userId;
@@ -99,29 +100,29 @@ class Provisioner {
 
     if(type === "timeline") {
       if(!util.isTwitterScreenName(name)) {
-        return {err: 400, body: "No/malformed screenname given."};
+        return {err: 400, body: {message: "No/malformed screenname given."}};
       }
     }
     else if(type === "hashtag") {
       if(!util.isTwitterHashtag(name)) {
-        return {err: 400, body: "No/malformed hashtag given."};
+        return {err: 400, body: {message: "No/malformed hashtag given."}};
       }
     }
     else {
-      return {err: 400, body: "'type' was not a timeline or a hashtag."};
+      return {err: 400, body: {message: "'type' was not a timeline or a hashtag."}};
     }
 
 
     if(!util.isRoomId(room_id)) {
-      return {err: 400, body: "No/malformed roomId given."};
+      return {err: 400, body: {message: "No/malformed roomId given."}};
     }
 
     if(!util.isUserId(user_id)) {
-      return {err: 400, body: "No/malformed userId given."};
+      return {err: 400, body: {message: "No/malformed userId given."}};
     }
     if(opts.exclude_replies !== undefined) {
       if(typeof(opts.exclude_replies) !== 'boolean') {
-        return {err: 400, body: "Invalid exclude_replies given. Must be boolean"};
+        return {err: 400, body: {message: "Invalid exclude_replies given. Must be boolean"}};
       }
     }
     else {
@@ -130,7 +131,7 @@ class Provisioner {
 
     const has_power = yield Promise.coroutine(self._userHasProvisioningPower)(self, user_id, room_id);
     if(has_power === false) {
-      return {err: 401, body: "User does not have power to create bridges"}
+      return {err: 401, body: {message: "User does not have power to create bridges"}}
     }
     else if(has_power !== true) {
       return has_power;// Detailed error message;
@@ -152,7 +153,7 @@ class Provisioner {
   * _listLinks (self, req) {
     const roomId = req.params.roomId;
     if(!util.isRoomId(roomId)) {
-      return {err: 400, body: "Malformed roomId."};
+      return {err: 400, body: {message: "Malformed roomId."}};
     }
 
     const body = {
@@ -178,7 +179,7 @@ class Provisioner {
         body.hashtags.push(room.remote.getId().substr("hashtag_".length));
       }
     });
-    return body;
+    return { body: body };
   }
 
   // Returns basic profile information if a timeline
@@ -186,15 +187,17 @@ class Provisioner {
   * _queryProfile (self, req) {
     const profile = yield self._twitter.get_profile_by_screenname(req.params.screenName);
     if (!profile) {
-      return {err: 404, body: "User not found."}
+      return {err: 404, body: {message: "User not found."}}
     }
     else{
       return {
-        twitterId: profile.id_str,
-        avatarUrl: profile.profile_image_url_https,
-        name: profile.name,
-        screenName: profile.screen_name,
-        description: profile.description
+        body: {
+          twitterId: profile.id_str,
+          avatarUrl: profile.profile_image_url_https,
+          name: profile.name,
+          screenName: profile.screen_name,
+          description: profile.description
+        }
       }
     }
   }
@@ -219,7 +222,7 @@ class Provisioner {
 
 
     if(rooms.length === 0) {
-      return {err: 404, body: "Link not found."};
+      return {err: 404, body: {message: "Link not found."}};
     }
 
 
@@ -232,7 +235,7 @@ class Provisioner {
 
     roomstore.removeEntriesByRemoteRoomId(rooms[0].remote.getId());
 
-    return {body: "Bridged entry removed."};
+    return {body: {message: "Bridged entry removed."}};
   }
 
   * _linkTimeline (self, room_id, screenname, opts) {
@@ -240,7 +243,7 @@ class Provisioner {
     const profile = yield self._twitter.get_profile_by_screenname(screenname);
 
     if (!profile) {
-      return {err: 404, body: "Twitter profile not found!"};
+      return {err: 404, body: {message: "Twitter profile not found!"}};
     }
 
     const rooms = yield roomstore.getEntriesByRemoteRoomData({
@@ -265,7 +268,7 @@ class Provisioner {
         is_new: true,
         exclude_replies: opts.exclude_replies
       });
-      return {err: 201, body: "Linked successfully"};
+      return {err: 201, body: {message: "Link updated."}};
     }
 
     var remote = new RemoteRoom("timeline_" + profile.id_str);
@@ -277,7 +280,7 @@ class Provisioner {
       is_new: true,
       exclude_replies: opts.exclude_replies
     });
-    return {};
+    return {err: 201, body: {message: "Linked successfully"}};
   }
 
   * _linkHashtag (self, room_id, hashtag) {
@@ -291,7 +294,7 @@ class Provisioner {
     const isLinked = rooms.filter(item => {return item.matrix.getId() === room_id}).length > 0;
 
     if(isLinked) {
-      return {body: "Hashtag already bridged!"};
+      return {body: {message: "Hashtag already bridged!"}};
     }
 
     var remote = new RemoteRoom("hashtag_" + hashtag);
@@ -300,7 +303,7 @@ class Provisioner {
     roomstore.linkRooms(new MatrixRoom(room_id), remote);
 
     this._twitter.timeline.add_hashtag(hashtag, room_id, {is_new: true} );
-    return {err: 201, body: "Linked successfully"};
+    return {err: 201, body: {message: "Linked successfully"}};
   }
 
   isProvisionRequest (req) {
@@ -331,7 +334,7 @@ class Provisioner {
       yield matrixClient.joinRoom(roomId).timeout(ROOM_JOIN_TIMEOUT_MS);
     } catch (e) {
       log.error("Provisoning", `Couldn't join room. ${e.message}`);
-      return Promise.reject({err: 403, body: "Couldn't join room. Perhaps room permissions are not set to public?"});
+      return Promise.reject({err: 403, body: {message: "Couldn't join room. Perhaps room permissions are not set to public?"}});
     }
     var powerState;
     try{
