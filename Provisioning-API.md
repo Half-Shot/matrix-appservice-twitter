@@ -24,6 +24,7 @@ Only used for PUT
 
 | Option          | Description    |
 | :-------------  | :------------- |
+| user_id | The user ID to use instead of passing the query parameter `userId`, above. |
 | exclude_replies | Don't show replies to mentions by the user. |
 
 ### Return Codes

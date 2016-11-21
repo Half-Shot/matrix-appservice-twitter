@@ -91,7 +91,7 @@ class Provisioner {
   }
 
   * _manageLink (self, req) {
-    const user_id = req.query.userId;
+    const user_id = req.query.userId || req.body.user_id;
     const room_id = req.params.roomId;
     const type = req.params.type; //Type of link to create/remove (one of timeline, hashtag)
     const name = req.params.name; //Name of the timeline/hashtag to use.
