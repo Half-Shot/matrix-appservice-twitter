@@ -202,7 +202,7 @@ class Provisioner {
     }
   }
 
-  * _unlink (type, room_id, name) {
+  * _unlink (self, type, room_id, name) {
     const roomstore = this._bridge.getRoomStore();
     let rooms = [];
     if (type === "hashtag") {
