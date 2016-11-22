@@ -104,7 +104,7 @@ class Provisioner {
       if(!util.isTwitterScreenName(name)) {
         return {err: 400, body: {message: "No/malformed screenname given."}};
       }
-      if(!self._timelines_enabled) {
+      if(!this._timelines_enabled) {
         return {err: 503, body: {message: "Timelines are disabled."}};
       }
     }
@@ -112,7 +112,7 @@ class Provisioner {
       if(!util.isTwitterHashtag(name)) {
         return {err: 400, body: {message: "No/malformed hashtag given."}};
       }
-      if(!self._hashtags_enabled) {
+      if(!this._hashtags_enabled) {
         return {err: 503, body: {error: "Hashtags are disabled."}};
       }
     }
