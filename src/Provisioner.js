@@ -17,6 +17,8 @@ class Provisioner {
     this._app = bridge.appService.app;
     this._twitter = twitter;
     this._config = config.provisioning;
+    this._hashtags_enabled = config.hashtags.enable;
+    this._timelines_enabled = config.timelines.enable;
     if(this._config.required_power_level === undefined) {
       this._config.required_power_level = DEFAULT_POWER_REQ;
     }
@@ -102,10 +104,16 @@ class Provisioner {
       if(!util.isTwitterScreenName(name)) {
         return {err: 400, body: {message: "No/malformed screenname given."}};
       }
+      if(!self._timelines_enabled) {
+        return {err: 503, body: {message: "Timelines are disabled."}};
+      }
     }
     else if(type === "hashtag") {
       if(!util.isTwitterHashtag(name)) {
         return {err: 400, body: {message: "No/malformed hashtag given."}};
+      }
+      if(!self._hashtags_enabled) {
+        return {err: 503, body: {error: "Hashtags are disabled."}};
       }
     }
     else {
