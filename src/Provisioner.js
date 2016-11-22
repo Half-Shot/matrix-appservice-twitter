@@ -59,22 +59,22 @@ class Provisioner {
     });
 
     const manageLink = (req, res) => {
-      Promise.coroutine(this._requestWrap)(this, this._manageLink, req, res);
+      Promise.coroutine(this._requestWrap.bind(this))(this._manageLink, req, res);
     };
 
     this._app.put("/_matrix/provision/:roomId/:type/:name", manageLink);
     this._app.delete("/_matrix/provision/:roomId/:type/:name", manageLink);
     this._app.get("/_matrix/provision/:roomId/links", (req, res) => {
-      Promise.coroutine(this._requestWrap)(this, this._listLinks, req, res);
+      Promise.coroutine(this._requestWrap.bind(this))(this._listLinks, req, res);
     });
     this._app.get("/_matrix/provision/show/:screenName", (req, res) => {
-      Promise.coroutine(this._requestWrap)(this, this._queryProfile, req, res);
+      Promise.coroutine(this._requestWrap.bind(this))(this._queryProfile, req, res);
     });
   }
 
-  * _requestWrap (self, func, req, res) {
+  * _requestWrap (func, req, res) {
     try {
-      const result = yield Promise.coroutine(func)(self, req);
+      const result = yield Promise.coroutine(func.bind(this))(req);
       if(result !== undefined) {
         if(result.err) {
           res = res.status(result.err);
@@ -90,7 +90,7 @@ class Provisioner {
     }
   }
 
-  * _manageLink (self, req) {
+  * _manageLink (req) {
     const user_id = req.query.userId || req.body.user_id;
     const room_id = req.params.roomId;
     const type = req.params.type; //Type of link to create/remove (one of timeline, hashtag)
@@ -129,7 +129,7 @@ class Provisioner {
       opts.exclude_replies = false;
     }
 
-    const has_power = yield Promise.coroutine(self._userHasProvisioningPower)(self, user_id, room_id);
+    const has_power = yield Promise.coroutine(this._userHasProvisioningPower.bind(this))(user_id, room_id);
     if(has_power === false) {
       return {err: 401, body: {message: "User does not have power to create bridges"}}
     }
@@ -140,17 +140,17 @@ class Provisioner {
     // PUT
     if(createLink) {
       if (type === "timeline") {
-        return yield Promise.coroutine(self._linkTimeline)(self, room_id, name, opts);
+        return yield Promise.coroutine(this._linkTimeline.bind(this))(room_id, name, opts);
       }
-      return yield Promise.coroutine(self._linkHashtag)(self, room_id, name, opts);
+      return yield Promise.coroutine(this._linkHashtag.bind(this))(room_id, name, opts);
     }
 
     // DELETE
-    return yield Promise.coroutine(self._unlink)(self, type, room_id, name);
+    return yield Promise.coroutine(this._unlink.bind(this))(type, room_id, name);
 
   }
 
-  * _listLinks (self, req) {
+  * _listLinks (req) {
     const roomId = req.params.roomId;
     if(!util.isRoomId(roomId)) {
       return {err: 400, body: {message: "Malformed roomId."}};
@@ -161,11 +161,11 @@ class Provisioner {
       "hashtags": []
     }
 
-    yield self._bridge.getRoomStore().getEntriesByMatrixId(roomId).then(rooms => {
+    yield this._bridge.getRoomStore().getEntriesByMatrixId(roomId).then(rooms => {
       return rooms;
     }).each(room =>{
       if(room.remote.data.twitter_type === "timeline") {
-        return self._twitter.get_profile_by_id(room.remote.data.twitter_user).then(profile =>{
+        return this._twitter.get_profile_by_id(room.remote.data.twitter_user).then(profile =>{
           body.timelines.push({
             twitterId: profile.id_str,
             avatarUrl: profile.profile_image_url_https,
@@ -184,8 +184,8 @@ class Provisioner {
 
   // Returns basic profile information if a timeline
   // or empty object for hashtags
-  * _queryProfile (self, req) {
-    const profile = yield self._twitter.get_profile_by_screenname(req.params.screenName);
+  * _queryProfile (req) {
+    const profile = yield this._twitter.get_profile_by_screenname(req.params.screenName);
     if (!profile) {
       return {err: 404, body: {message: "User not found."}}
     }
@@ -202,12 +202,12 @@ class Provisioner {
     }
   }
 
-  * _unlink (self, type, room_id, name) {
-    const roomstore = self._bridge.getRoomStore();
+  * _unlink (type, room_id, name) {
+    const roomstore = this._bridge.getRoomStore();
     const rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
       if(item.remote) {
         if(type === "timeline" && item.remote.data.twitter_type === "timeline") {
-          return self._twitter.get_profile_by_screenname(item.remote.data.twitter_user).then(profile =>{
+          return this._twitter.get_profile_by_screenname(item.remote.data.twitter_user).then(profile =>{
             if(!profile) {
               return false;
             }
@@ -227,10 +227,10 @@ class Provisioner {
 
 
     if (type === "timeline") {
-      self._twitter.timeline.remove_timeline(name, room_id);
+      this._twitter.timeline.remove_timeline(name, room_id);
     }
     else {
-      self._twitter.timeline.remove_hashtag(name, room_id);
+      this._twitter.timeline.remove_hashtag(name, room_id);
     }
 
     roomstore.removeEntriesByRemoteRoomId(rooms[0].remote.getId());
@@ -238,9 +238,9 @@ class Provisioner {
     return {body: {message: "Bridged entry removed."}};
   }
 
-  * _linkTimeline (self, room_id, screenname, opts) {
-    const roomstore = self._bridge.getRoomStore();
-    const profile = yield self._twitter.get_profile_by_screenname(screenname);
+  * _linkTimeline (room_id, screenname, opts) {
+    const roomstore = this._bridge.getRoomStore();
+    const profile = yield this._twitter.get_profile_by_screenname(screenname);
 
     if (!profile) {
       return {err: 404, body: {message: "Twitter profile not found!"}};
@@ -283,7 +283,7 @@ class Provisioner {
     return {err: 201, body: {message: "Linked successfully"}};
   }
 
-  * _linkHashtag (self, room_id, hashtag) {
+  * _linkHashtag (room_id, hashtag) {
     const roomstore = this._bridge.getRoomStore();
     hashtag = hashtag.replace("#", "");
     const rooms = yield roomstore.getEntriesByRemoteRoomData({
@@ -325,9 +325,9 @@ class Provisioner {
     }
   }
 
-  * _userHasProvisioningPower (self, userId, roomId) {
+  * _userHasProvisioningPower (userId, roomId) {
     log.info("Provisioning", `Check power level of ${userId} in room ${roomId}`);
-    const matrixClient = self._bridge.getClientFactory().getClientAs();
+    const matrixClient = this._bridge.getClientFactory().getClientAs();
 
     // Try to join a room, or timeout after 1 min
     try {
@@ -352,7 +352,7 @@ class Provisioner {
 
     //Leave if not setup within LEAVE_UNPROVIS_AFTER_MS.
     setTimeout(() => {
-      self._leaveIfUnprovisioned(roomId);
+      this._leaveIfUnprovisioned(roomId);
     }, LEAVE_UNPROVIS_AFTER_MS);
 
     let actualPower = 0;
@@ -367,7 +367,7 @@ class Provisioner {
       return Promise.reject({err: 403, body: 'Could not determine power level of the user.'});
     }
 
-    let requiredPower = self._config.required_power_level;
+    let requiredPower = this._config.required_power_level;
     if (powerState.events["m.room.power_levels"] !== undefined) {
       requiredPower = powerState.events["m.room.power_levels"]
     }
