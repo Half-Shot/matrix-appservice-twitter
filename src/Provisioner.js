@@ -211,23 +211,21 @@ class Provisioner {
   }
 
   * _unlink (self, type, room_id, name) {
-    const roomstore = self._bridge.getRoomStore();
-    const rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
-      if(item.remote) {
-        if(type === "timeline" && item.remote.data.twitter_type === "timeline") {
-          return self._twitter.get_profile_by_screenname(item.remote.data.twitter_user).then(profile =>{
-            if(!profile) {
-              return false;
-            }
-            return profile.screen_name === name;
-          });
-        }
-        else if(type === "hashtag" && item.remote.data.twitter_type === "hashtag") {
-          return item.remote.data.twitter_hashtag === name;
-        }
-      }
-    });
-
+    const roomstore = this._bridge.getRoomStore();
+    let rooms = [];
+    if (type === "hashtag") {
+      rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
+        return item.remote.data.twitter_type === "hashtag" &&
+          item.remote.data.twitter_hashtag === name;
+      });
+    }
+    else if(type === "timeline") {
+      const profile = yield this._twitter.get_profile_by_screenname(name);
+      rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
+        return item.remote.data.twitter_type === "timeline" &&
+          item.remote.data.twitter_user === profile.id_str;
+      });
+    }
 
     if(rooms.length === 0) {
       return {err: 404, body: {message: "Link not found."}};
