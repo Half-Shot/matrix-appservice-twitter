@@ -212,33 +212,33 @@ class Provisioner {
 
   * _unlink (type, room_id, name) {
     const roomstore = this._bridge.getRoomStore();
-    const rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
-      if(item.remote) {
-        if(type === "timeline" && item.remote.data.twitter_type === "timeline") {
-          return this._twitter.get_profile_by_screenname(item.remote.data.twitter_user).then(profile =>{
-            if(!profile) {
-              return false;
-            }
-            return profile.screen_name === name;
-          });
-        }
-        else if(type === "hashtag" && item.remote.data.twitter_type === "hashtag") {
-          return item.remote.data.twitter_hashtag === name;
-        }
-      }
-    });
-
+    let rooms = [];
+    let remove_id = null;
+    if (type === "hashtag") {
+      remove_id = name;
+      rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
+        return item.remote.data.twitter_type === "hashtag" &&
+          item.remote.data.twitter_hashtag === name;
+      });
+    }
+    else if(type === "timeline") {
+      const profile = yield this._twitter.get_profile_by_screenname(name);
+      remove_id = profile.id;
+      rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
+        return item.remote.data.twitter_type === "timeline" &&
+          item.remote.data.twitter_user === profile.id_str;
+      });
+    }
 
     if(rooms.length === 0) {
       return {err: 404, body: {message: "Link not found."}};
     }
 
-
     if (type === "timeline") {
-      this._twitter.timeline.remove_timeline(name, room_id);
+      this._twitter.timeline.remove_timeline(remove_id, room_id);
     }
     else {
-      this._twitter.timeline.remove_hashtag(name, room_id);
+      this._twitter.timeline.remove_hashtag(remove_id, room_id);
     }
 
     roomstore.removeEntriesByRemoteRoomId(rooms[0].remote.getId());
