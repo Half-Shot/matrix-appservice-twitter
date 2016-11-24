@@ -71,7 +71,7 @@ class TweetProcessor {
    * @see {@link https://dev.twitter.com/overview/api/tweets}
    */
   tweet_to_matrix_content (tweet, type) {
-    return {
+    const mxtweet = {
       "body": new HTMLDecoder().decode( tweet.full_text || tweet.text),
       "created_at": tweet.created_at,
       "likes": tweet.favorite_count,
@@ -81,6 +81,15 @@ class TweetProcessor {
       "msgtype": type,
       "external_url": `https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`
     }
+
+    // URLs
+    for(const url of tweet.entities.urls) {
+      let text = mxtweet.body;
+      text = text.substr(0, url.indices[0]) + url.expanded_url + text.substr(url.indices[1]);
+      mxtweet.body = text;
+    }
+
+    return mxtweet;
   }
 
   _push_to_msg_queue (muser, roomid, tweet, type) {
