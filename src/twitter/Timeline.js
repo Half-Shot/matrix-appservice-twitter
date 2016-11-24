@@ -231,7 +231,8 @@ class Timeline {
     var req = {
       user_id: tline.twitter_id,
       count: TIMELINE_TWEET_FETCH_COUNT,
-      exclude_replies: tline.exclude_replies
+      exclude_replies: tline.exclude_replies,
+      tweet_mode: "extended" // https://github.com/Half-Shot/matrix-appservice-twitter/issues/31
     };
 
     if(this._newtags.has(req.user_id)) {
@@ -277,7 +278,8 @@ class Timeline {
     var req = {
       q: "%23"+feed.hashtag,
       result_type: 'recent',
-      count: HASHTAG_TWEET_FETCH_COUNT
+      count: HASHTAG_TWEET_FETCH_COUNT,
+      tweet_mode: "extended" // https://github.com/Half-Shot/matrix-appservice-twitter/issues/31
     };
 
     if(this._newtags.has("#"+feed.hashtag)) {

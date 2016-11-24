@@ -72,7 +72,7 @@ class TweetProcessor {
    */
   tweet_to_matrix_content (tweet, type) {
     return {
-      "body": new HTMLDecoder().decode(tweet.text),
+      "body": new HTMLDecoder().decode( tweet.full_text || tweet.text),
       "created_at": tweet.created_at,
       "likes": tweet.favorite_count,
       "reblogs": tweet.retweet_count,
