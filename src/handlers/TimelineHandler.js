@@ -28,7 +28,7 @@ class TimelineHandler {
     this.twitter.timeline.add_timeline(
         entry.remote.data.twitter_user,
         entry.matrix.getId(),
-        true
+        {is_new: true}
     );
   }
 

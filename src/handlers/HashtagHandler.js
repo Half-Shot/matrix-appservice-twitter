@@ -27,7 +27,7 @@ class HashtagHandler {
     this.twitter.timeline.add_hashtag(
       entry.remote.getId().substr("hashtag_".length),
       entry.matrix.getId(),
-      true
+      {is_new: true}
     );
   }
 
