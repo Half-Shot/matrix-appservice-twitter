@@ -105,12 +105,12 @@ class AccountServices {
     else if(body.startsWith("bridge.room")) {
       this._bridgeRoom(event);
     }
-    else if(body.startsWith("bridge.unbridge")) {
-      return;
-    }
-    else if(body.startsWith("bridge.unbridge_all")) {
-      return;
-    }
+    // else if(body.startsWith("bridge.unbridge")) {
+    //   return;
+    // }
+    // else if(body.startsWith("bridge.unbridge_all")) {
+    //   return;
+    // }
     else if(body.startsWith("timeline.filter")) {
       this._setFilter(event);
     }
@@ -142,11 +142,11 @@ account.list     List details about your account.
 
 bridge.room [room_id] [twitter_feed]    Bridge an existing room to a @ or #. The room *must* be public.
 
-bridge.unbridge [room_id] [twitter_feed]
+`+//bridge.unbridge [room_id] [twitter_feed]
 
-bridge.unbridge_all [room_id]
+//bridge.unbridge_all [room_id]
 
-timeline.filter [option] Filter the type of tweets coming in. Defaults to 'followings'
+`timeline.filter [option] Filter the type of tweets coming in. Defaults to 'followings'
 'followings' - gives data about the user and about the user’s followings.
 'user' - events only about the user, not about their followings.
 
