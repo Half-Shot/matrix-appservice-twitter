@@ -217,8 +217,13 @@ class Twitter {
    * @param  {external:RemoteRoom} room  The remote room that got the message.
    */
   send_matrix_event_as_tweet (event, user, room) {
+    const mtype = event.content.msgtype;
     if(user == null) {
       log.warn("Twitter", "User tried to send a tweet without being known by the AS.");
+      return;
+    }
+    if(!["m.text", "m.emote", "m.image"].includes(mtype)) {
+      log.silly("Twitter", "Unknown msgtype.");
       return;
     }
 
@@ -241,12 +246,16 @@ class Twitter {
       }
 
     }).then(() =>{
-      if(event.content.msgtype === "m.text") {
+      if(mtype === "m.text" || mtype === "m.emote") {
         log.info("Twitter", "Got message: %s", event.content.body);
-        var text = event.content.body.substr(0, 140);
+        var text = event.content.body;
+        if(mtype === "m.emote") {
+          text = "*" + text + "*";
+        }
+        text = text.substr(0, 140);
         return this.send_tweet(room, user, text);
       }
-      else if(event.content.msgtype === "m.image") {
+      else if(mtype === "m.image") {
         log.info("Twitter", "Got image: %s", event.content.body);
         //Get the url
         var url = event.content.url;
