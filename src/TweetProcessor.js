@@ -72,7 +72,7 @@ class TweetProcessor {
    */
   tweet_to_matrix_content (tweet, type) {
     const mxtweet = {
-      "body": new HTMLDecoder().decode( tweet.full_text || tweet.text),
+      "body": new HTMLDecoder().decode(tweet.full_text || tweet.text),
       "created_at": tweet.created_at,
       "likes": tweet.favorite_count,
       "reblogs": tweet.retweet_count,
@@ -80,6 +80,10 @@ class TweetProcessor {
       "tags": tweet.entities.hashtags,
       "msgtype": type,
       "external_url": `https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`
+    }
+
+    if (tweet._retweet_info) {
+      mxtweet.retweet = tweet._retweet_info;
     }
 
     // URLs
@@ -219,11 +223,11 @@ class TweetProcessor {
         rooms = [rooms];
       }
       rooms.forEach((roomid) => {
-        var isRetweet = false;
         if(tweet.retweeted_status) {
-          isRetweet = this.processed_tweets.contains(roomid, tweet.retweeted_status.id_str);
+          tweet.retweeted_status._retweet_info = { id: tweet.id_str, tweet: tweet.user.id_str };
+          tweet = tweet.retweeted_status; // We always want the root tweet.
         }
-        if(!this.processed_tweets.contains(roomid, tweet.id_str) && !isRetweet) {
+        if(!this.processed_tweets.contains(roomid, tweet.id_str)) {
           this.processed_tweets.push(roomid, tweet.id_str);
           this._push_to_msg_queue('@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type);
           return;
