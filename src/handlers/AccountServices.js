@@ -5,6 +5,10 @@ const log = require('npmlog');
 const OAuth = require('oauth');
 const util = require('../util.js');
 const Promise = require('bluebird');
+const promiseRetry = require('bluebird-retry');
+
+const RETRY_INVITE_COUNT = 5;
+const RETRY_INVITE_INTERVAL = 2500;
 /**
   * This class is a handler for conversation between users and the bridge bot to
   * link accounts together
@@ -38,15 +42,22 @@ class AccountServices {
 
   /**
    * Handler for invites from a matrix user to a (presumably)
-   * empty room. This will join the room and send some help text.
+   * 1:1 room. This will join the room and send some help text.
    * @param  {MatrixEvent} event   The event data of the request.
    * @param  {Request} request The request itself.
    * @param  {Context} context Context given by the appservice.
    */
   processInvite (event, request, context) {
     log.info("Handler.AccountServices", "Got invite");
-    var intent = this._bridge.getIntent();
-    intent.join(event.room_id).then( () => {
+    const intent = this._bridge.getIntent();
+    // Will retry 5 times before giving up
+    promiseRetry( () =>{
+      return intent.join(event.room_id);
+    }, {
+      interval: RETRY_INVITE_INTERVAL,
+      backoff: 2,
+      max_tries: RETRY_INVITE_COUNT
+    }).then( () => {
       var rroom = new RemoteRoom("service_"+event.sender);
       rroom.set("twitter_type", "service");
       this._bridge.getRoomStore().linkRooms(context.rooms.matrix, rroom);
@@ -61,6 +72,7 @@ class AccountServices {
     }).catch(err => {
       log.error("Handler.AccountServices", "Couldn't join service room. %s", err);
     })
+
   }
 
   processLeave (event, request, context) {
