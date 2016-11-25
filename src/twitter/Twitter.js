@@ -414,7 +414,7 @@ class Twitter {
               {
                 "type": "m.room.join_rules",
                 "content": {
-                  "join_rule": "public"
+                  "join_rule": "invite"
                 },
                 "state_key": ""
               }
