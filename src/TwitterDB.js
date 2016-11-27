@@ -14,7 +14,7 @@ class TwitterDB {
     this.db = new SQLite3.Database(filepath, (err) => {
       if(err) {
         log.error("TwitDB", "Error opening database, %s");
-        throw "Couldn't open database. The appservice won't be able to continue.";
+        throw new Error("Couldn't open database. The appservice won't be able to continue.");
       }
     });
     this._target_schema = CURRENT_SCHEMA;
