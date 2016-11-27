@@ -93,7 +93,7 @@ class AccountServices {
     if (event.sender === "@"+this._sender_localpart+":" + this._bridge.opts.domain) {
       return;//Don't talk to ourselves.
     }
-    if (body.startsWith("account.link")) {
+    if (body.startsWith("account.link ")) {
       this._beginLinkAccount(event);
     }
     else if (body === "account.unlink") {
@@ -102,15 +102,12 @@ class AccountServices {
     else if (body === "account.list") {
       this._listAccountDetails(event);
     }
-    else if(body.startsWith("bridge.room")) {
+    else if(body.startsWith("bridge.room ")) {
       this._bridgeRoom(event);
     }
-    // else if(body.startsWith("bridge.unbridge")) {
-    //   return;
-    // }
-    // else if(body.startsWith("bridge.unbridge_all")) {
-    //   return;
-    // }
+    else if(body.startsWith("bridge.unbridge ")) { // bridge.unbridge_all
+      this._unbridgeRoom(event);
+    }
     else if(body.startsWith("timeline.filter")) {
       this._setFilter(event);
     }
@@ -130,30 +127,36 @@ class AccountServices {
     intent.sendMessage(room_id, {
       "msgtype": "m.text",
       "body":
-`Matrix Twitter Bridge Help
-account.link [type]  Link your Twitter account to your Matrix Account
-'read' Read-only access to your account. Reading your Timeline.
-'write' Read and Write such as sending Tweets from rooms.
-'dm' Read and Write to 1:1 DM rooms. This is the god mode.
+`
+Matrix Twitter Bridge Help
 
-account.unlink   Removes your account from the bridge. All personal rooms will cease to function.
+help    This help text.
+account.link [type]    Link your Twitter account to your Matrix Account
+'read'    Read-only access to your account. Reading your Timeline.
+'write'    Read and Write such as sending Tweets from rooms.
+'dm'    Read and Write to 1:1 DM rooms. This is the god mode.
 
-account.list     List details about your account.
+account.unlink    Removes your account from the bridge. All personal rooms will cease to function.
+
+account.list    List details about your account.
 
 bridge.room [room_id] [twitter_feed]    Bridge an existing room to a @ or #. The room *must* be public.
+'room_id'    A Matrix Room ID (Not an alias).
+'twitter_feed'    Either a #hashtag or a @timeline
 
-`+//bridge.unbridge [room_id] [twitter_feed]
+bridge.unbridge [room_id] [twitter_feed]
+'room_id'    A Matrix Room ID (Not an alias).
+'twitter_feed'    Either a #hashtag or a @timeline. Leave blank to remove ALL links.
 
-//bridge.unbridge_all [room_id]
 
-`timeline.filter [option] Filter the type of tweets coming in. Defaults to 'followings'
-'followings' - gives data about the user and about the user’s followings.
-'user' - events only about the user, not about their followings.
+timeline.filter [option] Filter the type of tweets coming in. Defaults to 'followings'
+'followings'    gives data about the user and about the user’s followings.
+'user'    events only about the user, not about their followings.
 
 timeline.replies [option]
 'all'
 'mutual'
-help  This help text.`
+`
     });
   }
 
@@ -393,10 +396,10 @@ ${dm_rooms}`
 
     });
     var get_twitter_feed;
-    if(feed_id[0] === '#' && util.isAlphanumeric(feed_id.substr(1))) {
+    if(feed_id[0] === '#' && util.isTwitterHashtag(feed_id.substr(1))) {
       get_twitter_feed = Promise.resolve(feed_id.substr(1));//hashtag
     }
-    else if(feed_id[0] === '@') {
+    else if(feed_id[0] === '@' && util.isTwitterScreenName(feed_id.substr(1))) {
       get_twitter_feed = this._twitter.get_profile_by_screenname(feed_id.substr(1));
     }
     else{
@@ -438,6 +441,87 @@ ${dm_rooms}`
       });
       log.error("Handler.AccountServices", "Error occured %s", err);
     });
+
+  }
+
+  _unbridgeRoom (event) {
+    const args = event.content.body.split(" ");
+    const room_id = args[1];
+    const roomstore = this._bridge.getRoomStore();
+    let symbol = null;
+    const intent = this._bridge.getIntent();
+    let feed = null;
+    let rooms = null;
+    if(args.length < 2) {
+      return;//Not enough args.
+    }
+
+    if(args.length === 3) {
+      feed = args[2];
+      symbol = feed[0];
+      feed = feed.substr(1);
+    }
+
+
+
+    if(util.isTwitterScreenName(feed) && symbol === '@') {
+      rooms = this._twitter.get_profile_by_screenname(feed).then(profile => {
+        return Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
+          return item.remote.data.twitter_type === "timeline" &&
+            item.remote.data.twitter_user === profile.id_str;
+        });
+      })
+    } else if(util.isTwitterHashtag(feed) && symbol === '#') {
+      rooms = Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
+        return item.remote.data.twitter_type === "hashtag" &&
+          item.remote.data.twitter_hashtag === feed;
+      });
+    } else if(feed === null) {
+      rooms = roomstore.getEntriesByMatrixId(room_id);
+    } else {
+      intent.sendMessage(event.room_id, {
+        "body": "The feed was neither a valid timeline or a valid hashtag.",
+        "msgtype": "m.text"
+      });
+      return;
+    }
+
+    rooms.each((entry, index, length) => {
+      if(length === 0) {
+        intent.sendMessage(event.room_id, {
+          "body": "No linked rooms were found.",
+          "msgtype": "m.text"
+        });
+        throw new Error("No links were found.");
+      }
+
+      roomstore.removeEntriesByRemoteRoomId(entry.remote.getId());
+      if(entry.remote.data.twitter_type === "hashtag") {
+        this._twitter.timeline.remove_hashtag(entry.remote.data.twitter_hashtag, room_id);
+      } else if (entry.remote.data.twitter_type === "timeline") {
+        this._twitter.timeline.remove_timeline(entry.remote.data.twitter_user, room_id);
+      }
+    }).then( () =>{
+      intent.sendMessage(event.room_id, {
+        "body": "Unbridge successful.",
+        "msgtype": "m.text"
+      });
+    }).catch( (err) => {
+      log.error("Handler.AccountServices", "Error occured during unbridge", err);
+      intent.sendMessage(event.room_id, {
+        "body": "Couldn't unbridge the room.",
+        "msgtype": "m.text"
+      });
+    });
+      // if (type === "timeline") {
+      //
+      // }
+      // else {
+      //   this._twitter.timeline.remove_hashtag(remove_id, room_id);
+      // }
+      //
+
+
 
   }
 

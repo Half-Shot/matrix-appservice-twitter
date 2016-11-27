@@ -27,7 +27,7 @@ class TwitterRoomHandler {
   processInvite (event, request, context) {
     var remote = context.rooms.remote;
     var twitbot = "@"+this._bridge.opts.registration.sender_localpart+":"+this._bridge.opts.domain;
-    if(remote == null
+    if(remote === null
        && event.sender !== twitbot
        && event.state_key === twitbot)
     {
@@ -84,7 +84,6 @@ class TwitterRoomHandler {
         }
         return;
       }
-
     }
     log.info("RoomHandler", "Got message from a non-registered room.");
   }
@@ -111,7 +110,7 @@ class TwitterRoomHandler {
 
   onRoomCreated (alias, roomId) {
     var roomstore = this._bridge.getRoomStore();
-    roomstore.getEntriesByMatrixId(roomId).then(entries =>{
+    return roomstore.getEntriesByMatrixId(roomId).then(entries =>{
       if(entries.length === 0) {
         log.error("RoomHandler", "Got a onRoomCreated, but no remote is associated.");
         return;
