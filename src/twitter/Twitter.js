@@ -8,7 +8,7 @@ const UserStream    = require('./UserStream.js');
 const Timeline      = require('./Timeline.js');
 const Status      = require('./Status.js');
 const util = require('../util.js');
-
+const Promise = require('bluebird');
 /**
  * This class handles the connections between the Twitter API
  * and the bridge.
@@ -26,12 +26,13 @@ class Twitter {
   constructor (bridge, config, storage) {
     this._bridge = bridge;
     this._config = config;
-    this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
-    this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
     this._storage = storage;
 
     this._dm = new DirectMessage(this);
-    this._timeline = new Timeline(this);
+    this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
+    this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
+    this._timeline = new Timeline(this, this._config.timelines, this._config.hashtags);
+
     this._userstream = new UserStream(this);
     this._client_factory = new TwitterClientFactory(config.app_auth, storage);
     this._status = new Status(this);
@@ -127,7 +128,7 @@ class Twitter {
     const roomstore = this._bridge.getRoomStore();
     roomstore.getEntriesByRemoteId("service_"+user).then((items) => {
       log.info("Twitter", 'Sending %s "%s"', user, message);
-      if(items.length == 0) {
+      if(items.length === 0) {
         log.warn("Twitter", "Couldn't find service room for %s, so couldn't send notice.", user);
         return;
       }
@@ -144,17 +145,62 @@ class Twitter {
     }
 
     return this._storage.get_profile_by_id(user_profile.id_str).then((old)=>{
-      var update_name = true;
-      var update_avatar = true;
-      if(old) {
-        //If either the real name (name) or the screen_name (handle) are out of date, update the screen name.
-        update_name = (old.name != user_profile.name)
-        update_name = update_name || (old.screen_name != user_profile.screen_name);
-        update_avatar = (old.profile_image_url_https != user_profile.profile_image_url_https)
-         && this._config.media.enable_profile_images;
+      let update_name = user_profile.name != null;
+      let update_avatar = user_profile.profile_image_url_https != null;
+      let update_description = user_profile.description != null; //Update if exists.
+      if(old) { //Does an older profile exist. If not, update everything!
+        update_name = update_name &&
+         (old.name !== user_profile.name) ||
+         (old.screen_name !== user_profile.screen_name);
+
+        //Has the avatar changed.
+        update_avatar = update_avatar &&
+         (old.profile_image_url_https !== user_profile.profile_image_url_https) &&
+         this._config.media.enable_profile_images; // Do we care?
+
+        update_description = update_description &&
+         (old.description !== user_profile.description);
       }
 
-      var intent = this.get_intent(user_profile.id_str);
+      const intent = this.get_intent(user_profile.id_str);
+      var url;
+      if(update_avatar) {
+        if(user_profile == null || user_profile.profile_image_url_https == null) {
+          log.warn("Twitter", "Tried to preform a user avatar update with a null profile.");
+        }
+        else{
+          util.uploadContentFromUrl(this._bridge, user_profile.profile_image_url_https, intent).then((obj) =>{
+            url = obj.mxc_url;
+            return intent.setAvatarUrl(obj.mxc_url);
+          }).catch(err => {
+            log.error(
+                'Twitter',
+                "Couldn't set new avatar for @%s because of %s",
+                user_profile.screen_name,
+                err
+              );
+          });
+        }
+      }
+
+      if(update_description || update_avatar || update_name) {
+        //Update any rooms with this
+        var description = user_profile.description + ` | https://twitter.com/${user_profile.screen_name}`;
+        this._bridge.getRoomStore().getEntriesByMatrixRoomData(
+          {"twitter_user": user_profile.id_str}
+        ).each(entry => {
+          if(update_description) {
+            intent.setRoomTopic(entry.matrix.getId(), description);
+          }
+          if(update_avatar && url) {
+            intent.setRoomAvatar(entry.matrix.getId(), url);
+          }
+          if(old.name !== user_profile.name) {
+            intent.setRoomName(entry.matrix.getId(), "[Twitter] " + user_profile.name);
+          }
+        })
+      }
+
       if(update_name) {
         if(user_profile != null && user_profile.name != null && user_profile.screen_name != null ) {
           intent.setDisplayName(user_profile.name + " (@" + user_profile.screen_name + ")");
@@ -164,22 +210,6 @@ class Twitter {
         }
       }
 
-      if(update_avatar) {
-        if(user_profile == null || user_profile.profile_image_url_https == null) {
-          log.warn("Twitter", "Tried to preform a user avatar update with a null profile.");
-          return;
-        }
-        util.uploadContentFromUrl(this._bridge, user_profile.profile_image_url_https, intent).then((uri) =>{
-          return intent.setAvatarUrl(uri);
-        }).catch(err => {
-          log.error(
-              'Twitter',
-              "Couldn't set new avatar for @%s because of %s",
-              user_profile.screen_name,
-              err
-            );
-        });
-      }
       return this._storage.cache_user_profile(user_profile.id_str, user_profile.screen_name, user_profile, ts);
     });
   }
@@ -273,7 +303,7 @@ class Twitter {
               {
                 "type": "m.room.join_rules",
                 "content": {
-                  "join_rule": "public"
+                  "join_rule": "invite"
                 },
                 "state_key": ""
               }

@@ -23,19 +23,22 @@ class TimelineHandler {
    * @param  {external:RoomBridgeStore.Entry} entry description
    */
   onRoomCreated (alias, entry) {
+    entry.matrix.set("twitter_user", entry.remote.data.twitter_user);
+    this._bridge.getRoomStore().upsertEntry(entry);
     this.twitter.timeline.add_timeline(
         entry.remote.data.twitter_user,
         entry.matrix.getId(),
-        true
+        {is_new: true}
     );
   }
 
   processLeave (event, request, context) {
     var remote = context.rooms.remote;
-    if( remote.data.twitter_type == "user_timeline" && remote.data.twitter_owner == event.sender ) {
+    if( remote.data.twitter_type === "user_timeline" && remote.data.twitter_owner === event.sender ) {
       log.info("Handler.AccountServices", "User %s left room. Leaving", event.sender);
       this.twitter.user_stream.detach(event.sender);
       var intent = this._bridge.getIntent();
+      this.twitter.storage.remove_timeline_room(event.sender);
       intent.leave(event.room_id).then(() =>{
         var roomstore = this._bridge.getRoomStore();
         roomstore.removeEntriesByRemoteRoomData(context.rooms.remote.data);
@@ -79,9 +82,9 @@ class TimelineHandler {
       throw "User not found";
     }).then(() => {
       log.info("Handler.TimelineHandler", "User found, getting profile image");
-      return util.uploadContentFromUrl(this._bridge, tuser.profile_image_url_https).then(mxc_url =>{
+      return util.uploadContentFromUrl(this._bridge, tuser.profile_image_url_https).then(obj =>{
         log.info("Handler.TimelineHandler", "Got profile image, constructing room.");
-        return this._constructTimelineRoom(tuser, alias, mxc_url);
+        return this._constructTimelineRoom(tuser, alias, obj.mxc_url);
       })
     }).catch(reason =>{
       log.error("Twitter", "Couldn't create timeline room: ", reason);
@@ -104,13 +107,14 @@ class TimelineHandler {
     var remote = new RemoteRoom("timeline_" + user.id_str);
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", user.id_str);
+    remote.set("twitter_exclude_replies", false);
     remote.set("twitter_bidirectional", false);
-
+    var description = (user.description ? user.description : "") + ` | https://twitter.com/${user.screen_name}`;
     var opts = {
       visibility: "public",
       room_alias_name: "_twitter_@"+alias,
       name: "[Twitter] " + user.name,
-      topic: user.description,
+      topic: description,
       invite: [roomOwner],
       initial_state: [
         powers, {

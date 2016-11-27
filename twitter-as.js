@@ -9,11 +9,11 @@ const TwitterRoomHandler = require("./src/TwitterRoomHandler.js");
 const RoomHandlers = require("./src/handlers/Handlers.js");
 const TwitterDB = require("./src/TwitterDB.js");
 const util = require('./src/util.js');
-
-global.Promise = require('bluebird');
+const Provisioner = require("./src/Provisioner.js");
 
 var twitter;
 var bridge;
+var provisioner;
 
 var cli = new AppService.Cli({
   registrationPath: "twitter-registration.yaml",
@@ -67,8 +67,8 @@ var cli = new AppService.Cli({
         onAliasQueried: (alias, roomId) => { return room_handler.onRoomCreated(alias, roomId); },
         onLog: function (line, isError) {
           if(isError) {
-            if(line.indexOf("M_USER_IN_USE") == -1) {//QUIET!
-              log.error("matrix-appservice-bridge", line);
+            if(line.indexOf("M_USER_IN_USE") === -1) {//QUIET!
+              log.warn("matrix-appservice-bridge", line);
             }
           }
         }
@@ -102,6 +102,12 @@ var cli = new AppService.Cli({
     }).then(() => {
       bridge.run(port, config);
 
+      // Setup provisioning - If not enabled it will still return an error code.
+      if (config.provisioning) {
+        provisioner = new Provisioner(bridge, twitter, config);
+        provisioner.init();
+      }
+
       // Setup twitbot profile (this is needed for some actions)
       bridge.getClientFactory().getClientAs().register(regObj.sender_localpart).then( () => {
         log.info("Init", "Created user '"+regObj.sender_localpart+"'.");
@@ -119,22 +125,43 @@ var cli = new AppService.Cli({
       entries.forEach((entry) => {
         if (entry.remote.data.hasOwnProperty('twitter_type')) {
           var type = entry.remote.data.twitter_type;
-          if(type == 'timeline') {
-            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId());
+
+          //Fix rooms that are alias rooms
+          // Criteria: canonical_alias is #_twitter_@*+:domain
+          if (type === "timeline" && entry.matrix.get("twitter_user") === null) {
+            log.info("Init", `Checking ${entry.remote.getId()} to see if it's an alias room.`);
+            var stateLookup = new AppService.StateLookup(
+              {client: bridge.getIntent(), eventTypes: ["m.room.canonical_alias"]}
+            );
+            stateLookup.trackRoom(entry.matrix.getId()).then(() => {
+              var evt = stateLookup.getState(entry.matrix.getId(), "m.room.canonical_alias", "");
+              if(evt == null) {
+                return;
+              }
+              if(!evt.content.alias) {
+                return;
+              }
+
+              if(/^#_twitter_@(\w+):/.test(evt.content.alias)) {
+                entry.matrix.set("twitter_user", entry.remote.data.twitter_user);
+                roomstore.upsertEntry(entry);
+              }
+            });
           }
-          else if(type == 'hashtag') {
-            if(entry.remote.get("twitter_hashtag") == undefined) { //Older versions didn't set this.
-              entry.remote.set("twitter_hashtag", entry.remote.roomId.substr("hashtag_".length));
-              bridge.getRoomStore().linkRooms(entry.matrix, entry.remote);
-            }
-            twitter.timeline.add_hashtag(entry.remote.get("twitter_hashtag"), entry.matrix.getId());
+
+          if(type === 'timeline' && config.timelines.enable) {
+            const exclude_replies = entry.remote.data.twitter_exclude_replies;
+            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId(), {exclude_replies});
+          }
+          else if(type === 'hashtag' && config.hashtags.enable) {
+            twitter.timeline.add_hashtag(entry.remote.roomId.substr("hashtag_".length), entry.matrix.getId());
           }
           //Fix old user timeline rooms not being bidirectional.
-          else if(type == 'user_timeline') {
+          else if(type === 'user_timeline') {
             const bidrectional = entry.remote.get('twitter_bidirectional');
             if(!(bidrectional === false && bidrectional === true)) {
               entry.remote.set('twitter_bidirectional', true);
-              roomstore.linkRooms(entry.matrix, entry.remote);
+              roomstore.upsertEntry(entry);
             }
           }
         }
@@ -162,10 +189,10 @@ function userQuery (queriedUser) {
   return twitter.get_profile_by_id(queriedUser.localpart.substr("_twitter_".length)).then( (twitter_user) => {
     /* Even users with a default avatar will still have an avatar url set.
        This *should* always work. */
-    return util.uploadContentFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((uri) => {
+    return util.uploadContentFromUrl(bridge, twitter_user.profile_image_url_https, queriedUser.getId()).then((obj) => {
       return {
         name: twitter_user.name + " (@" + twitter_user.screen_name + ")",
-        url: uri,
+        url: obj.mxc_url,
         remote: new AppService.RemoteUser(twitter_user.id_str)
       };
     });

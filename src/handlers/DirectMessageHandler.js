@@ -67,7 +67,7 @@ class DirectMessageHandler {
    * @param  {MatrixEvent} event   The event data of the request.
    */
   processMessage  (event) {
-    if(event.content.msgtype == "m.text") {
+    if(event.content.msgtype === "m.text") {
       this.twitter.dm.send(event.sender, event.room_id, event.content.body);
     }
   }

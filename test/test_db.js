@@ -2,7 +2,6 @@ const assert = require('chai').assert;
 const TwitterDB = require('../src/TwitterDB.js');
 const log = require('npmlog');
 log.level = "silent";
-global.Promise = require('bluebird');
 
 
 describe('TwitterDB', function () {
@@ -13,18 +12,18 @@ describe('TwitterDB', function () {
   });
 
   describe('init()', () => {
-    var db = new TwitterDB(":memory:");
-    var promise = db.init();
-    it('should return a Promise.', () => {
-      assert.isNotNull(promise, 'init() is not null');
-    });
-
     it('should update the schema successfully', () =>{
-      return promise.then(() => {
+      var db = new TwitterDB(":memory:");
+      return db.init().then(() => {
         assert.equal(db.version, db._target_schema, 'Schema version is the correct version.')
       });
     });
-
+    it('should close properly', () => {
+      var db = new TwitterDB(":memory:");
+      return db.init().then(() => {
+        db.close();
+      });
+    });
   });
 
   describe('_get_schema_version()', () => {

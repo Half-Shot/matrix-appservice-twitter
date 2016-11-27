@@ -4,7 +4,11 @@ const Twitter = require('twitter');
 const log = require('npmlog');
 const OAuth = require('oauth');
 const util = require('../util.js');
+const Promise = require('bluebird');
+const promiseRetry = require('bluebird-retry');
 
+const RETRY_INVITE_COUNT = 5;
+const RETRY_INVITE_INTERVAL = 2500;
 /**
   * This class is a handler for conversation between users and the bridge bot to
   * link accounts together
@@ -38,15 +42,22 @@ class AccountServices {
 
   /**
    * Handler for invites from a matrix user to a (presumably)
-   * empty room. This will join the room and send some help text.
+   * 1:1 room. This will join the room and send some help text.
    * @param  {MatrixEvent} event   The event data of the request.
    * @param  {Request} request The request itself.
    * @param  {Context} context Context given by the appservice.
    */
   processInvite (event, request, context) {
     log.info("Handler.AccountServices", "Got invite");
-    var intent = this._bridge.getIntent();
-    intent.join(event.room_id).then( () => {
+    const intent = this._bridge.getIntent();
+    // Will retry 5 times before giving up
+    promiseRetry( () =>{
+      return intent.join(event.room_id);
+    }, {
+      interval: RETRY_INVITE_INTERVAL,
+      backoff: 2,
+      max_tries: RETRY_INVITE_COUNT
+    }).then( () => {
       var rroom = new RemoteRoom("service_"+event.sender);
       rroom.set("twitter_type", "service");
       this._bridge.getRoomStore().linkRooms(context.rooms.matrix, rroom);
@@ -61,6 +72,7 @@ class AccountServices {
     }).catch(err => {
       log.error("Handler.AccountServices", "Couldn't join service room. %s", err);
     })
+
   }
 
   processLeave (event, request, context) {
@@ -78,26 +90,23 @@ class AccountServices {
    */
   processMessage (event) {
     const body = event.content.body.toLowerCase();
-    if (event.sender == "@"+this._sender_localpart+":" + this._bridge.opts.domain) {
+    if (event.sender === "@"+this._sender_localpart+":" + this._bridge.opts.domain) {
       return;//Don't talk to ourselves.
     }
-    if (body.startsWith("account.link")) {
+    if (body.startsWith("account.link ")) {
       this._beginLinkAccount(event);
     }
-    else if (body == "account.unlink") {
+    else if (body === "account.unlink") {
       this._unlinkAccount(event);
     }
-    else if (body == "account.list") {
+    else if (body === "account.list") {
       this._listAccountDetails(event);
     }
-    else if(body.startsWith("bridge.room")) {
+    else if(body.startsWith("bridge.room ")) {
       this._bridgeRoom(event);
     }
-    else if(body.startsWith("bridge.unbridge")) {
-      return;
-    }
-    else if(body.startsWith("bridge.unbridge_all")) {
-      return;
+    else if(body.startsWith("bridge.unbridge ")) { // bridge.unbridge_all
+      this._unbridgeRoom(event);
     }
     else if(body.startsWith("timeline.filter")) {
       this._setFilter(event);
@@ -105,7 +114,7 @@ class AccountServices {
     else if(body.startsWith("timeline.replies")) {
       this._setReplies(event);
     }
-    else if (event.content.body == "help") {
+    else if (event.content.body === "help") {
       this._helpText(event.room_id);
     }
     else if (util.isStrInteger(event.content.body)) {
@@ -118,30 +127,36 @@ class AccountServices {
     intent.sendMessage(room_id, {
       "msgtype": "m.text",
       "body":
-`Matrix Twitter Bridge Help
-account.link [type]  Link your Twitter account to your Matrix Account
-'read' Read-only access to your account. Reading your Timeline.
-'write' Read and Write such as sending Tweets from rooms.
-'dm' Read and Write to 1:1 DM rooms. This is the god mode.
+`
+Matrix Twitter Bridge Help
 
-account.unlink   Removes your account from the bridge. All personal rooms will cease to function.
+help    This help text.
+account.link [type]    Link your Twitter account to your Matrix Account
+'read'    Read-only access to your account. Reading your Timeline.
+'write'    Read and Write such as sending Tweets from rooms.
+'dm'    Read and Write to 1:1 DM rooms. This is the god mode.
 
-account.list     List details about your account.
+account.unlink    Removes your account from the bridge. All personal rooms will cease to function.
+
+account.list    List details about your account.
 
 bridge.room [room_id] [twitter_feed]    Bridge an existing room to a @ or #. The room *must* be public.
+'room_id'    A Matrix Room ID (Not an alias).
+'twitter_feed'    Either a #hashtag or a @timeline
 
 bridge.unbridge [room_id] [twitter_feed]
+'room_id'    A Matrix Room ID (Not an alias).
+'twitter_feed'    Either a #hashtag or a @timeline. Leave blank to remove ALL links.
 
-bridge.unbridge_all [room_id]
 
 timeline.filter [option] Filter the type of tweets coming in. Defaults to 'followings'
-'followings' - gives data about the user and about the user’s followings.
-'user' - events only about the user, not about their followings.
+'followings'    gives data about the user and about the user’s followings.
+'user'    events only about the user, not about their followings.
 
 timeline.replies [option]
 'all'
 'mutual'
-help  This help text.`
+`
     });
   }
 
@@ -279,7 +294,7 @@ ${dm_rooms}`
    */
   _oauth_getAccessToken (pin, client_data, id) {
     return new Promise((resolve, reject) => {
-      if (!client_data || client_data.oauth_token == "" || client_data.oauth_secret == "") {
+      if (!client_data || client_data.oauth_token === "" || client_data.oauth_secret === "") {
         reject("User has no associated token request data");
         return;
       }
@@ -381,10 +396,10 @@ ${dm_rooms}`
 
     });
     var get_twitter_feed;
-    if(feed_id[0] === '#' && util.isAlphanumeric(feed_id.substr(1))) {
+    if(feed_id[0] === '#' && util.isTwitterHashtag(feed_id.substr(1))) {
       get_twitter_feed = Promise.resolve(feed_id.substr(1));//hashtag
     }
-    else if(feed_id[0] === '@') {
+    else if(feed_id[0] === '@' && util.isTwitterScreenName(feed_id.substr(1))) {
       get_twitter_feed = this._twitter.get_profile_by_screenname(feed_id.substr(1));
     }
     else{
@@ -397,13 +412,14 @@ ${dm_rooms}`
         remote = new RemoteRoom("hashtag_" + item);
         remote.set("twitter_type", "hashtag");
         remote.set("twitter_hashtag", item);
-        this._twitter.timeline.add_hashtag(item, room_id, true);
+        this._twitter.timeline.add_hashtag(item, room_id, {is_new: true});
       }
       else if(typeof item == "object") {
         remote = new RemoteRoom("timeline_" + item.id_str);
         remote.set("twitter_type", "timeline");
+        remote.set("twitter_exclude_replies", false);
         remote.set("twitter_user", item.id_str);
-        this._twitter.timeline.add_timeline(item.id_str, room_id, true);
+        this._twitter.timeline.add_timeline(item.id_str, room_id, {is_new: true});
       }
       else {
         throw "Unable to find Twitter feed.";
@@ -428,10 +444,91 @@ ${dm_rooms}`
 
   }
 
+  _unbridgeRoom (event) {
+    const args = event.content.body.split(" ");
+    const room_id = args[1];
+    const roomstore = this._bridge.getRoomStore();
+    let symbol = null;
+    const intent = this._bridge.getIntent();
+    let feed = null;
+    let rooms = null;
+    if(args.length < 2) {
+      return;//Not enough args.
+    }
+
+    if(args.length === 3) {
+      feed = args[2];
+      symbol = feed[0];
+      feed = feed.substr(1);
+    }
+
+
+
+    if(util.isTwitterScreenName(feed) && symbol === '@') {
+      rooms = this._twitter.get_profile_by_screenname(feed).then(profile => {
+        return Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
+          return item.remote.data.twitter_type === "timeline" &&
+            item.remote.data.twitter_user === profile.id_str;
+        });
+      })
+    } else if(util.isTwitterHashtag(feed) && symbol === '#') {
+      rooms = Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
+        return item.remote.data.twitter_type === "hashtag" &&
+          item.remote.data.twitter_hashtag === feed;
+      });
+    } else if(feed === null) {
+      rooms = roomstore.getEntriesByMatrixId(room_id);
+    } else {
+      intent.sendMessage(event.room_id, {
+        "body": "The feed was neither a valid timeline or a valid hashtag.",
+        "msgtype": "m.text"
+      });
+      return;
+    }
+
+    rooms.each((entry, index, length) => {
+      if(length === 0) {
+        intent.sendMessage(event.room_id, {
+          "body": "No linked rooms were found.",
+          "msgtype": "m.text"
+        });
+        throw new Error("No links were found.");
+      }
+
+      roomstore.removeEntriesByRemoteRoomId(entry.remote.getId());
+      if(entry.remote.data.twitter_type === "hashtag") {
+        this._twitter.timeline.remove_hashtag(entry.remote.data.twitter_hashtag, room_id);
+      } else if (entry.remote.data.twitter_type === "timeline") {
+        this._twitter.timeline.remove_timeline(entry.remote.data.twitter_user, room_id);
+      }
+    }).then( () =>{
+      intent.sendMessage(event.room_id, {
+        "body": "Unbridge successful.",
+        "msgtype": "m.text"
+      });
+    }).catch( (err) => {
+      log.error("Handler.AccountServices", "Error occured during unbridge", err);
+      intent.sendMessage(event.room_id, {
+        "body": "Couldn't unbridge the room.",
+        "msgtype": "m.text"
+      });
+    });
+      // if (type === "timeline") {
+      //
+      // }
+      // else {
+      //   this._twitter.timeline.remove_hashtag(remove_id, room_id);
+      // }
+      //
+
+
+
+  }
+
   _setFilter (event) {
     const intent = this._bridge.getIntent();
     var option = event.content.body.substr("timeline.filter ".length);
-    if(['followings', 'user'].indexOf(option) == -1) {
+    if(['followings', 'user'].indexOf(option) === -1) {
       intent.sendMessage(event.room_id, {
         "msgtype": "m.text",
         "body": "Please select one of: followings, user."
@@ -456,7 +553,7 @@ ${dm_rooms}`
   _setReplies (event) {
     const intent = this._bridge.getIntent();
     var option = event.content.body.substr("timeline.replies ".length);
-    if(['all', 'mutual'].indexOf(option) == -1) {
+    if(['all', 'mutual'].indexOf(option) === -1) {
       intent.sendMessage(event.room_id, {
         "msgtype": "m.text",
         "body": "Please select one of: followings, user."

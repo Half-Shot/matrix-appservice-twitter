@@ -1,4 +1,5 @@
 const log  = require('npmlog');
+const util = require('../util.js');
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 
 /**
@@ -26,7 +27,7 @@ class HashtagHandler {
     this.twitter.timeline.add_hashtag(
       entry.remote.getId().substr("hashtag_".length),
       entry.matrix.getId(),
-      true
+      {is_new: true}
     );
   }
 
@@ -56,13 +57,14 @@ class HashtagHandler {
   processAliasQuery (name) {
     log.info("Handler.Hashtag", "Got alias request '%s'", name);
 
-    if(/^[a-z0-9]+$/i.test(name) == false) {
-      return null; //Not alphanumeric
+    if(!util.isTwitterHashtag(name)) {
+      return null;
     }
 
     var remote = new RemoteRoom("hashtag_" + name);
     remote.set("twitter_type", "hashtag");
     remote.set("twitter_bidirectional", true);
+    remote.set("twitter_hashtag", name);
 
     return {
       creationOpts: {

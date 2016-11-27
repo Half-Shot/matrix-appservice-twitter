@@ -2,8 +2,6 @@ const chai = require('chai');
 chai.use(require("chai-as-promised"));
 const assert = chai.assert;
 const TwitterDB = require('../../src/TwitterDB.js');
-const log = require('npmlog');
-global.Promise = require('bluebird');
 
 
 describe('TwitterDB.dm', function () {
@@ -23,6 +21,7 @@ describe('TwitterDB.dm', function () {
     it("should accept correct arguements", () => {
       assert.isFulfilled(db.add_dm_room("abc", "def"), 'Accept string,string');
     });
+
   });
 
   describe('get_dm_room()', () => {
@@ -37,9 +36,12 @@ describe('TwitterDB.dm', function () {
         return assert.becomes(db.get_dm_room("bar"), "foo");
       });
     });
+
+
   });
 
   describe('get_users_from_dm_room()', () => {
+
     it("should return null if no entry exists", () => {
       var promise = db.get_users_from_dm_room("potato");
       return assert.isFulfilled(promise) && assert.becomes(promise, null);

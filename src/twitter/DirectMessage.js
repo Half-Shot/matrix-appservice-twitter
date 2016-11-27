@@ -1,5 +1,6 @@
 const log  = require('npmlog');
 const Bridge = require("matrix-appservice-bridge");
+const Promise = require('bluebird');
 
 /**
   Handler class for sending and recieving DMs.

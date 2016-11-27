@@ -1,7 +1,9 @@
 const log = require('npmlog');
+const mime = require('mime-types')
 const HTMLDecoder = new require('html-entities').AllHtmlEntities;
 
 const util = require("./util.js");
+const Promise = require('bluebird');
 
 const TWITTER_MSG_QUEUE_INTERVAL_MS = 150;
 const MSG_QUEUE_LAGGING_THRESHOLD = 50; // The number of messages to be stored in the msg queue before we complain about lag.
@@ -70,15 +72,29 @@ class TweetProcessor {
    * @see {@link https://dev.twitter.com/overview/api/tweets}
    */
   tweet_to_matrix_content (tweet, type) {
-    return {
-      "body": new HTMLDecoder().decode(tweet.text),
+    const mxtweet = {
+      "body": new HTMLDecoder().decode(tweet.full_text || tweet.text),
       "created_at": tweet.created_at,
       "likes": tweet.favorite_count,
       "reblogs": tweet.retweet_count,
       "tweet_id": tweet.id_str,
       "tags": tweet.entities.hashtags,
-      "msgtype": type
+      "msgtype": type,
+      "external_url": `https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`
     }
+
+    if (tweet._retweet_info) {
+      mxtweet.retweet = tweet._retweet_info;
+    }
+
+    // URLs
+    for(const url of tweet.entities.urls) {
+      let text = mxtweet.body;
+      text = text.substr(0, url.indices[0]) + url.expanded_url + text.substr(url.indices[1]);
+      mxtweet.body = text;
+    }
+
+    return mxtweet;
   }
 
   _push_to_msg_queue (muser, roomid, tweet, type) {
@@ -94,15 +110,24 @@ class TweetProcessor {
     var media_promises = [];
     if(tweet.entities.hasOwnProperty("media") && this.media_cfg.enable_download) {
       for(var media of tweet.entities.media) {
-        if(media.type != 'photo') {
+        if(media.type !== 'photo') {
           continue;
+        }
+        const mimetype = mime.lookup(media.media_url_https);
+        const media_info = {
+          w: media.sizes.large.w,
+          h: media.sizes.large.h,
+          mimetype,
+          size: 0
+
         }
         media_promises.push(
           util.uploadContentFromUrl(
             this._bridge,
             media.media_url_https,
             this._bridge.getIntentFromLocalpart("_twitter_" + tweet.id_str)
-          ).then( (mxc_url) => {
+          ).then( (obj) => {
+            media_info.size = obj.size;
             return {
               userId: muser,
               roomId: roomid,
@@ -110,8 +135,9 @@ class TweetProcessor {
               type: "m.room.message",
               content: {
                 body: media.display_url,
+                info: media_info,
                 msgtype: "m.image",
-                url: mxc_url
+                url: obj.mxc_url
               }
             }
           })
@@ -198,11 +224,12 @@ class TweetProcessor {
         rooms = [rooms];
       }
       rooms.forEach((roomid) => {
-        var isRetweet = false;
         if(tweet.retweeted_status) {
-          isRetweet = this._storage.room_has_tweet(roomid, tweet.retweeted_status.id_str);
+          tweet.retweeted_status._retweet_info = { id: tweet.id_str, tweet: tweet.user.id_str };
+          tweet = tweet.retweeted_status; // We always want the root tweet.
         }
-        if(!this._storage.room_has_tweet(roomid, tweet.id_str) && !isRetweet) {
+        if(!this._storage.room_has_tweet(roomid, tweet.id_str)) {
+          this.processed_tweets.push(roomid, tweet.id_str);
           this._push_to_msg_queue('@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type);
           return;
         }

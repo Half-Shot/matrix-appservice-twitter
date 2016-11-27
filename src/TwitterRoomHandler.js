@@ -27,11 +27,9 @@ class TwitterRoomHandler {
   processInvite (event, request, context) {
     var remote = context.rooms.remote;
     var twitbot = "@"+this._bridge.opts.registration.sender_localpart+":"+this._bridge.opts.domain;
-    if(remote != null && event.sender != twitbot) {
-      return;
-    }
-
-    if(event.state_key == twitbot)
+    if(remote === null
+       && event.sender !== twitbot
+       && event.state_key === twitbot)
     {
       this.handlers.services.processInvite(event, request, context);
     }
@@ -47,10 +45,10 @@ class TwitterRoomHandler {
     }
     var type = remote.data.twitter_type;
 
-    if(type == "service") {
+    if(type === "service") {
       this.handlers.services.processLeave(event, request, context);
     }
-    else if(type == "user_timeline") {
+    else if(type === "user_timeline") {
       this.handlers.timeline.processLeave(event, request, context)
     }
   }
@@ -58,36 +56,35 @@ class TwitterRoomHandler {
   passEvent (request, context) {
     var event = request.getData();
     var remote = context.rooms.remote;
-    if (event.type == "m.room.member") {
-      if(event.membership == "invite") {
+    if (event.type === "m.room.member") {
+      if(event.membership === "invite") {
         this.processInvite(event, request, context);
       }
-      else if(event.membership == "leave") {
+      else if(event.membership === "leave") {
         this.processLeave(event, request, context);
       }
     }
     else if(remote) {
-      if(event.type == "m.room.message") {
-        if(remote.data.twitter_type == "service") {
+      if(event.type === "m.room.message") {
+        if(remote.data.twitter_type === "service") {
           this.handlers.services.processMessage(event, request, context);
         }
-        else if(remote.data.twitter_type == "timeline") {
+        else if(remote.data.twitter_type === "timeline") {
           this.handlers.timeline.processMessage(event, request, context);
         }
-        else if(remote.data.twitter_type == "hashtag") {
+        else if(remote.data.twitter_type === "hashtag") {
           this.handlers.hashtag.processMessage(event, request, context);
         }
-        else if(remote.data.twitter_type == "dm") {
+        else if(remote.data.twitter_type === "dm") {
           this.handlers.directmessage.processMessage(event, request, context);
         }
-        else if(remote.data.twitter_type == "user_timeline") {
-          if(remote.data.twitter_owner == event.sender) {
+        else if(remote.data.twitter_type === "user_timeline") {
+          if(remote.data.twitter_owner === event.sender) {
             this.handlers.timeline.processMessage(event, request, context);
           }
         }
         return;
       }
-
     }
     log.info("RoomHandler", "Got message from a non-registered room.");
   }
@@ -97,10 +94,10 @@ class TwitterRoomHandler {
     var part = aliasLocalpart.substr("_twitter_.".length);
 
     //TODO: Check permissions for admins
-    if(type[0] == '@' && this._timelines.enable) { //User timeline
+    if(type[0] === '@' && this._timelines.enable) { //User timeline
       return this.handlers.timeline.processAliasQuery(part);
     }
-    else if(type[0] == '#' && this._hashtags.enable) { //Hashtag
+    else if(type[0] === '#' && this._hashtags.enable) { //Hashtag
       return this.handlers.hashtag.processAliasQuery(part);
     }
     else {
@@ -111,16 +108,16 @@ class TwitterRoomHandler {
 
   onRoomCreated (alias, roomId) {
     var roomstore = this._bridge.getRoomStore();
-    roomstore.getEntriesByMatrixId(roomId).then(entries =>{
-      if(entries.length == 0) {
+    return roomstore.getEntriesByMatrixId(roomId).then(entries =>{
+      if(entries.length === 0) {
         log.error("RoomHandler", "Got a onRoomCreated, but no remote is associated.");
         return;
       }
       var type = entries[0].remote.data.twitter_type
-      if(type == "timeline") {
+      if(type === "timeline") {
         this.handlers.timeline.onRoomCreated(alias, entries[0]);
       }
-      else if(type == "hashtag") {
+      else if(type === "hashtag") {
         this.handlers.hashtag.onRoomCreated(alias, entries[0]);
       }
     });

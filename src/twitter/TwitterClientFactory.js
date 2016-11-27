@@ -3,6 +3,7 @@ const Request  = require('request');
 const FS       = require('fs');
 const Buffer   = require('buffer').Buffer;
 const Twitter  = require('twitter');
+const Promise = require('bluebird');
 
 const TWITTER_CLIENT_INTERVAL_MS    = 60000*10;
 
@@ -67,7 +68,7 @@ class TwitterClientFactory {
               reject(error);
               return;
             }
-            if(response.statusCode == 401) {
+            if(response.statusCode === 401) {
               log.warn('TClientFactory', "Authentication with existing token failed. ");
               FS.unlink('bearer.tok', (err) => {
                 if(err) {
@@ -76,7 +77,7 @@ class TwitterClientFactory {
                 resolve(this._get_bearer_http());
               });
             }
-            else if (response.statusCode == 200) {
+            else if (response.statusCode === 200) {
               log.info('TClientFactory', "Existing token OK.");
               resolve(token);
             }
@@ -118,7 +119,7 @@ class TwitterClientFactory {
           } catch (e) {
             reject(e);
           }
-          if (jsonresponse.token_type == "bearer") {
+          if (jsonresponse.token_type === "bearer") {
             FS.writeFile("bearer.tok", jsonresponse.access_token, (err) => {
               if (err) {
                 //This error is unfortunate, but not a failure to retrieve a token so the bridge can run fine.

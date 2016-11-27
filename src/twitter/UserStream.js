@@ -1,6 +1,7 @@
 const log  = require('npmlog');
 
-const STREAM_RETRY_INTERVAL = 15000;
+const STREAM_RETRY_INTERVAL = 5000;
+const BACKOFF_NOTIFY_USER_AT = (1000*60*2);
 const STREAM_LOCKOUT_RETRY_INTERVAL = 60*60*1000;
 const TWEET_REPLY_MAX_DEPTH = 0;
 
@@ -8,6 +9,7 @@ class UserStream {
   constructor (twitter) {
     this.twitter = twitter;
     this._user_streams = new Map();
+    this._backoff = new Map();
   }
 
   attach_all () {
@@ -34,6 +36,10 @@ class UserStream {
     this._user_streams.set(user_id, "pending");//Block race attempts;
     var client;
     return this.twitter.client_factory.get_client(user_id).then((c) => {
+      if(!c) {
+        this._user_streams.delete(user_id);
+        throw "get_client didn't resolve to a client, so something's up.";
+      }
       client = c;
       return this.twitter.storage.get_timeline_room(user_id);
     }).then(room => {
@@ -42,16 +48,30 @@ class UserStream {
         throw "User has no attached timeline room. This is probably a bug.";
       }
       var stream = client.stream('user', {with: room.with, replies: room.replies});
-      stream.on('data',  (data) => { this._on_stream_data(user_id, data); });
+      stream.on('data',  (data) => {
+        if(this._backoff.has(user_id)) {
+          this._backoff.delete(user_id);
+        }
+        this._on_stream_data(user_id, data);
+      });
       stream.on('error', (error) => {
-        log.error("UserStream", "Stream gave an error %s", error);
-        this.detach(user_id);
-        setTimeout(() => {this.attach(user_id); }, STREAM_RETRY_INTERVAL);
+        throw error;
       });
       this._user_streams.set(user_id, stream);
       log.info("UserStream", "Attached stream for " + user_id);
     }).catch(reason =>{
-      log.warn("UserStream", "Couldn't attach user stream for %s : %s", user_id, reason);
+      const backoff =  2 * (this._backoff.has(user_id) ? this._backoff.get(user_id) : STREAM_RETRY_INTERVAL/2);
+      this._backoff.set(user_id, backoff);
+      if (backoff >= BACKOFF_NOTIFY_USER_AT) {
+        this.twitter.notify_matrix_user(user_id,
+          `Currently experiencing connection issues with Twitter. Will retry to connect in ${backoff/1000} seconds.
+          If this continues, notify the bridge maintainer.`);
+      }
+      this.detach(user_id);
+      setTimeout(() => {this.attach(user_id); }, backoff);
+      log.error(
+        "UserStream", "Stream gave an error %s. Detaching for %s seconds for %s.", reason, backoff/1000, user_id
+      );
     });
   }
 
@@ -59,7 +79,7 @@ class UserStream {
     if(this._user_streams.has(user_id)) {
       this._user_streams.get(user_id).destroy();
       this._user_streams.delete(user_id);
-      log.info("UserStream", "Detached stream for " + user_id);
+      log.info("UserStream", "Detached stream for ", user_id);
     }
   }
 
@@ -108,7 +128,7 @@ class UserStream {
   }
 
   _handle_disconnect (user_id, data) {
-    if(data.disconnect.code == 2) {
+    if(data.disconnect.code === 2) {
       log.error(
         "UserStream",
         "Disconnect error for too many duplicate streams. Bailing on this user.\n%s",
@@ -121,7 +141,7 @@ class UserStream {
          "We had an issue connecting to your Twitter account. Services may be distrupted"
        );
     }
-    else if(data.disconnect.code == 6 ) {
+    else if(data.disconnect.code === 6 ) {
       log.error("UserStream", "Token revoked. We can't do any more here.\n%s",
        data.warning.message);
     }

@@ -1,5 +1,6 @@
 const SQLite3 = require('sqlite3').verbose();
 const log = require('npmlog');
+const Promise = require('bluebird');
 
 const CURRENT_SCHEMA = 4;
 /**
@@ -13,7 +14,7 @@ class TwitterDB {
     this.db = new SQLite3.Database(filepath, (err) => {
       if(err) {
         log.error("TwitDB", "Error opening database, %s");
-        throw "Couldn't open database. The appservice won't be able to continue.";
+        throw new Error("Couldn't open database. The appservice won't be able to continue.");
       }
     });
     this._target_schema = CURRENT_SCHEMA;
@@ -84,7 +85,7 @@ class TwitterDB {
       FROM schema
       `
     ).then((row) =>{
-      return row == undefined ? 0 : row.version;
+      return row === undefined ? 0 : row.version;
     }).catch( ()  => {
       return 0;
     });
