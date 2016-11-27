@@ -22,29 +22,32 @@ const bridge = {
 }
 
 var _was_invited, _left, _message, _alias, _room_created;
-const dummyHandler = {
-  processInvite: function () {
-    _was_invited = true;
-  },
-  processLeave: function () {
-    _left = true;
-  },
-  processMessage: function () {
-    _message = true;
-  },
-  processAliasQuery: function () {
-    _alias = true;
-  },
-  onRoomCreated: function () {
-    _room_created = true;
-  }
-}
+var _handler_called;
+const handlers = {};
 
-const handlers = {
-  services: dummyHandler,
-  timeline: dummyHandler,
-  hashtag: dummyHandler,
-  directmessage: dummyHandler
+for (let type of ["services", "timeline", "directmessage", "hashtag"]) {
+  handlers[type] = {
+    processInvite: function () {
+      _was_invited = true;
+      _handler_called = type;
+    },
+    processLeave: function () {
+      _left = true;
+      _handler_called = type;
+    },
+    processMessage: function () {
+      _message = true;
+      _handler_called = type;
+    },
+    processAliasQuery: function () {
+      _alias = true;
+      _handler_called = type;
+    },
+    onRoomCreated: function () {
+      _room_created = true;
+      _handler_called = type;
+    }
+  }
 }
 
 const config = {
@@ -65,6 +68,7 @@ describe('TwitterRoomHandler', function () {
     _message = false;
     _alias = false;
     _room_created = false;
+    _handler_called = "";
   });
 
   describe('processInvite', function () {
@@ -72,31 +76,42 @@ describe('TwitterRoomHandler', function () {
       room_handler.processInvite({
         sender: "@foo:bar.com",
         state_key: "@foo:bar.com"
-      }, null, {rooms: { remote: null } })
+      }, null, {rooms: { remote: null } });
       assert.isFalse(_was_invited);
     });
     it('should fail if context is present', function () {
       room_handler.processInvite({
         sender: "@lemon:cake.com",
         state_key: "@foo:bar.com"
-      }, null, {rooms: { remote: {} } })
+      }, null, {rooms: { remote: {} } });
       assert.isFalse(_was_invited);
     });
-    it('should fail if the state key is not the bot', function () {
+    it('should go to dm if context is present', function () {
       room_handler.processInvite({
         sender: "@lemon:cake.com",
         state_key: "@lemon:cake.com"
-      }, null, {rooms: { remote: null } })
-      assert.isFalse(_was_invited);
+      }, null, {rooms: { remote: {} } });
+      assert.isTrue(_was_invited);
+      assert.equal(_handler_called, "directmessage");
     });
-    it('should succeed if the state key is not the bot', function () {
+    it('should go to dm if the state key is not the bot', function () {
+      room_handler.processInvite({
+        sender: "@lemon:cake.com",
+        state_key: "@lemon:cake.com"
+      }, null, {rooms: { remote: null } });
+      assert.isTrue(_was_invited);
+      assert.equal(_handler_called, "directmessage");
+    });
+    it('should go to services if the state key is the bot', function () {
       room_handler.processInvite({
         sender: "@lemon:cake.com",
         state_key: "@foo:bar.com"
-      }, null, {rooms: { remote: null } })
+      }, null, {rooms: { remote: null } });
       assert.isTrue(_was_invited);
+      assert.equal(_handler_called, "services");
     });
   });
+
   describe('processLeave', function () {
     it('should fail if context is null', function () {
       room_handler.processLeave(null, null, {rooms: { remote: null } })

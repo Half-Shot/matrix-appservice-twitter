@@ -27,13 +27,16 @@ class TwitterRoomHandler {
   processInvite (event, request, context) {
     var remote = context.rooms.remote;
     var twitbot = "@"+this._bridge.opts.registration.sender_localpart+":"+this._bridge.opts.domain;
+    if(event.sender === twitbot) {
+      return;
+    }
     if(remote === null
-       && event.sender !== twitbot
        && event.state_key === twitbot)
     {
       this.handlers.services.processInvite(event, request, context);
     }
-    else {
+
+    if(event.state_key !== twitbot) {
       this.handlers.directmessage.processInvite(event, request, context);
     }
   }
