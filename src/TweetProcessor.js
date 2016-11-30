@@ -88,9 +88,11 @@ class TweetProcessor {
     }
 
     // URLs
+    let offset = 0;
     for(const url of tweet.entities.urls) {
       let text = mxtweet.body;
-      text = text.substr(0, url.indices[0]) + url.expanded_url + text.substr(url.indices[1]);
+      text = text.substr(0, offset+ url.indices[0]) + url.expanded_url + text.substr(url.indices[1]);
+      offset += url.expanded_url.length - (url.indices[1] - url.indices[0]);
       mxtweet.body = text;
     }
 
@@ -219,15 +221,17 @@ class TweetProcessor {
     }
 
     this._twitter.update_profile(tweet.user);
+    if(tweet.retweeted_status) {
+      tweet.retweeted_status._retweet_info = { id: tweet.id_str, tweet: tweet.user.id_str };
+      tweet = tweet.retweeted_status; // We always want the root tweet.
+      this._twitter.update_profile(tweet.user);
+    }
+
     promise.then( () => {
       if(typeof rooms == "string") {
         rooms = [rooms];
       }
       rooms.forEach((roomid) => {
-        if(tweet.retweeted_status) {
-          tweet.retweeted_status._retweet_info = { id: tweet.id_str, tweet: tweet.user.id_str };
-          tweet = tweet.retweeted_status; // We always want the root tweet.
-        }
         if(!this._storage.room_has_tweet(roomid, tweet.id_str)) {
           this.processed_tweets.push(roomid, tweet.id_str);
           this._push_to_msg_queue('@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type);
