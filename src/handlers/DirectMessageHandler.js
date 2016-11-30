@@ -30,7 +30,7 @@ class DirectMessageHandler {
   processInvite (event, request, context) {
     var user_id = context.senders.matrix.getId();
     var sender, recipient, intentS, intentR = null;
-    return this.twitter.dm.can_use(context.senders.matrix.getId(user_id)).then(() =>{
+    return this.twitter.dm.can_use(context.senders.matrix.getId()).then(() =>{
       //Get the senders account.
       return this._storage.get_profile_from_mxid(user_id);
     }).then(profile => {
