@@ -258,7 +258,7 @@ class Timeline {
       const s = feed[0].id_str;
       this.twitter.storage.set_since("@"+tline.twitter_id, s);
       log.silly("Timeline", "Storing since: %s", s);
-      this.twitter.processor.process_tweets(tline.room, feed.reverse(), TWEET_REPLY_MAX_DEPTH);
+      this.twitter.processor.process_tweets(tline.room, feed, TWEET_REPLY_MAX_DEPTH);
     }).catch((error) =>{
       log.error("Timeline", "_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
     });
@@ -307,7 +307,7 @@ class Timeline {
       const s = results.statuses[0].id_str;
       this.twitter.storage.set_since(feed.hashtag, s);
       log.silly("Timeline", "Storing since: %s", s);
-      this.twitter.processor.process_tweets(feed.room, results.statuses.reverse(), 0);
+      this.twitter.processor.process_tweets(feed.room, results.statuses, 0);
     }).catch((error) => {
       log.error("Timeline", "_process_hashtag_feed: GET /search/tweets returned: %s", error);
     });
