@@ -65,7 +65,7 @@ class AccountServices {
         {
           "body": "This bot can help you link/unlink your twitter account with the " +
           "Matrix Twitter Bridge. If this was not your intention, please kick the bot.",
-          "msgtype": "m.text"
+          "msgtype": "m.notice"
         }
       );
       //Add the room to the list.
@@ -125,7 +125,7 @@ class AccountServices {
   _helpText (room_id) {
     var intent = this._bridge.getIntent();
     intent.sendMessage(room_id, {
-      "msgtype": "m.text",
+      "msgtype": "m.notice",
       "body":
 `
 Matrix Twitter Bridge Help
@@ -184,7 +184,7 @@ timeline.replies [option]
       return Promise.resolve("[Not implemented yet]");
     }).then(dm_rooms => {
       intent.sendMessage(event.room_id, {
-        "msgtype": "m.text",
+        "msgtype": "m.notice",
         "body":
 `Linked Twitter Account: ${account.screenname}
 Access Type: ${account.access_type}
@@ -196,7 +196,7 @@ ${dm_rooms}`
     }).catch(err => {
       log.warn("Handler.AccountServices", "Encountered an error trying to get profile information. %s", err);
       intent.sendMessage(event.room_id, {
-        "msgtype": "m.text",
+        "msgtype": "m.notice",
         "body": err
       });
     })
@@ -218,13 +218,13 @@ ${dm_rooms}`
     this._oauth_getUrl(event.sender, access_type).then( (url) =>{
       intent.sendMessage(event.room_id, {
         "body": `Go to ${url} to receive your PIN, and then type it in below.`,
-        "msgtype": "m.text"
+        "msgtype": "m.notice"
       });
     }).catch(err => {
       log.error("Handler.AccountServices", `Couldn't get authentication URL: ${err}` );
       intent.sendMessage(event.room_id, {
         "body": "We are unable to process your request at this time. Make sure you entered the command correctly.",
-        "msgtype": "m.text"
+        "msgtype": "m.notice"
       });
     });
   }
@@ -242,7 +242,7 @@ ${dm_rooms}`
     this._twitter.user_stream.detach(event.sender);
     intent.sendMessage(event.room_id, {
       "body": "Your account (if it was linked) is now unlinked from Matrix.",
-      "msgtype": "m.text"
+      "msgtype": "m.notice"
     });
   }
 
@@ -260,14 +260,14 @@ ${dm_rooms}`
       if(client_data == null) {
         intent.sendMessage(event.room_id, {
           "body": "You must request access with 'link account' first.",
-          "msgtype": "m.text"
+          "msgtype": "m.notice"
         });
         return;
       }
       this._oauth_getAccessToken(pin, client_data, event.sender).then(() => {
         intent.sendMessage(event.room_id, {
           "body": "All good. You should now be able to use your Twitter account on Matrix.",
-          "msgtype": "m.text"
+          "msgtype": "m.notice"
         });
         return this._twitter.create_user_timeline(event.sender);
       }).then(() => {
@@ -276,7 +276,7 @@ ${dm_rooms}`
         intent.sendMessage(event.room_id, {
           "body": "We couldn't verify this PIN :(. Maybe you typed it wrong or you"
               + " might need to request it again.",
-          "msgtype": "m.text"
+          "msgtype": "m.notice"
         });
         log.error("Handler.AccountServices", "OAuth Access Token Failed:%s", err);
       });
@@ -436,7 +436,7 @@ ${dm_rooms}`
       });
     }).catch(err => {
       intent.sendMessage(event.room_id, {
-        "msgtype": "m.text",
+        "msgtype": "m.notice",
         "body": "Error occured"
       });
       log.error("Handler.AccountServices", "Error occured %s", err);
@@ -481,7 +481,7 @@ ${dm_rooms}`
     } else {
       intent.sendMessage(event.room_id, {
         "body": "The feed was neither a valid timeline or a valid hashtag.",
-        "msgtype": "m.text"
+        "msgtype": "m.notice"
       });
       return;
     }
@@ -490,7 +490,7 @@ ${dm_rooms}`
       if(length === 0) {
         intent.sendMessage(event.room_id, {
           "body": "No linked rooms were found.",
-          "msgtype": "m.text"
+          "msgtype": "m.notice"
         });
         throw new Error("No links were found.");
       }
@@ -504,13 +504,13 @@ ${dm_rooms}`
     }).then( () =>{
       intent.sendMessage(event.room_id, {
         "body": "Unbridge successful.",
-        "msgtype": "m.text"
+        "msgtype": "m.notice"
       });
     }).catch( (err) => {
       log.error("Handler.AccountServices", "Error occured during unbridge", err);
       intent.sendMessage(event.room_id, {
         "body": "Couldn't unbridge the room.",
-        "msgtype": "m.text"
+        "msgtype": "m.notice"
       });
     });
       // if (type === "timeline") {
@@ -530,7 +530,7 @@ ${dm_rooms}`
     var option = event.content.body.substr("timeline.filter ".length);
     if(['followings', 'user'].indexOf(option) === -1) {
       intent.sendMessage(event.room_id, {
-        "msgtype": "m.text",
+        "msgtype": "m.notice",
         "body": "Please select one of: followings, user."
       });
       return;
@@ -538,7 +538,7 @@ ${dm_rooms}`
     this._storage.get_timeline_room(event.sender).then(room => {
       if(room == null) {
         intent.sendMessage(event.room_id, {
-          "msgtype": "m.text",
+          "msgtype": "m.notice",
           "body": "Your account isn't linked yet."
         });
         return;
@@ -555,7 +555,7 @@ ${dm_rooms}`
     var option = event.content.body.substr("timeline.replies ".length);
     if(['all', 'mutual'].indexOf(option) === -1) {
       intent.sendMessage(event.room_id, {
-        "msgtype": "m.text",
+        "msgtype": "m.notice",
         "body": "Please select one of: followings, user."
       });
       return;
@@ -563,7 +563,7 @@ ${dm_rooms}`
     this._storage.get_timeline_room(event.sender).then(room => {
       if(room == null) {
         intent.sendMessage(event.room_id, {
-          "msgtype": "m.text",
+          "msgtype": "m.notice",
           "body": "Your account isn't linked yet."
         });
         return;
