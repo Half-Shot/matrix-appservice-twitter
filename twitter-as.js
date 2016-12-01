@@ -79,6 +79,10 @@ var cli = new AppService.Cli({
 
     var tstorage = new TwitterDB(config.bridge.database_file || "twitter.db");
 
+    if (config.metrics && config.metrics.enable) {
+      bridge.getPrometheusMetrics();
+      log.info("Init", "Prometheus metrics enabled");
+    }
 
     twitter = new Twitter(bridge, config, tstorage);
     var opt = {
