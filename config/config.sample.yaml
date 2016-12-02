@@ -34,3 +34,6 @@ logging:
 provisioning: # Provisioning system for scalar-enabled clients such as Riot.
   enable: true # Enable the system. This does not disable existing registered rooms.
   required_power_level: 50 # Required power level to bridge to rooms. Defaults to 50.
+
+metrics: # Expose prometheus-style bridge statistics from '/metrics'
+  enable: true

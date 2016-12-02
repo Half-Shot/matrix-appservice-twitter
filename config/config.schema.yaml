@@ -69,3 +69,8 @@ properties:
               type: "boolean"
             required_power_level:
               type: "integer"
+    metrics:
+      type: "object"
+      properties:
+        enable:
+          type: "boolean"
