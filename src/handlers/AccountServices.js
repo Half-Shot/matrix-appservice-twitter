@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 const MatrixRoom = require("matrix-appservice-bridge").MatrixRoom;
 const Twitter = require('twitter');
@@ -217,7 +218,13 @@ ${dm_rooms}`
   _beginLinkAccount (event) {
     var intent = this._bridge.getIntent();
     var access_type = event.content.body.substr("link account ".length);
-    access_type = access_type.length > 0 ? access_type : "read";
+    if(!["read", "write", "dm"].includes(access_type)) {
+      intent.sendMessage(event.room_id, {
+        "body": "You must specify either read, write or dm access.",
+        "msgtype": "m.notice"
+      });
+      return;
+    }
     log.info("Handler.AccountServices",
     `${event.sender} is requesting a twitter account link (${access_type} access).`
     );

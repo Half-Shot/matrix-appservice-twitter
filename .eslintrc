@@ -18,7 +18,7 @@
         skipComments: true,
         skipBlankLines: true
       }],
-      max-len: ["error", {
+      max-len: ["warn", {
         code: 120,
         ignoreComments: true,
       }],
