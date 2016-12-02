@@ -11,7 +11,6 @@
 */
 
 const log      = require('npmlog');
-const REPLY_TIMEOUT = 60*5000;
 const TWEET_SIZE = 140;
 const CONSECUTIVE_TWEET_MAX = 3;
 
@@ -49,7 +48,6 @@ class Status {
     }).then(tweets => {
       return this._send_tweets(client, tweets, null);
     }).catch(err =>{
-      console.log(err);
       if(err.notify) {
         this._twitter.notify_matrix_user(user, err.notify);
         log.info("Status", "Couldn't send tweet: %s", err.error);
@@ -148,7 +146,7 @@ class Status {
         return Promise.reject(
           {
             "notify": `The tweet was over the limit the bridge supports.
-            We support ${CONSECUTIVE_TWEET_MAX*(TWEET_SIZE-(sname.length))} characters (or ${CONSECUTIVE_TWEET_MAX} tweets.) `,
+We support ${CONSECUTIVE_TWEET_MAX*(TWEET_SIZE-(sname.length))} characters (or ${CONSECUTIVE_TWEET_MAX} tweets.) `,
             "error": `Tweet was too large.`
           }
         );
@@ -167,7 +165,7 @@ class Status {
   }
 
   _send_tweets (client, tweets, previous) {
-    if(tweets.length === 0){
+    if(tweets.length === 0) {
       return Promise.resolve();
     }
     const tweet = tweets.shift();

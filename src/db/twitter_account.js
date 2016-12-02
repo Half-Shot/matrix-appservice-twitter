@@ -1,5 +1,5 @@
 const log = require('npmlog');
-
+const TWITTER_PROFILE_INTERVAL_MS = 10*60000;
 module.exports = {
   get_twitter_account: function (user_id) {
     log.silly("SQL", "get_twitter_account => %s", user_id);

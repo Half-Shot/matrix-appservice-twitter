@@ -19,7 +19,7 @@ class DirectMessage {
       if(account == null) {
         throw "Matrix account isn't linked to any twitter account.";
       }
-      else if (account.access_type != "dm") {
+      else if (account.access_type !== "dm") {
         throw  {
           "notify": "Your account doesn't have the correct permission level to send tweets.",
           "error": `Account only has ${account.access_type} permissions.`
@@ -69,7 +69,7 @@ class DirectMessage {
     this.twitter.update_profile(msg.sender);
     this.twitter.update_profile(msg.recipient);
 
-    if(this._sent_dms.get(users) == msg.id_str) {
+    if(this._sent_dms.get(users) === msg.id_str) {
       log.verbose("DirectMessage", "DM has already been processed, ignoring.");
       return;
     }

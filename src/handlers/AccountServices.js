@@ -72,7 +72,6 @@ class AccountServices {
     }).catch(err => {
       log.error("Handler.AccountServices", "Couldn't join service room. %s", err);
     })
-
   }
 
   processLeave (event, request, context) {
@@ -119,6 +118,13 @@ class AccountServices {
     }
     else if (util.isStrInteger(event.content.body)) {
       this._processPIN(event);
+    }
+    else{
+      var intent = this._bridge.getIntent();
+      intent.sendMessage(event.room_id, {
+        "msgtype": "m.notice",
+        "body": "Unknown command or invalid arguments"
+      });
     }
   }
 
@@ -462,8 +468,6 @@ ${dm_rooms}`
       feed = feed.substr(1);
     }
 
-
-
     if(util.isTwitterScreenName(feed) && symbol === '@') {
       rooms = this._twitter.get_profile_by_screenname(feed).then(profile => {
         return Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
@@ -513,16 +517,6 @@ ${dm_rooms}`
         "msgtype": "m.notice"
       });
     });
-      // if (type === "timeline") {
-      //
-      // }
-      // else {
-      //   this._twitter.timeline.remove_hashtag(remove_id, room_id);
-      // }
-      //
-
-
-
   }
 
   _setFilter (event) {
