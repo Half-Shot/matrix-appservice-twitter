@@ -55,7 +55,13 @@ class TimelineHandler {
    * @param  {object} context Context given by the appservice.
    */
   processMessage (event, request, context) {
-    this.twitter.status.send_matrix_event(event, context.senders.matrix, context.rooms.remotes);
+    this.twitter.status.send_matrix_event(
+      event,
+      context.senders.matrix,
+      context.rooms.remotes
+    ).catch(() => {
+      log.info("Handler.Hashtag", "Failed to send tweet.");
+    });
   }
 
   /**

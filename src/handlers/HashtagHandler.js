@@ -44,7 +44,9 @@ class HashtagHandler {
         event,
         context.senders.matrix,
         context.rooms.remotes
-      );
+      ).catch(err => {
+        log.info("Handler.Hashtag", "Failed to send tweet.");
+      });
   }
 
   /**
