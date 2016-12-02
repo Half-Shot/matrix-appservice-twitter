@@ -1,17 +1,17 @@
 const log = require('npmlog');
 
 module.exports = {
-  add_event: function (event_id, room_id, tweet_id, ts) {
+  add_event: function (event_id, sender, room_id, tweet_id, ts) {
     log.silly("SQL", "add_event => %s", event_id);
     return this.db.runAsync(
       `
       INSERT INTO event_tweet
-      (event_id,room_id,tweet_id,timestamp)
-      VALUES ($event_id, $room_id, $tweet_id, $timestamp)
-
+      (event_id, sender, room_id,tweet_id,timestamp)
+      VALUES ($event_id, $sender, $room_id, $tweet_id, $timestamp)
       `
     , {
       $event_id: event_id,
+      $sender: sender,
       $room_id: room_id,
       $tweet_id: tweet_id,
       $timestamp: ts
