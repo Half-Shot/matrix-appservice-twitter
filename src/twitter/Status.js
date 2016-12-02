@@ -12,32 +12,13 @@
 
 const log      = require('npmlog');
 const REPLY_TIMEOUT = 60*5000;
+const TWEET_SIZE = 140;
+const CONSECUTIVE_TWEET_MAX = 3;
 
 class Status {
   constructor (twitter) {
     this._twitter = twitter;
   }
-
-  _can_send (user_id) {
-    if(user_id == null) {
-      return Promise.reject("User isn't known by the AS");
-    }
-    return this._twitter._storage.get_twitter_account(user_id).then((account) => {
-      if(account == null) {
-        throw "Matrix account isn't linked to any twitter account.";
-      }
-      else if (account.access_type == "read") {
-        throw  {
-          "notify": "Your account doesn't have the correct permission level to send tweets.",
-          "error": `Account only has ${account.access_type} permissions.`
-        }
-      }
-      else{
-        return;
-      }
-    });
-  }
-
   /**
    * Takes a message event from a room and tries
    * to identify the sender and the correct format before processing it
@@ -48,9 +29,27 @@ class Status {
    * @param  {external:RemoteRoom} rooms  The remote room that got the message.
    */
   send_matrix_event (event, user, rooms) {
-    return this._can_send(user).then( () => {
-      return this._get_event_context(event, rooms);
+    let context;
+    let client;
+    return this._can_send(user.userId).then( () => {
+      return this._twitter.client_factory._get_twitter_client(user.userId);
+    }).then(cli => {
+      client = cli;
+      return this._get_room_context(rooms);
+    }).then(room_context => {
+      context = this._get_tweet_context(event.content.body);
+      context.hashtags = context.hashtags.filter( item => {return room_context.hashtags.includes(item);} );
+      context.screennames = context.screennames.filter( item => {return room_context.screennames.includes(item);} );
+      if(context.hashtags.length + context.screennames.length === 0 && !room_context.pass) {
+        return Promise.reject("No context given.");
+      }
+      return this._twitter.storage.get_profile_from_userid(user.userId);
+    }).then(profile => {
+      return this._build_tweets(event, context, profile);
+    }).then(tweets => {
+      return this._send_tweets(client, tweets, null);
     }).catch(err =>{
+      console.log(err);
       if(err.notify) {
         this._twitter.notify_matrix_user(user, err.notify);
         log.info("Status", "Couldn't send tweet: %s", err.error);
@@ -58,102 +57,130 @@ class Status {
       else {
         log.info("Status", "Couldn't send tweet: %s", err);
       }
+      throw "Couldn't send tweet.";
+    });
+  }
+
+  _can_send (user_id) {
+    if(user_id == null) {
+      return Promise.reject("User isn't known by the AS");
+    }
+    return this._twitter.storage.get_twitter_account(user_id).then((account) => {
+      if(account === null) {
+        return Promise.reject("Matrix account isn't linked to any twitter account.");
+      }
+      else if (account.access_type === "read") {
+        return Promise.reject({
+          "notify": "Your account doesn't have the correct permission level to send tweets.",
+          "error": `Account only has ${account.access_type} permissions.`
+        });
+      }
+      return true;
+    });
+  }
+
+  _get_tweet_context (msg) {
+    const regex = /(?:^|\s|[^\w|@|#])(@[a-zA-Z0-9_]{1,15}(?=#|\s|$)|#[a-zA-Z0-9_]+(?=@|\s|$))/ig;
+    const result = {screennames: [], hashtags: []};
+    let m;
+    while ((m = regex.exec(msg)) !== null) {
+      const tag = m[1];
+      if(tag.startsWith('#')) {
+        result.hashtags.push(tag.substr(1));
+      }
+      else { //@
+        result.screennames.push(tag.substr(1));
+      }
+    }
+    return result;
+  }
+
+  _get_room_context (rooms) {
+    const context = {screennames: [], hashtags: [], pass: false};
+    const promises = [];
+    for(var room of rooms) {
+      const isbi = (room.data.twitter_bidirectional === true) ;
+      if(room.data.twitter_type === "user_timeline" && isbi) {
+        context.pass = true;
+        promises.push(this._twitter.get_profile_by_id(room.data.twitter_user).then(profile =>{
+          context.screennames.push(profile.screen_name);
+        }));
+      }
+      else if(room.data.twitter_type === "hashtag" && isbi) {
+        context.hashtags.push(room.data.twitter_hashtag);
+      }
+      else if(room.data.twitter_type === "timeline" && isbi) {
+        promises.push(this._twitter.get_profile_by_id(room.data.twitter_user).then(profile =>{
+          context.screennames.push(profile.screen_name);
+        }));
+      }
+    }
+    return Promise.all(promises).then(() => {
+      return context;
     })
   }
 
-  _get_event_context (event, rooms) {
-    var room = null;
-    if (rooms.length > 1) {
-      
-    }
-    else if (rooms.length == 1) {
-      room = rooms[1];
-    }
-    else{
-      return Promise.reject("No remotes associated with room.");
-    }
-  }
-
-  _get_tag (remote, user, own_id, tweet) {
-    var type = remote.get("twitter_type");
-    if(!["timeline", "hashtag", "user_timeline"].includes(type)) {
-      return Promise.reject(`Tried to send a tweet to a type of room not understood ${type}`);
-    }
-
-    if(type == "timeline" || type == "user_timeline") {
-      var timeline = remote.getId().substr("timeline_".length);
-      log.info("Twitter", "Trying to tweet " + timeline);
-      return this.get_profile_by_id(timeline).then(profile =>{
-        var tag = "@"+profile.screenname;
-        if(tweet.startsWith(tag) && own_id == profile.twitter_id) {
-          return tag;
+  _build_tweets (event, context, profile) {
+    //TODO: Get context for REPLYING
+    var content = [];
+    if(event.content.msgtype === "m.text" || event.content.msgtype === "m.emote") {
+      let body = event.content.body;
+      if(event.content.msgtype === "m.emote") {
+        body = "*" + body + "*";
+      }
+      let i = 0;
+      const sname = "@" + profile.screen_name + " ";
+      const tweet_length = TWEET_SIZE - (sname).length;
+      while(i<CONSECUTIVE_TWEET_MAX && body.length > 0) {
+        let tweet;
+        if(i === 0) {
+          tweet = body.slice(0, TWEET_SIZE);
         }
         else {
-          return "";
+          tweet = sname + body.slice(0, tweet_length);
         }
-      });
-    }
-    else if(type == "hashtag") {
-      var tag = "#"+remote.getId().substr("hashtag_".length);
-      if(tweet.startsWith(tag)) {
-        return Promise.resolve(tag);
+        body = body.slice(i === 0 ? TWEET_SIZE: tweet_length);
+        content.push({status: tweet, in_reply_to_status_id: i > 0 ? "previous" : null});
+        i++;
       }
-    }
-  }
 
-  _get_matrix_event_context (event) {
-    const result = /^@(\w+)/.exec(event.content.body);
-    var context_promise = null;
-    if(result == null) {
-      context_promise = new Promise.resolve(null);
-    }
-    else{
-      context_promise = this._storage.get_profile_by_name(result[1]).then(profile => {
-        if(profile) {
-          var sender = "@_twitter_"+profile.id+":"+this._bridge.opts.domain;
-          return this._storage.get_best_guess_reply_target(
-            event.room_id,
-            sender,
-            event.origin_server_ts,
-            REPLY_TIMEOUT
-          );
-        }
-        else{
-          return null;
-        }
-      });
-    }
-    return context_promise;
-  }
-
-  _prepare_contextless_tweet (remote, user, tweet, own_id) {
-    var type = remote.get("twitter_type");
-    if(!["timeline", "hashtag", "user_timeline"].includes(type)) {
-      return Promise.reject(`Tried to send a tweet to a type of room not understood ${type}`);
-    }
-
-    if(type == "timeline" || type == "user_timeline") {
-      var timeline = remote.getId().substr("timeline_".length);
-      log.info("Twitter", "Trying to tweet " + timeline);
-      return this.get_profile_by_id(timeline).then(profile =>{
-        var tag = "@"+profile.screenname;
-        if(tweet.startsWith(tag) && own_id == profile.twitter_id) {
-          return Promise.resolve(tag + " " + tweet);
-        }
-      });
-    }
-    else if(type == "hashtag") {
-      var tag = "#"+remote.getId().substr("hashtag_".length);
-      if(tweet.startsWith(tag)) {
-        return Promise.resolve(tag + " " + tweet);
+      if (body.length > 0) {
+        return Promise.reject(
+          {
+            "notify": `The tweet was over the limit the bridge supports.
+            We support ${CONSECUTIVE_TWEET_MAX*(TWEET_SIZE-(sname.length))} characters (or ${CONSECUTIVE_TWEET_MAX} tweets.) `,
+            "error": `Tweet was too large.`
+          }
+        );
       }
+
     }
-  }
-  _upload_media () { //(user, media) {
-    log.warn("STUB", "Twitter.upload_media");
-    return Promise.reject("upload_media not implemented");
+    else if(event.content.msgtype === "m.image") {
+      return Promise.reject(
+        {
+          "notify": `Images are not supported yet.`,
+          "error": `Images are not supported yet.`
+        }
+      );
+    }
+    return Promise.resolve(content);
   }
 
+  _send_tweets (client, tweets, previous) {
+    if(tweets.length === 0){
+      return Promise.resolve();
+    }
+    const tweet = tweets.shift();
+    if(tweet.in_reply_to_status_id === "previous") {
+      tweet.in_reply_to_status_id = previous.id_str;
+    }
+    return client.postAsync("statuses/update", tweet).then(res => {
+      return this._send_tweets(client, tweets, res);
+    }).catch(err =>{
+      log.error("Twitter", "Failed to send tweet. %s", err);
+      throw err;
+    });
+  }
 
 }
 
