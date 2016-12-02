@@ -34,7 +34,7 @@ class Twitter {
     this._timeline = new Timeline(this, this._config.timelines, this._config.hashtags);
 
     this._userstream = new UserStream(this);
-    this._client_factory = new TwitterClientFactory(config.app_auth, storage);
+    this._client_factory = new TwitterClientFactory(config.app_auth, this);
     this._status = new Status(this);
 
     this._processor = null;

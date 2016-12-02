@@ -17,7 +17,7 @@ const twitter = {
   },
 
   client_factory: {
-    _get_twitter_client: function () {
+    get_client: function () {
       return Promise.resolve();
     }
   },
@@ -171,10 +171,10 @@ describe('Status', function () {
       return assert.eventually.deepEqual(status._get_room_context([{
         data: {
           twitter_type: "user_timeline",
-          twitter_user: "fakeuser",
+          twitter_owner: "foobar",
           twitter_bidirectional: true
         }
-      }]), {screennames: ["fakeuser"], hashtags: [], pass: true });
+      }]), {screennames: ["foobar"], hashtags: [], pass: true });
     });
     it('will return a hashtag for a hashtag room', function () {
       return assert.eventually.deepEqual(status._get_room_context([{

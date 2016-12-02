@@ -31,7 +31,7 @@ class Status {
     let context;
     let client;
     return this._can_send(user.userId).then( () => {
-      return this._twitter.client_factory._get_twitter_client(user.userId);
+      return this._twitter.client_factory.get_client(user.userId);
     }).then(cli => {
       client = cli;
       return this._get_room_context(rooms);
@@ -49,13 +49,13 @@ class Status {
       return this._send_tweets(client, tweets, null);
     }).catch(err =>{
       if(err.notify) {
-        this._twitter.notify_matrix_user(user, err.notify);
-        log.info("Status", "Couldn't send tweet: %s", err.error);
+        this._twitter.notify_matrix_user(user.userId, err.notify);
+        log.info("Status", "Couldn't send tweet: ", err.error);
       }
       else {
-        log.info("Status", "Couldn't send tweet: %s", err);
+        log.info("Status", "Couldn't send tweet: ", err);
       }
-      throw "Couldn't send tweet.";
+      throw err;
     });
   }
 
@@ -100,7 +100,7 @@ class Status {
       const isbi = (room.data.twitter_bidirectional === true) ;
       if(room.data.twitter_type === "user_timeline" && isbi) {
         context.pass = true;
-        promises.push(this._twitter.get_profile_by_id(room.data.twitter_user).then(profile =>{
+        promises.push(this._twitter.storage.get_profile_from_userid(room.data.twitter_owner).then(profile =>{
           context.screennames.push(profile.screen_name);
         }));
       }

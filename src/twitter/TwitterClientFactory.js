@@ -12,16 +12,15 @@ const TWITTER_CLIENT_INTERVAL_MS    = 60000*10;
   * and getting user clients
   */
 class TwitterClientFactory {
-  constructor (auth_config, storage) {
+  constructor (auth_config, twitter) {
     this._auth_config = auth_config;
     this._app_client = null;
-    this._storage = storage;
+    this._twitter = twitter;
     this._tclients = new Map(); // {'@userid':TwitterClient}
   }
 
   get_client (user_id) {
     return (user_id == null) ? this.get_application_client() : this._get_twitter_client(user_id);
-
   }
 
   get_application_client () {
@@ -147,7 +146,7 @@ class TwitterClientFactory {
    */
   _get_twitter_client (sender) {
     //Check if we have the account in the cache
-    return this._storage.get_twitter_account(sender).then((creds) => {
+    return this._twitter.storage.get_twitter_account(sender).then((creds) => {
       if(creds == null) {
         throw "No twitter account linked.";
       }
@@ -161,6 +160,7 @@ class TwitterClientFactory {
 
       log.info("TClientFactory", "Credentials for %s need to be reverified.", sender);
       return client.getAsync("account/verify_credentials").then(profile => {
+        this._twitter.update_profile(profile);
         client.profile = profile;
         client.last_auth = ts;
         this._tclients.set(id, client);
