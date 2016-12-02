@@ -108,7 +108,7 @@ class TimelineHandler {
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", user.id_str);
     remote.set("twitter_exclude_replies", false);
-    remote.set("twitter_bidirectional", false);
+    remote.set("twitter_bidirectional", true);
     var description = (user.description ? user.description : "") + ` | https://twitter.com/${user.screen_name}`;
     var opts = {
       visibility: "public",
