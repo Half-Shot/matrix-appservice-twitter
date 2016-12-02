@@ -32,10 +32,6 @@ class TweetProcessor {
     }, TWITTER_MSG_QUEUE_INTERVAL_MS);
   }
 
-  push_processed_tweet (roomid, status) {
-    this.processed_tweets.push(roomid, status);
-  }
-
   //Runs every TWITTER_MSG_QUEUE_INTERVAL_MS to help not overflow the HS.
   _process_head_of_msg_queue () {
     if(this.msg_queue.length > 0) {
@@ -51,15 +47,16 @@ class TweetProcessor {
       for(const msg of msgs) {
         var intent = this._bridge.getIntent(msg.userId);
         promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).then(res => {
-          if (msg.content.msgtype != "m.text" ) {
+          if (msg.content.msgtype === "m.text" ) {
             this._storage.add_event(res.event_id, msg.userId, msg.roomId, msg.content.tweet_id, Date.now());
           }
         }).catch(reason =>{
           log.error("TwitterProcessor", "Failed send tweet to room: %s", reason);
         }));
       }
-      Promise.all(promises);
+      return Promise.all(promises);
     }
+    return Promise.resolve();
   }
 
   /**
