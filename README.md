@@ -5,7 +5,7 @@ Twitter bridge for Matrix.
 
 [![Build Status](https://travis-ci.org/Half-Shot/matrix-appservice-twitter.svg?branch=develop)](https://travis-ci.org/Half-Shot/matrix-appservice-twitter)
 
-### Please [visit this page](https://half-shot.github.io/matrix-appservice-twitter/) for a prettier introduction.
+Please [visit this page](https://half-shot.github.io/matrix-appservice-twitter/) for a prettier introduction.
 
 See [#twitter:half-shot.uk](https://matrix.to/#/#twitter:half-shot.uk) for dev discussion and help.
 

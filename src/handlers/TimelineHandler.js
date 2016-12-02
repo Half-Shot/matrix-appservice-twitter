@@ -35,7 +35,7 @@ class TimelineHandler {
   processLeave (event, request, context) {
     var remote = context.rooms.remote;
     if( remote.data.twitter_type === "user_timeline" && remote.data.twitter_owner === event.sender ) {
-      log.info("Handler.AccountServices", "User %s left room. Leaving", event.sender);
+      log.info("Handler.Timeline", "User %s left room. Leaving", event.sender);
       this.twitter.user_stream.detach(event.sender);
       var intent = this._bridge.getIntent();
       this.twitter.storage.remove_timeline_room(event.sender);
@@ -60,7 +60,7 @@ class TimelineHandler {
       context.senders.matrix,
       context.rooms.remotes
     ).catch(() => {
-      log.info("Handler.Hashtag", "Failed to send tweet.");
+      log.info("Handler.Timeline", "Failed to send tweet.");
     });
   }
 
@@ -73,7 +73,7 @@ class TimelineHandler {
    */
   processAliasQuery (alias) {
     //Create the room
-    log.info("Handler.TimelineHandler", "Looking up " + alias);
+    log.info("Handler.Timeline", "Looking up " + alias);
     var tuser;
     return this.twitter.get_profile_by_screenname(alias).then((tu) => {
       tuser = tu;
@@ -87,13 +87,13 @@ class TimelineHandler {
       log.warn("Handler.Timeline", tuser.screen_name + " was not found.");
       throw "User not found";
     }).then(() => {
-      log.info("Handler.TimelineHandler", "User found, getting profile image");
+      log.info("Handler.Timeline", "User found, getting profile image");
       return util.uploadContentFromUrl(this._bridge, tuser.profile_image_url_https).then(obj =>{
-        log.info("Handler.TimelineHandler", "Got profile image, constructing room.");
+        log.info("Handler.Timeline", "Got profile image, constructing room.");
         return this._constructTimelineRoom(tuser, alias, obj.mxc_url);
       })
     }).catch(reason =>{
-      log.error("Twitter", "Couldn't create timeline room: ", reason);
+      log.error("Handler.Timeline", "Couldn't create timeline room: ", reason);
     });
   }
 
