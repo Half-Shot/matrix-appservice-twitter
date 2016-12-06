@@ -229,11 +229,15 @@ class TweetProcessor {
         rooms = [rooms];
       }
       rooms.forEach((roomid) => {
-        if(!this._storage.room_has_tweet(roomid, tweet.id_str)) {
-          this.processed_tweets.push(roomid, tweet.id_str);
-          this._push_to_msg_queue('@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type);
-          return;
-        }
+        this._storage.room_has_tweet(roomid, tweet.id_str).then(
+          (room_has_tweet) => {
+            if (!room_has_tweet) {
+              this._push_to_msg_queue(
+                '@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type
+              );
+            }
+          }
+        );
       });
     });
     return promise;
