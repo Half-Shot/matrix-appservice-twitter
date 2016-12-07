@@ -34,6 +34,7 @@ class TweetProcessor {
 
   //Runs every TWITTER_MSG_QUEUE_INTERVAL_MS to help not overflow the HS.
   _process_head_of_msg_queue () {
+    const promises = [];
     if(this.msg_queue.length > 0) {
       log.silly("TweetProcessor", "Messages in send queue: %s", this.msg_queue.length)
       if(this.msg_queue.length >= MSG_QUEUE_LAGGING_THRESHOLD) {
@@ -42,8 +43,7 @@ class TweetProcessor {
          MSG_QUEUE_LAGGING_THRESHOLD
         );
       }
-      var msgs = this.msg_queue.pop();
-      var promises = [];
+      const msgs = this.msg_queue.pop();
       for(const msg of msgs) {
         var intent = this._bridge.getIntent(msg.userId);
         promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).then(res => {
@@ -54,9 +54,8 @@ class TweetProcessor {
           log.error("TwitterProcessor", "Failed send tweet to room: %s", reason);
         }));
       }
-      return Promise.all(promises);
     }
-    return Promise.resolve();
+    return Promise.all(promises);
   }
 
   /**
