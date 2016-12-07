@@ -1,4 +1,4 @@
-const log = require('npmlog');
+const log = require('./util.js').logPrefix("TweetProcessor");
 const mime = require('mime-types')
 const HTMLDecoder = new require('html-entities').AllHtmlEntities;
 
@@ -25,7 +25,7 @@ class TweetProcessor {
 
   start () {
     if(this._msg_queue_intervalID != null) {
-      log.warn("TweetProcessor", "Attempted to call start() while already running.");
+      log.warn("Attempted to call start() while already running.");
     }
     this._msg_queue_intervalID = setInterval(() => {
       this._process_head_of_msg_queue();
@@ -36,9 +36,9 @@ class TweetProcessor {
   _process_head_of_msg_queue () {
     const promises = [];
     if(this.msg_queue.length > 0) {
-      log.silly("TweetProcessor", "Messages in send queue: %s", this.msg_queue.length)
+      log.silly("Messages in send queue: %s", this.msg_queue.length)
       if(this.msg_queue.length >= MSG_QUEUE_LAGGING_THRESHOLD) {
-        log.warn("TweetProcessor", "Message queue has a large number of unsent events. %s (warn at:%s) ",
+        log.warn("Message queue has a large number of unsent events. %s (warn at:%s) ",
          this.msg_queue.length,
          MSG_QUEUE_LAGGING_THRESHOLD
         );
@@ -51,7 +51,7 @@ class TweetProcessor {
             this._storage.add_event(res.event_id, msg.userId, msg.roomId, msg.content.tweet_id, Date.now());
           }
         }).catch(reason =>{
-          log.error("TwitterProcessor", "Failed send tweet to room: %s", reason);
+          log.error("Failed send tweet to room: %s", reason);
         }));
       }
     }
@@ -154,7 +154,7 @@ class TweetProcessor {
 
       this.msg_queue.push(msgs);
     }).catch(reason =>{
-      log.error("TweetProcessor", "Failed to submit tweet to queue, reason: %s", reason);
+      log.error("Failed to submit tweet to queue, reason: %s", reason);
     });
   }
 
@@ -208,7 +208,7 @@ class TweetProcessor {
       .then((newtweet) => {
         return this._process_tweet(rooms, newtweet, depth, client);
       }).catch(error => {
-        log.error("TweetProcessor", "process_tweet: GET /statuses/show returned: " + error);
+        log.error("process_tweet: GET /statuses/show returned: " + error);
         throw error;
       });
     }

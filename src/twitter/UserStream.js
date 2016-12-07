@@ -1,4 +1,4 @@
-const log  = require('npmlog');
+const log  = require('../util.js').logPrefix("UserStream");
 
 const STREAM_RETRY_INTERVAL = 5000;
 const BACKOFF_NOTIFY_USER_AT = (1000*60*2);
@@ -13,7 +13,7 @@ class UserStream {
   }
 
   attach_all () {
-    log.info("UserStream", "Attaching all authenticated users.");
+    log.info("Attaching all authenticated users.");
     this.twitter.storage.get_linked_user_ids().then((ids) =>{
       ids.forEach((id) => {
         this.attach(id);
@@ -29,7 +29,7 @@ class UserStream {
    */
   attach (user_id) {
     if(this._user_streams.has(user_id)) {
-      log.warn("UserStream", "Not attaching stream since we already have one connected!");
+      log.warn("Not attaching stream since we already have one connected!");
       return;
     }
 
@@ -65,14 +65,14 @@ class UserStream {
         this.detach(user_id);
         setTimeout(() => {this.attach(user_id); }, backoff);
         log.error(
-          "UserStream", "Stream gave an error %s. Detaching for %s seconds for %s.", error, backoff/1000, user_id
+          "Stream gave an error %s. Detaching for %s seconds for %s.", error, backoff/1000, user_id
         );
       });
       this._user_streams.set(user_id, stream);
-      log.info("UserStream", "Attached stream for " + user_id);
+      log.info("Attached stream for " + user_id);
     }).catch( err => {
       log.error(
-        "UserStream", "Stream could not be attached for user %s: %s", user_id, err
+        "Stream could not be attached for user %s: %s", user_id, err
       );
     });
   }
@@ -81,7 +81,7 @@ class UserStream {
     if(this._user_streams.has(user_id)) {
       this._user_streams.get(user_id).destroy();
       this._user_streams.delete(user_id);
-      log.info("UserStream", "Detached stream for ", user_id);
+      log.info("Detached stream for ", user_id);
     }
   }
 
@@ -96,8 +96,7 @@ class UserStream {
       this.twitter.dm.process_dm(data.direct_message);
     }
     else if (data.warning) {
-      log.warn("UserStream",
-       "Got a warning from a User Stream.\n%s : %s",
+      log.warn("Got a warning from a User Stream.\n%s : %s",
         data.warning.code,
         data.warning.message
       );
@@ -118,22 +117,20 @@ class UserStream {
           this.twitter.processor.process_tweet(room.room_id, data, TWEET_REPLY_MAX_DEPTH, client);
         }
         else{
-          log.verbose("UserStream", `${user_id} does not have a registered timeline view for their stream.`);
+          log.verbose(`${user_id} does not have a registered timeline view for their stream.`);
         }
       }).catch((err) =>{
-        log.error("UserStream", "There was error sending a userstream tweet into a timeline room. %s", err);
+        log.error("There was error sending a userstream tweet into a timeline room. %s", err);
       });
     }
     else {
-      log.verbose("UserStream", "Unknown Stream Data (%s)", Object.keys(data).join(', '));
+      log.verbose("Unknown Stream Data (%s)", Object.keys(data).join(', '));
     }
   }
 
   _handle_disconnect (user_id, data) {
     if(data.disconnect.code === 2) {
-      log.error(
-        "UserStream",
-        "Disconnect error for too many duplicate streams. Bailing on this user.\n%s",
+      log.error("Disconnect error for too many duplicate streams. Bailing on this user.\n%s",
         data.warning.message
       );
       this.detach(user_id);
@@ -144,12 +141,12 @@ class UserStream {
        );
     }
     else if(data.disconnect.code === 6 ) {
-      log.error("UserStream", "Token revoked. We can't do any more here.\n%s",
+      log.error("Token revoked. We can't do any more here.\n%s",
        data.warning.message);
     }
     else
     {
-      log.warn("UserStream", "Disconnect errorcode %s %s. Restarting stream.",
+      log.warn("Disconnect errorcode %s %s. Restarting stream.",
         data.warning.code,
         data.warning.message
       );
@@ -159,7 +156,7 @@ class UserStream {
   }
 
   _process_event (data) {
-    log.verbose("UserStream", "Got unknown event %s", data.event);
+    log.verbose("Got unknown event %s", data.event);
   }
 
 }

@@ -1,4 +1,4 @@
-const log      = require('npmlog');
+const log = require('../util.js').logPrefix("Timeline");
 
 const TIMELINE_POLL_INTERVAL = 3010; //Twitter allows 300 calls per 15 minute (We add 10 milliseconds for a little safety).
 const HASHTAG_POLL_INTERVAL = 2010; //Twitter allows 450 calls per 15 minute (We add 10 milliseconds for a little safety).
@@ -111,7 +111,7 @@ class Timeline {
     else {
       this._hashtags.push(obj);
     }
-    log.info('Timeline', "Added Hashtag: %s", hashtag);
+    log.info("Added Hashtag: %s", hashtag);
   }
 
   /**
@@ -162,7 +162,7 @@ class Timeline {
     else {
       this._timelines.push(obj);
     }
-    log.info('Timeline', "Added Timeline: %s", twitter_id);
+    log.info("Added Timeline: %s", twitter_id);
   }
 
   /**
@@ -197,7 +197,7 @@ class Timeline {
           delete queue[i].room[r];
         }
         else{
-          log.warn("Timeline", "Tried to remove %s for %s but it didn't exist", room_id, id);
+          log.warn("Tried to remove %s for %s but it didn't exist", room_id, id);
           return;
         }
       }
@@ -218,7 +218,7 @@ class Timeline {
 
     }
     else {
-      log.warn("Timeline", "Tried to remove %s but it doesn't exist", id);
+      log.warn("Tried to remove %s but it doesn't exist", id);
     }
   }
 
@@ -241,7 +241,7 @@ class Timeline {
     }
 
     this.twitter.storage.get_since("@"+tline.twitter_id).then((since) => {
-      log.silly("Timeline", "Polling %s, since value: %s", "@"+tline.twitter_id, since);
+      log.silly("Polling %s, since value: %s", "@"+tline.twitter_id, since);
       if (since) {
         req.since_id = since;
       }
@@ -253,14 +253,14 @@ class Timeline {
         return;
       }
       else if(feed.length === TIMELINE_TWEET_FETCH_COUNT) {
-        log.info("Timeline", "Timeline poll request hit count limit. Request likely incomplete.");
+        log.info("Timeline poll request hit count limit. Request likely incomplete.");
       }
       const s = feed[0].id_str;
       this.twitter.storage.set_since("@"+tline.twitter_id, s);
-      log.silly("Timeline", "Storing since: %s", s);
+      log.silly("Storing since: %s", s);
       this.twitter.processor.process_tweets(tline.room, feed, TWEET_REPLY_MAX_DEPTH);
     }).catch((error) =>{
-      log.error("Timeline", "_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
+      log.error("_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
     });
 
     this._t++;
@@ -288,7 +288,7 @@ class Timeline {
     }
 
     this.twitter.storage.get_since(feed.hashtag).then((since) => {
-      log.silly("Timeline", "Polling %s, since value: %s", feed.hashtag, since);
+      log.silly("Polling %s, since value: %s", feed.hashtag, since);
       if (since) {
         req.since_id = since;
       }
@@ -301,15 +301,15 @@ class Timeline {
       }
       else{
         if(results.statuses.length === HASHTAG_TWEET_FETCH_COUNT) {
-          log.info("Timeline", "Hashtag poll request hit count limit. Request likely incomplete.");
+          log.info("Hashtag poll request hit count limit. Request likely incomplete.");
         }
       }
       const s = results.statuses[0].id_str;
       this.twitter.storage.set_since(feed.hashtag, s);
-      log.silly("Timeline", "Storing since: %s", s);
+      log.silly("Storing since: %s", s);
       this.twitter.processor.process_tweets(feed.room, results.statuses, 0);
     }).catch((error) => {
-      log.error("Timeline", "_process_hashtag_feed: GET /search/tweets returned: %s", error);
+      log.error("_process_hashtag_feed: GET /search/tweets returned: %s", error);
     });
 
     this._h++;

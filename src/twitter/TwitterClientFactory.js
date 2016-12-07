@@ -1,4 +1,4 @@
-const log  = require('npmlog');
+const log  = require('../util.js').logPrefix("TClientFactory");
 const Request  = require('request');
 const FS       = require('fs');
 const Buffer   = require('buffer').Buffer;
@@ -28,10 +28,10 @@ class TwitterClientFactory {
     if(!this._app_client) {
       this._app_client = this._get_bearer_token().then((token) => {
         this._auth_config.bearer_token = token;
-        log.info('TClientFactory', 'Retrieved bearer token');
+        log.info('Retrieved bearer token');
         this._app_client = Promise.promisifyAll(new Twitter(this._auth_config));
       }).catch( err => {
-        log.error("TClientFactory", "Error getting bearer token %s", err);
+        log.error( "Error getting bearer token %s", err);
         this._app_client = null;
       })
     }
@@ -44,8 +44,8 @@ class TwitterClientFactory {
     return new Promise((resolve) => {
       FS.readFile('bearer.tok', {encoding: 'utf-8'}, (err, content) => {
         if(err) {
-          log.warn('TClientFactory', "Token file not found or unreadable. Requesting new token.");
-          log.error("TClientFactory", err);
+          log.warn("Token file not found or unreadable. Requesting new token.");
+          log.error(err);
           resolve(this._get_bearer_http());
         }
         resolve(content);
@@ -63,25 +63,25 @@ class TwitterClientFactory {
           {},
           (error, status, response) => {
             if(error) {
-              log.error("TClientFactory", error);
+              log.error(error);
               reject(error);
               return;
             }
             if(response.statusCode === 401) {
-              log.warn('TClientFactory', "Authentication with existing token failed. ");
+              log.warn("Authentication with existing token failed. ");
               FS.unlink('bearer.tok', (err) => {
                 if(err) {
-                  log.warn('TClientFactory', "Couldn't delete bearer.tok");
+                  log.warn("Couldn't delete bearer.tok");
                 }
                 resolve(this._get_bearer_http());
               });
             }
             else if (response.statusCode === 200) {
-              log.info('TClientFactory', "Existing token OK.");
+              log.info("Existing token OK.");
               resolve(token);
             }
             else {
-              log.error("TClientFactory", error);
+              log.error(error);
               reject("Unexpected response to application/rate_limit_status " +
                 "during bearer token validation. Bailing.");
             }
@@ -130,7 +130,7 @@ class TwitterClientFactory {
           } else {
             reject({msg: "Request to oauth2/post did not return the correct" +
                     "token type ('bearer'). This is weeeird."});
-            log.error("Twitter", "Body of response:%s", body);
+            log.error("Body of response:", body);
           }
         }
       });
@@ -158,7 +158,7 @@ class TwitterClientFactory {
         return client;
       }
 
-      log.info("TClientFactory", "Credentials for %s need to be reverified.", sender);
+      log.info("Credentials for %s need to be reverified.", sender);
       return client.getAsync("account/verify_credentials").then(profile => {
         this._twitter.update_profile(profile);
         client.profile = profile;
@@ -166,7 +166,7 @@ class TwitterClientFactory {
         this._tclients.set(id, client);
         return client;
       }).catch(() => {
-        log.info("TClientFactory", "Credentials for " + id + " are no longer valid.");
+        log.info("Credentials for " + id + " are no longer valid.");
         //var returningUser = this._tclients.has(id);
         this._tclients.delete(id);//Invalidate it
         // return returningUser ? this._get_twitter_client(sender) : Promise.reject(

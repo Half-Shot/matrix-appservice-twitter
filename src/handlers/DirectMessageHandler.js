@@ -1,4 +1,4 @@
-const log = require('npmlog');
+const log = require('../util.js').logPrefix("Handler.DirectMessage");
 
 /**
  * Handler for direct messages sent from users
@@ -55,7 +55,7 @@ class DirectMessageHandler {
     }).then(()=>{
       return intentS.join(event.room_id);
     }).catch(err => {
-      log.error("Handler.DirectMessage", "Failed to process an invite for a DM. %s", err);
+      log.error("Failed to process an invite for a DM. %s", err);
     })
 
   }

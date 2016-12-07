@@ -1,5 +1,6 @@
-const log  = require('npmlog');
 const util = require('../util.js');
+const log  = util.logPrefix("Handler.Hashtag");
+
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 
 /**
@@ -45,7 +46,7 @@ class HashtagHandler {
         context.senders.matrix,
         context.rooms.remotes
       ).catch(() => {
-        log.info("Handler.Hashtag", "Failed to send tweet.");
+        log.info("Failed to send tweet.");
       });
   }
 
@@ -57,7 +58,7 @@ class HashtagHandler {
    * @return {?ProvisionedRoom}
    */
   processAliasQuery (name) {
-    log.info("Handler.Hashtag", "Got alias request '%s'", name);
+    log.info("Got alias request '%s'", name);
 
     if(!util.isTwitterHashtag(name)) {
       return null;

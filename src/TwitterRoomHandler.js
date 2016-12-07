@@ -6,7 +6,7 @@
                 provide general assistance.
 
 */
-const log = require('npmlog');
+const log = require('./util.js').logPrefix("RoomHandler");
 
 class TwitterRoomHandler {
   /**
@@ -89,7 +89,7 @@ class TwitterRoomHandler {
         return;
       }
     }
-    log.info("RoomHandler", "Got message from a non-registered room.");
+    log.info("Got message from a non-registered room.");
   }
 
   processAliasQuery (alias, aliasLocalpart) {
@@ -113,7 +113,7 @@ class TwitterRoomHandler {
     var roomstore = this._bridge.getRoomStore();
     return roomstore.getEntriesByMatrixId(roomId).then(entries =>{
       if(entries.length === 0) {
-        log.error("RoomHandler", "Got a onRoomCreated, but no remote is associated.");
+        log.error("Got a onRoomCreated, but no remote is associated.");
         return;
       }
       var type = entries[0].remote.data.twitter_type

@@ -1,6 +1,6 @@
 /*eslint no-invalid-this: 0*/ // eslint doesn't understand Promise.coroutine wrapping
-const log = require('npmlog');
 const util = require('./util.js');
+const log = util.logPrefix("Provisioner");
 const Promise = require('bluebird');
 
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
@@ -31,7 +31,7 @@ class Provisioner {
     }
 
     if(!this._config.enable) {
-      log.info("Provisioner", "Disabled provisoning");
+      log.info("Disabled provisoning");
       this._app.use((req, res, next) => {
         // Disable all provision endpoints by not calling 'next' and returning an error instead
         if (this.isProvisionRequest(req)) {
@@ -48,7 +48,7 @@ class Provisioner {
       return;
     }
 
-    log.info("Provisioner", "Enabled provisoning");
+    log.info("Enabled provisoning");
 
     this._app.use((req, res, next) => {
       //Forward the request onwards!
@@ -88,7 +88,7 @@ class Provisioner {
     }
     catch (err) {
       res.status(500).json({message: "An internal error occured."});
-      log.error("Provisioner", "Error occured: ", err.message, err.stack);
+      log.error("Error occured: ", err.message, err.stack);
     }
   }
 
@@ -266,7 +266,7 @@ class Provisioner {
     const isLinked = rooms.filter(item => {return item.matrix.getId() === room_id}).length > 0;
 
     if(isLinked) {
-      log.info("Provisioner", "Reconfiguring %s %s", profile.id_str, room_id);
+      log.info("Reconfiguring %s %s", profile.id_str, room_id);
       //Reconfigure and bail.
       this._twitter.timeline.remove_timeline(profile.id_str, room_id);
       var entry = rooms[0];
@@ -328,20 +328,20 @@ class Provisioner {
       }, skey);
     }
     catch (err) {
-      log.error("Provisioning", "Couldn't update bridging state for %s", roomId );
+      log.error("Couldn't update bridging state for %s", roomId );
       throw new Error(`Could not update m.room.bridging state in this room`);
     }
   }
 
   * _userHasProvisioningPower (userId, roomId) {
-    log.info("Provisioning", `Check power level of ${userId} in room ${roomId}`);
+    log.info(`Check power level of ${userId} in room ${roomId}`);
     const matrixClient = this._bridge.getClientFactory().getClientAs();
 
     // Try to join a room, or timeout after 1 min
     try {
       yield matrixClient.joinRoom(roomId).timeout(ROOM_JOIN_TIMEOUT_MS);
     } catch (e) {
-      log.error("Provisoning", `Couldn't join room. ${e.message}`);
+      log.error(`Couldn't join room. ${e.message}`);
       return Promise.reject({
         err: 403, body: {message: "Couldn't join room. Perhaps room permissions are not set to public?"}
       });
@@ -351,7 +351,7 @@ class Provisioner {
       powerState = yield matrixClient.getStateEvent(roomId, 'm.room.power_levels');
     }
     catch(err) {
-      log.error("Provisioning", `Error retrieving power levels (${err.data.error})`);
+      log.error(`Error retrieving power levels (${err.data.error})`);
     }
 
     if (!powerState) {
@@ -371,7 +371,7 @@ class Provisioner {
       actualPower = powerState.users_default;
     }
     else {
-      log.error("Provisioning", `Error getting power level of ${userId} in ${roomId}`);
+      log.error(`Error getting power level of ${userId} in ${roomId}`);
       return Promise.reject({err: 403, body: 'Could not determine power level of the user.'});
     }
 
