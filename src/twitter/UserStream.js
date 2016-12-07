@@ -72,7 +72,7 @@ class UserStream {
       log.info("UserStream", "Attached stream for " + user_id);
     }).catch( err => {
       log.error(
-        "UserStream", "Stream could not be attached: %s", err
+        "UserStream", "Stream could not be attached for user %s: %s", user_id, err
       );
     });
   }
