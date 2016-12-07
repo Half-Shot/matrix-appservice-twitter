@@ -287,7 +287,7 @@ class Twitter {
       }
       var intent = this._bridge.getIntent();
       var users = {};
-      users["@_twitter_bot:"+this._bridge.opts.domain] = 100;
+      users[this._bridge.getBot().getUserId()] = 100;
       users[user] = 100;
       var powers = util.roomPowers(users);
       //Create the room
