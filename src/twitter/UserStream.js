@@ -55,22 +55,24 @@ class UserStream {
         this._on_stream_data(user_id, data);
       });
       stream.on('error', (error) => {
-        throw error;
+        const backoff =  2 * (this._backoff.has(user_id) ? this._backoff.get(user_id) : STREAM_RETRY_INTERVAL/2);
+        this._backoff.set(user_id, backoff);
+        if (backoff >= BACKOFF_NOTIFY_USER_AT) {
+          this.twitter.notify_matrix_user(user_id,
+            `Currently experiencing connection issues with Twitter. Will retry to connect in ${backoff/1000} seconds.
+            If this continues, notify the bridge maintainer.`);
+        }
+        this.detach(user_id);
+        setTimeout(() => {this.attach(user_id); }, backoff);
+        log.error(
+          "UserStream", "Stream gave an error %s. Detaching for %s seconds for %s.", error, backoff/1000, user_id
+        );
       });
       this._user_streams.set(user_id, stream);
       log.info("UserStream", "Attached stream for " + user_id);
-    }).catch(reason =>{
-      const backoff =  2 * (this._backoff.has(user_id) ? this._backoff.get(user_id) : STREAM_RETRY_INTERVAL/2);
-      this._backoff.set(user_id, backoff);
-      if (backoff >= BACKOFF_NOTIFY_USER_AT) {
-        this.twitter.notify_matrix_user(user_id,
-          `Currently experiencing connection issues with Twitter. Will retry to connect in ${backoff/1000} seconds.
-          If this continues, notify the bridge maintainer.`);
-      }
-      this.detach(user_id);
-      setTimeout(() => {this.attach(user_id); }, backoff);
+    }).catch( err => {
       log.error(
-        "UserStream", "Stream gave an error %s. Detaching for %s seconds for %s.", reason, backoff/1000, user_id
+        "UserStream", "Stream could not be attached for user %s: %s", user_id, err
       );
     });
   }
