@@ -19,6 +19,24 @@ module.exports = {
     });
   },
 
+  get_twitter_account_by_oauth_token: function (oauth_token) {
+    log.silly("SQL", "get_twitter_account_by_oauth_token => %s", oauth_token);
+    return this.db.getAsync(
+      `
+      SELECT *
+      FROM twitter_account
+      WHERE twitter_account.oauth_token = $ot;
+      `
+    , {
+      $ot: oauth_token
+    }).then( row => {
+      return row !== undefined ? row : null;
+    }).catch( err => {
+      log.error("TwitDB", "Error retrieving client data: %s", err.Error);
+      throw err;
+    });
+  },
+
   get_profile_from_userid: function (user_id) {
     return this.db.getAsync(
     `

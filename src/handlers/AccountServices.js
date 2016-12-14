@@ -36,7 +36,7 @@ class AccountServices {
       this._app_auth.consumer_key,
       this._app_auth.consumer_secret,
       '1.0A',
-      "oob",
+      null,
       'HMAC-SHA1'
     );
   }
@@ -228,7 +228,7 @@ ${dm_rooms}`
     log.info("Handler.AccountServices",
     `${event.sender} is requesting a twitter account link (${access_type} access).`
     );
-    this._oauth_getUrl(event.sender, access_type).then( (url) =>{
+    this._oauth_getUrl(event.sender, access_type, "oob").then( (url) =>{
       intent.sendMessage(event.room_id, {
         "body": `Go to ${url} to receive your PIN, and then type it in below.`,
         "msgtype": "m.notice"
@@ -250,13 +250,19 @@ ${dm_rooms}`
    */
   _unlinkAccount (event) {
     var intent = this._bridge.getIntent();
-    this._storage.remove_twitter_account(event.sender);
-    this._storage.remove_timeline_room(event.sender);
-    this._twitter.user_stream.detach(event.sender);
+    this._unlinkAccountbyUserId(event.sender);
     intent.sendMessage(event.room_id, {
       "body": "Your account (if it was linked) is now unlinked from Matrix.",
       "msgtype": "m.notice"
     });
+  }
+
+  _unlinkAccountbyUserId (user_id) {
+    const promises = [];
+    promises.push(this._storage.remove_twitter_account(user_id));
+    promises.push(this._storage.remove_timeline_room(user_id));
+    promises.push(this._twitter.user_stream.detach(user_id));
+    return Promise.all(promises);
   }
 
   /**
@@ -296,16 +302,25 @@ ${dm_rooms}`
     });
   }
 
+  _oauth_processRedirect (oauth_verifier, client_data) {
+    return this._oauth_getAccessToken(oauth_verifier, client_data, client_data.user_id).then(() => {
+      return this._twitter.create_user_timeline(client_data.user_id);
+    }).then(() => {
+      return this._twitter.user_stream.attach(client_data.user_id);
+    }).then(() => {
+      return {body: "The Twitter bridge has been successfully authorised to use your Twitter account."}
+    });
+  }
 
   /**
    * description Verify the pin with Twitter and get an access token.
    *
    * @param  {string} pin         User supplied pin code.
    * @param  {object} client_data OAuth data for the user.
-   * @param  {int} id          Twitter profile ID
-   * @return {Promise<object>}             description
+   * @param  {string} user_id     Matrix user ID
+   * @return {Promise<object>}    Resolves with Twitter profile, or rejects with reason string.
    */
-  _oauth_getAccessToken (pin, client_data, id) {
+  _oauth_getAccessToken (pin, client_data, user_id) {
     return new Promise((resolve, reject) => {
       if (!client_data || client_data.oauth_token === "" || client_data.oauth_secret === "") {
         reject("User has no associated token request data");
@@ -331,11 +346,11 @@ ${dm_rooms}`
           client.get("account/verify_credentials", (error, profile) =>{
             if(error) {
               log.error("Handler.AccountServices", `We couldn't authenticate with `
-            +`the supplied access token for ${id}. ${error}`);
+            +`the supplied access token for ${user_id}. ${error}`);
               reject("Twitter account could not be authenticated.");
               return;
             }
-            this._storage.set_twitter_account(id, profile.id, client_data).then(() =>{
+            this._storage.set_twitter_account(user_id, profile.id, client_data).then(() =>{
               resolve(profile);
             }).catch(() => {
               reject("Failed to store account information.")
@@ -352,7 +367,7 @@ ${dm_rooms}`
    * @param  {string} access_type The type of access to register for. One of read, write, dm
    * @return {Promise<string>}  A promise that will return an auth url or reject with nothing.
    */
-  _oauth_getUrl (id, access_type) {
+  _oauth_getUrl (id, access_type, oauth_callback) {
     if(!['read', 'write', 'dm'].includes(access_type)) {
       throw "None or invalid access_type given to OAuth.";
     }
@@ -364,7 +379,10 @@ ${dm_rooms}`
            * write - read + make changes
            * dm - read+write + be able to send/read direct messages
            * */
-         {"x_auth_access_type": access_type},
+        {
+          "x_auth_access_type": access_type,
+          "oauth_callback": oauth_callback
+        },
          (error, oAuthToken, oAuthTokenSecret) => {
            if(error) {
              reject(error);
