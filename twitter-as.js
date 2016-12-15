@@ -92,9 +92,10 @@ var cli = new AppService.Cli({
       twitter: twitter,
       sender_localpart: regObj.sender_localpart
     }
+    const account_services = new RoomHandlers.AccountServices(opt);
     room_handler = new TwitterRoomHandler(bridge, config,
       {
-        services: new RoomHandlers.AccountServices(opt),
+        services: account_services,
         timeline: new RoomHandlers.TimelineHandler(bridge, twitter),
         hashtag: new RoomHandlers.HashtagHandler(bridge, twitter),
         directmessage: new RoomHandlers.DirectMessageHandler(bridge, twitter, tstorage)
@@ -108,7 +109,7 @@ var cli = new AppService.Cli({
 
       // Setup provisioning - If not enabled it will still return an error code.
       if (config.provisioning) {
-        provisioner = new Provisioner(bridge, twitter, config);
+        provisioner = new Provisioner(bridge, twitter, config, account_services);
         provisioner.init();
       }
 
