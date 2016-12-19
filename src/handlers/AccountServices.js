@@ -217,7 +217,7 @@ ${dm_rooms}`
    */
   _beginLinkAccount (event) {
     var intent = this._bridge.getIntent();
-    var access_type = event.content.body.substr("link account ".length);
+    var access_type = event.content.body.substr("account.link ".length);
     if(!["read", "write", "dm"].includes(access_type)) {
       intent.sendMessage(event.room_id, {
         "body": "You must specify either read, write or dm access.",
@@ -234,9 +234,9 @@ ${dm_rooms}`
         "msgtype": "m.notice"
       });
     }).catch(err => {
-      log.error("Handler.AccountServices", `Couldn't get authentication URL: ${err}` );
+      log.error("Handler.AccountServices", `Couldn't get authentication URL: ${err.message}` );
       intent.sendMessage(event.room_id, {
-        "body": "We are unable to process your request at this time. Make sure you entered the command correctly.",
+        "body": `Could not retrieve an OAuth URL for your account: ${err.message}`,
         "msgtype": "m.notice"
       });
     });
@@ -250,11 +250,24 @@ ${dm_rooms}`
    */
   _unlinkAccount (event) {
     var intent = this._bridge.getIntent();
-    this._unlinkAccountbyUserId(event.sender);
-    intent.sendMessage(event.room_id, {
-      "body": "Your account (if it was linked) is now unlinked from Matrix.",
-      "msgtype": "m.notice"
-    });
+    this._unlinkAccountbyUserId(event.sender).then(
+      () => {
+        intent.sendMessage(event.room_id, {
+          "body": "Your account (if it was linked) is now unlinked from Matrix.",
+          "msgtype": "m.notice"
+        });
+      },
+      (err) => {
+        log.error(
+          "Handler.AccountServices",
+          `An error was encountered in _unlinkAccountbyUserId(${event.sender}): ${err.message}`
+        );
+        intent.sendMessage(event.room_id, {
+          "body": "Your account could not be unlinked from Matrix.",
+          "msgtype": "m.notice"
+        });
+      }
+    );
   }
 
   _unlinkAccountbyUserId (user_id) {
@@ -262,6 +275,7 @@ ${dm_rooms}`
     promises.push(this._storage.remove_twitter_account(user_id));
     promises.push(this._storage.remove_timeline_room(user_id));
     promises.push(this._twitter.user_stream.detach(user_id));
+    this._twitter.client_factory.invalidate_twitter_client(user_id);
     return Promise.all(promises);
   }
 
@@ -365,46 +379,60 @@ ${dm_rooms}`
    *
    * @param  {type}   id    The matrix user id wishing to authenticate.
    * @param  {string} access_type The type of access to register for. One of read, write, dm
-   * @return {Promise<string>}  A promise that will return an auth url or reject with nothing.
+   * @return {Promise<string>}  A promise that will return an auth url or reject with an Error.
    */
   _oauth_getUrl (id, access_type, oauth_callback) {
     if(!['read', 'write', 'dm'].includes(access_type)) {
       throw "None or invalid access_type given to OAuth.";
     }
-    return new Promise((resolve, reject) => {
-      this._oauth.getOAuthRequestToken(
-          /* 'x_auth_access_type' is used to specify the access level.
-           * Valid options are:
-           * read - Read from the API
-           * write - read + make changes
-           * dm - read+write + be able to send/read direct messages
-           * */
-        {
-          "x_auth_access_type": access_type,
-          "oauth_callback": oauth_callback
-        },
-         (error, oAuthToken, oAuthTokenSecret) => {
-           if(error) {
-             reject(error);
-             return;
-           }
-           //We are modifying the data. So make sure to detach the rooms first.
-           this._twitter.user_stream.detach(id);
-           var data = {
-             oauth_token: oAuthToken,
-             oauth_secret: oAuthTokenSecret,
-             access_token: null,
-             access_token_secret: null,
-             access_type: access_type
-           };
-           this._storage.set_twitter_account(id, "", data).then(()=>{
-             var authURL = 'https://twitter.com/oauth/authenticate?oauth_token=' + oAuthToken;
-             resolve(authURL);
-           }).catch(() => {
-             reject("Failed to store account information.");
-           });
-         });
-    });
+    // Do not allow OAuth with someone who has already stored started/completed OAuth
+    return this._storage.get_twitter_account(id).then(
+      (account) => {
+        return new Promise((resolve, reject) => {
+          if (account) {
+            reject(new Error(`Account already exists for user ${id}`));
+            return;
+          }
+          this._oauth.getOAuthRequestToken(
+              /* 'x_auth_access_type' is used to specify the access level.
+               * Valid options are:
+               * read - Read from the API
+               * write - read + make changes
+               * dm - read+write + be able to send/read direct messages
+               * */
+            {
+              "x_auth_access_type": access_type,
+              "oauth_callback": oauth_callback
+            },
+            (error, oAuthToken, oAuthTokenSecret) => {
+              if(error) {
+                reject(error);
+                return;
+              }
+              //We are modifying the data. So make sure to detach the rooms first.
+              this._twitter.user_stream.detach(id);
+              var data = {
+                oauth_token: oAuthToken,
+                oauth_secret: oAuthTokenSecret,
+                access_token: null,
+                access_token_secret: null,
+                access_type: access_type
+              };
+              this._storage.set_twitter_account(id, "", data).then(()=>{
+                var authURL = 'https://twitter.com/oauth/authenticate?oauth_token=' + oAuthToken;
+                resolve(authURL);
+              }).catch(() => {
+                reject(new Error("Failed to store account information."));
+              });
+            });
+        });
+      }
+    ).catch(
+      err => {
+        log.error("Handler.AccountServices._oauth_getUrl", err.message);
+        throw err;
+      }
+    );
   }
 
   _bridgeRoom (event) {

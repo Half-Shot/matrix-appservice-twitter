@@ -176,6 +176,18 @@ class TwitterClientFactory {
     });
   }
 
+  /**
+   * Remove a authenticated twitter client for a user from the cache.
+   *
+   * @param  {string} sender Matrix UserID of the user.
+   */
+  invalidate_twitter_client (sender) {
+    if (!this._tclients.has(sender)) {
+      return;
+    }
+    this._tclients.delete(sender);
+  }
+
   _create_twitter_client (creds) {
     var client = new Twitter({
       consumer_key: this._auth_config.consumer_key,
