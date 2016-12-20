@@ -187,7 +187,7 @@ timeline.replies [option]
       }
       return this._storage.get_timeline_room(event.sender);
     }).then(room => {
-      account.timeline_room = room.room_id;
+      account.timeline_room = room === null ? "No Timeline Room" : room.room_id;
       return Promise.resolve("[Not implemented yet]");
     }).then(dm_rooms => {
       intent.sendMessage(event.room_id, {
