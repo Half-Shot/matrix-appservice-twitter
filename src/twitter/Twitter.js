@@ -169,7 +169,11 @@ class Twitter {
           log.warn("Twitter", "Tried to preform a user avatar update with a null profile.");
         }
         else{
-          util.uploadContentFromUrl(this._bridge, user_profile.profile_image_url_https, intent).then((obj) =>{
+          //We have to replace _normal because it gives us a bad quality image
+          // E.g https://pbs.twimg.com/profile_images/796729706318012418/VdozW4mO_normal.jpg
+          // becomes https://pbs.twimg.com/profile_images/796729706318012418/VdozW4mO.jpg
+          const image_url = user_profile.profile_image_url_https.substr("_normal", "");
+          util.uploadContentFromUrl(this._bridge, image_url, intent).then((obj) =>{
             url = obj.mxc_url;
             return intent.setAvatarUrl(obj.mxc_url);
           }).catch(err => {
