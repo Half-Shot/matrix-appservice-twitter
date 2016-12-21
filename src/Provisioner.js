@@ -426,10 +426,7 @@ class Provisioner {
       const url = yield this._account_services._oauth_getUrl(user_id, access_type, oauth_callback);
       return {body: {url: url}};
     } catch (err) {
-      if (err.statusCode) {
-        throw new Error(`Got status code ${err.statusCode} whilst trying to get OAuth URL.`);
-      }
-      throw err;
+      return {err: 500, body: {error: err.message}};
     }
   }
 
@@ -453,7 +450,7 @@ class Provisioner {
       return {err: 404, body: {error: "User ID not recognised."}};
     }
     if (client_data.twitter_id === "") {
-      return {err: 401, body: {error: "User ID does not have an associated twitter ID, please OAuth."}};
+      return {err: 401, body: {error: "User has not completed the OAuth process."}};
     }
     const profile = yield this._twitter.get_profile_by_id(client_data.twitter_id);
     if (!profile) {
