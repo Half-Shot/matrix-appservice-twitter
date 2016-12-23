@@ -91,5 +91,47 @@ describe('TweetProcessor', function () {
         assert.isTrue(processor.msg_queue.length === 0);
       });
     });
+    describe('_tweet_expand_urls', function () {
+      it('will not modify a urlless tweet.', function () {
+        const text = processor._tweet_expand_urls("Words, words and more words", []);
+        assert.equal(text, "Words, words and more words");
+      });
+      it('will modify a tweet with a single url.', function () {
+        const text = processor._tweet_expand_urls("Words,http://short words and more words", [{
+          expanded_url: "http://example.com",
+          indices: [6, 18]
+        }]);
+        assert.equal(text, "Words,http://example.com words and more words");
+      });
+      it('will modify a tweet with two urls.', function () {
+        const text = processor._tweet_expand_urls("Words,http://short words and more words with http://e.shorter", [{
+          expanded_url: "http://example.com",
+          indices: [6, 18]
+        }, {
+          expanded_url: "https://evenshorter.com",
+          indices: [45, 61]
+        }]);
+        assert.equal(text, "Words,http://example.com words and more words with https://evenshorter.com");
+      });
+      it('will modify a tweet with three urls.', function () {
+        const text = processor._tweet_expand_urls(
+          "Words,http://short words and http://m.short more words with http://e.shorter",
+          [{
+            expanded_url: "http://example.com",
+            indices: [6, 18]
+          }, {
+            expanded_url: "http://penguins.com",
+            indices: [29, 43]
+          }, {
+            expanded_url: "https://evenshorter.com",
+            indices: [60, 76]
+          }]
+        );
+        assert.equal(
+          text,
+          "Words,http://example.com words and http://penguins.com more words with https://evenshorter.com"
+        );
+      });
+    });
   });
 });
