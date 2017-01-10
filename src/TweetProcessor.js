@@ -130,7 +130,7 @@ class TweetProcessor {
           util.uploadContentFromUrl(
             this._bridge,
             media.media_url_https,
-            this._bridge.getIntentFromLocalpart("_twitter_" + tweet.id_str)
+            this._bridge.getIntent(muser)
           ).then( (obj) => {
             media_info.size = obj.size;
             return {
