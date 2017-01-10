@@ -1,4 +1,4 @@
-const log      = require('npmlog');
+const log      = require('../logging.js');
 const Bridge = require("matrix-appservice-bridge");
 
 const TwitterClientFactory = require('./TwitterClientFactory.js');

@@ -1,4 +1,4 @@
-const log  = require('npmlog');
+const log  = require('../logging.js');
 const Request  = require('request');
 const FS       = require('fs');
 const Buffer   = require('buffer').Buffer;

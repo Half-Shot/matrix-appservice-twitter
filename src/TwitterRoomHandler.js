@@ -6,7 +6,7 @@
                 provide general assistance.
 
 */
-const log = require('npmlog');
+const log = require('./logging.js');
 
 class TwitterRoomHandler {
   /**

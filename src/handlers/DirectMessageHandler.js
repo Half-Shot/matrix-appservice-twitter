@@ -1,4 +1,4 @@
-const log = require('npmlog');
+const log = require('../logging.js');
 
 /**
  * Handler for direct messages sent from users

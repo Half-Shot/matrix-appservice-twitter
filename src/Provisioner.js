@@ -1,5 +1,5 @@
 /*eslint no-invalid-this: 0*/ // eslint doesn't understand Promise.coroutine wrapping
-const log = require('npmlog');
+const log = require('./logging.js');
 const util = require('./util.js');
 const Promise = require('bluebird');
 

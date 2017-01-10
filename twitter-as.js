@@ -1,4 +1,4 @@
-const log = require('npmlog');
+const log = require('./src/logging.js');
 const yaml = require("js-yaml");
 const fs = require("fs");
 
@@ -32,11 +32,7 @@ var cli = new AppService.Cli({
     callback(reg);
   },
   run: function (port, config) {
-    log.level = config.logging.level || "info";
-    if(config.logging.file) {
-      var lrstream = require('logrotate-stream');
-      log.stream = lrstream(config.logging);
-    }
+    log.init(config.logging);
 
     //Read registration file
     var regObj = yaml.safeLoad(fs.readFileSync("twitter-registration.yaml", 'utf8'));
@@ -180,8 +176,8 @@ try{
   cli.run();
 }
 catch(err) {
-  log.error("Init", "Failed to start bridge.");
-  log.error("Init", err);
+  console.error("Init", "Failed to start bridge.");
+  console.error("Init", err);
 }
 
 /**

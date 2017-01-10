@@ -1,4 +1,4 @@
-const log = require('npmlog');
+const log = require('./logging.js');
 const mime = require('mime-types')
 const HTMLDecoder = new require('html-entities').AllHtmlEntities;
 
