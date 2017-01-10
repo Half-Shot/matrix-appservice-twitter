@@ -90,10 +90,10 @@ class TweetProcessor {
     return mxtweet;
   }
 
-  _tweet_expand_urls (tweet, urls) {
+  _tweet_expand_urls (tweet) {
     let offset = 0;
     let text = tweet;
-    for(const url of urls) {
+    for(const url of tweet.entities.urls) {
       const start = offset + url.indices[0];
       const end = offset + url.indices[1];
       text = text.substr(0, start) + url.expanded_url + text.substr(end);
