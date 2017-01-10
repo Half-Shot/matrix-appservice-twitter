@@ -1,4 +1,4 @@
-const log  = require('npmlog');
+const log  = require('../logging.js');
 const util = require('../util.js');
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 

@@ -1,4 +1,4 @@
-const log  = require('npmlog');
+const log  = require('../logging.js');
 
 const STREAM_RETRY_INTERVAL = 5000;
 const BACKOFF_NOTIFY_USER_AT = (1000*60*2);

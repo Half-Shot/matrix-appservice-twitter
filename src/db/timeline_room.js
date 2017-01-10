@@ -1,4 +1,4 @@
-const log = require('npmlog');
+const log = require('../logging.js');
 
 module.exports = {
   get_timeline_room: function (user_id) {
