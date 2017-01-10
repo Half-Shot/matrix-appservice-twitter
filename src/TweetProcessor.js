@@ -91,6 +91,9 @@ class TweetProcessor {
   }
 
   _tweet_expand_urls (tweet) {
+    if (!tweet.entities) {
+      return tweet;
+    }
     let offset = 0;
     let text = tweet;
     for(const url of tweet.entities.urls) {
