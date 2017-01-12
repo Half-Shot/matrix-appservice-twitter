@@ -26,6 +26,10 @@ class Timeline {
       timelines: cfg_timelines,
       hashtags: cfg_hashtags
     }
+    // Set default
+    if (this.config.timelines.shouldSyncInitially === undefined) {
+      this.config.timelines.shouldSyncInitially = true;
+    }
   }
 
   /**
@@ -148,7 +152,7 @@ class Timeline {
       obj = this._timelines[tline]
     }
     else {
-      obj = {twitter_id, room: [], exclude_replies: opts.exclude_replies }
+      obj = {twitter_id, room: [], exclude_replies: opts.exclude_replies, hasProcessedTweets: false }
       if(opts.is_new) {
         this._newtags.add(twitter_id);
       }
@@ -242,12 +246,16 @@ class Timeline {
 
     this.twitter.storage.get_since("@"+tline.twitter_id).then((since) => {
       log.silly("Timeline", "Polling %s, since value: %s", "@"+tline.twitter_id, since);
-      if (since) {
+      if (since && (tline.hasProcessedTweets || this.config.timelines.shouldSyncInitially)) {
         req.since_id = since;
+      } else {
+        req.count = 1;
       }
       return this.twitter.client_factory.get_client();
     }).then((client)=>{
-      return client.getAsync('statuses/user_timeline', req);
+      return client.getAsync('statuses/user_timeline', req).catch((error) =>{
+        log.error("Timeline", "_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
+      });
     }).then((feed) => {
       if (feed.length === 0) {
         return;
@@ -256,11 +264,18 @@ class Timeline {
         log.info("Timeline", "Timeline poll request hit count limit. Request likely incomplete.");
       }
       const s = feed[0].id_str;
-      this.twitter.storage.set_since("@"+tline.twitter_id, s);
+
       log.silly("Timeline", "Storing since: %s", s);
-      this.twitter.processor.process_tweets(tline.room, feed, TWEET_REPLY_MAX_DEPTH);
-    }).catch((error) =>{
-      log.error("Timeline", "_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
+      this.twitter.storage.set_since("@"+tline.twitter_id, s);
+
+      // If this is the first poll to be processed, it will be the initial tweet to get "since"
+      if (tline.hasProcessedTweets || this.config.timelines.shouldSyncInitially) {
+        this.twitter.processor.process_tweets(tline.room, feed, TWEET_REPLY_MAX_DEPTH);
+      }
+
+      tline.hasProcessedTweets = true;
+    }).catch((err) => {
+      log.error("Timeline", "Error whilst processing timeline %s: %s", tline.twitter_id, err);
     });
 
     this._t++;
