@@ -69,7 +69,10 @@ class TweetProcessor {
    */
   tweet_to_matrix_content (tweet, type) {
     let text = tweet.full_text || tweet.text;
-    text = this._tweet_expand_urls(text);
+    if (text.entities && tweet.entities.urls) {
+      text = this._tweet_expand_urls(text,  tweet.entities.urls );
+    }
+
 
     const mxtweet = {
       "body": text,
@@ -89,13 +92,9 @@ class TweetProcessor {
     return mxtweet;
   }
 
-  _tweet_expand_urls (tweet) {
-    if (!tweet.entities) {
-      return tweet;
-    }
+  _tweet_expand_urls (text, urls) {
     let offset = 0;
-    let text = tweet;
-    for(const url of tweet.entities.urls) {
+    for(const url of urls) {
       const start = offset + url.indices[0];
       const end = offset + url.indices[1];
       text = text.substr(0, start) + url.expanded_url + text.substr(end);
