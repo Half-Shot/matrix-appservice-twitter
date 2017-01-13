@@ -3,6 +3,9 @@ chai.use(require("chai-as-promised"));
 const assert = chai.assert;
 const Status = require('../../src/twitter/Status.js');
 
+// Initialise logging
+require('../../src/logging.js').init({level: 'silent'});
+
 var notified = false;
 
 const twitter = {

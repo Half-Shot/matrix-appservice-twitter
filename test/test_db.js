@@ -1,8 +1,8 @@
 const assert = require('chai').assert;
 const TwitterDB = require('../src/TwitterDB.js');
-const log = require('npmlog');
-log.level = "silent";
 
+// Initialise logging
+require('../src/logging.js').init({level: 'silent'});
 
 describe('TwitterDB', function () {
   describe('constructor()', () => {

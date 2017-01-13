@@ -4,6 +4,8 @@ const assert = chai.assert;
 const TwitterDB = require('../../src/TwitterDB.js');
 global.Promise = require('bluebird');
 
+// Initialise logging
+require('../../src/logging.js').init({level: 'silent'});
 
 describe('TwitterDB.dm', function () {
   var db;

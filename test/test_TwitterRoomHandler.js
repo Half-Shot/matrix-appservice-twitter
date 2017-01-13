@@ -3,6 +3,9 @@ chai.use(require("chai-as-promised"));
 const assert = chai.assert;
 const TwitterRoomHandler = require('../src/TwitterRoomHandler.js');
 
+// Initialise logging
+require('../src/logging.js').init({level: 'silent'});
+
 var bridge_room_entries;
 
 const bridge = {
