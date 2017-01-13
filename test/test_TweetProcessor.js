@@ -51,12 +51,6 @@ describe('TweetProcessor', function () {
     event_added = false;
     event_sent = false;
   });
-  describe('start', function () {
-    it('will start ', function () {
-      processor._process_head_of_msg_queue = () => {};
-      processor.start();
-    });
-  });
   describe('_process_head_of_msg_queue', function () {
     it('will do nothing on an empty queue. ', function () {
       return assert.isFulfilled(processor._process_head_of_msg_queue());

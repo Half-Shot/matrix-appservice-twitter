@@ -32,8 +32,12 @@ class TweetProcessor {
     }, TWITTER_MSG_QUEUE_INTERVAL_MS);
   }
 
-  //Runs every TWITTER_MSG_QUEUE_INTERVAL_MS to help not overflow the HS.
   _process_head_of_msg_queue () {
+    return Promise.coroutine(this._co_process_head_of_msg_queue.bind(this))();
+  }
+
+  //Runs every TWITTER_MSG_QUEUE_INTERVAL_MS to help not overflow the HS.
+  * _co_process_head_of_msg_queue () {
     if(this.msg_queue.length > 0) {
       log.silly("TweetProcessor", "Messages in send queue: %s", this.msg_queue.length)
       if(this.msg_queue.length >= MSG_QUEUE_LAGGING_THRESHOLD) {
@@ -43,20 +47,18 @@ class TweetProcessor {
         );
       }
       var msgs = this.msg_queue.pop();
-      var promises = [];
       for(const msg of msgs) {
-        var intent = this._bridge.getIntent(msg.userId);
-        promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).then(res => {
+        const intent = this._bridge.getIntent(msg.userId);
+        try {
+          const res = yield intent.sendEvent(msg.roomId, msg.type, msg.content);
           if (msg.content.msgtype === "m.text" ) {
             this._storage.add_event(res.event_id, msg.userId, msg.roomId, msg.content.tweet_id, Date.now());
           }
-        }).catch(reason =>{
-          log.error("TwitterProcessor", "Failed send tweet to room: %s", reason);
-        }));
+        } catch (e) {
+          log.error("TwitterProcessor", "Failed send tweet to room: ", e);
+        }
       }
-      return Promise.all(promises);
     }
-    return Promise.resolve();
   }
 
   /**
@@ -168,22 +170,12 @@ class TweetProcessor {
     });
   }
 
-
-  /**
-   * A function used to process
-   *
-   * @param  {type} roomid        description
-   * @param  {type} tweets        description
-   * @param  {type} depth         description
-   * @param  {type} client = null description
-   * @return {type}               description
-   */
   process_tweets (rooms, tweets, depth, client = null) {
     if (client == null) {
       client = this._tclient;
     }
     tweets.forEach( (tweet) => {
-      this._process_tweet(rooms, tweet, depth, client);
+      Promise.coroutine(this._process_tweet.bind(this))(rooms, tweet, depth, client);
     });
 
   }
@@ -192,7 +184,7 @@ class TweetProcessor {
     if (client == null) {
       client = this._tclient;
     }
-    this._process_tweet(rooms, tweet, depth, client);
+    return Promise.coroutine(this._process_tweet.bind(this))(rooms, tweet, depth, client);
   }
 
   /**
@@ -209,47 +201,36 @@ class TweetProcessor {
    *
    * @see {@link https://dev.twitter.com/overview/api/tweets}
    */
-  _process_tweet (rooms, tweet, depth, client) {
+  * _process_tweet (rooms, tweet, depth, client) {
     depth--;
     var type = "m.text";
-    var promise;
     if (tweet.in_reply_to_status_id_str != null && depth > 0) {
-      promise = client.getAsync('statuses/show/' + tweet.in_reply_to_status_id_str, {})
-      .then((newtweet) => {
-        return this._process_tweet(rooms, newtweet, depth, client);
-      }).catch(error => {
-        log.error("TweetProcessor", "process_tweet: GET /statuses/show returned: " + error);
-        throw error;
-      });
-    }
-    else {
-      promise = Promise.resolve();
+      try {
+        const newtweet = yield client.getAsync('statuses/show/' + tweet.in_reply_to_status_id_str, {});
+        yield this.process_tweet(rooms, newtweet, depth, client);
+      } catch (e) {
+        log.error("TweetProcessor", "process_tweet: GET /statuses/show returned: " + e);
+        throw e;
+      }
     }
 
-    this._twitter.update_profile(tweet.user);
+    yield this._twitter.update_profile(tweet.user);
     if(tweet.retweeted_status) {
       tweet.retweeted_status._retweet_info = { id: tweet.id_str, tweet: tweet.user.id_str };
       tweet = tweet.retweeted_status; // We always want the root tweet.
-      this._twitter.update_profile(tweet.user);
+      yield this._twitter.update_profile(tweet.user);
     }
-
-    promise.then( () => {
-      if(typeof rooms == "string") {
-        rooms = [rooms];
-      }
-      rooms.forEach((roomid) => {
-        this._storage.room_has_tweet(roomid, tweet.id_str).then(
-          (room_has_tweet) => {
-            if (!room_has_tweet) {
-              this._push_to_msg_queue(
-                '@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type
-              );
-            }
-          }
+    if(typeof rooms == "string") {
+      rooms = [rooms];
+    }
+    for(const roomid of rooms) {
+      const has_tweet = yield this._storage.room_has_tweet(roomid, tweet.id_str);
+      if(has_tweet) {
+        this._push_to_msg_queue(
+          '@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type
         );
-      });
-    });
-    return promise;
+      }
+    }
   }
 }
 
