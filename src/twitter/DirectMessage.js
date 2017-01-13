@@ -70,14 +70,14 @@ class DirectMessage {
     this.twitter.update_profile(msg.recipient);
 
     if(this._sent_dms.get(users) === msg.id_str) {
-      log.verbose("DirectMessage", "DM has already been processed, ignoring.");
+      log.verbose("DM has already been processed, ignoring.");
       return;
     }
 
     return this.get_room(msg.sender, msg.recipient).then(room_id => {
       this._put_dm_in_room(room_id, msg);
     }).catch(reason =>{
-      log.error("DirectMessage", "Couldn't process incoming DM: %s", reason);
+      log.error("Couldn't process incoming DM: %s", reason);
     });
   }
 
@@ -105,7 +105,6 @@ the DB. This shouldn't happen.`;
       ausers.splice(ausers.indexOf(client.profile.id_str), 1);
       var otheruser = ausers[0];
       log.info(
-        "DirectMessage",
         "Sending DM from %s(%s) => %s",
         client.profile.id_str,
         client.profile.screen_name,
@@ -119,7 +118,7 @@ the DB. This shouldn't happen.`;
         throw "direct_messages/new failed. Reason: " + error;
       });
     }).catch(reason =>{
-      log.error("DirectMessage", "Failed to send DM: %s", reason);
+      log.error("Failed to send DM: %s", reason);
     });
   }
 
@@ -127,7 +126,6 @@ the DB. This shouldn't happen.`;
     var intent = this.twitter.get_intent(msg.sender.id_str);
 
     log.verbose(
-      "DirectMessage",
       "Recieved DM from %s(%s) => %s(%s)",
       msg.sender.id_str, msg.sender.screen_name,
       msg.recipient.id_str,
@@ -138,7 +136,6 @@ the DB. This shouldn't happen.`;
 
   _create_dm_room (sender, recipient) {
     log.info(
-      "DirectMessage",
       "Creating a new room for DMs from %s(%s) => %s(%s)",
       sender.id_str,
       sender.screen_name,

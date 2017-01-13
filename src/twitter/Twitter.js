@@ -8,6 +8,7 @@ const UserStream    = require('./UserStream.js');
 const Timeline      = require('./Timeline.js');
 const Status      = require('./Status.js');
 const util = require('../util.js');
+const log = util.logPrefix("Twitter");
 const Promise = require('bluebird');
 /**
  * This class handles the connections between the Twitter API
@@ -48,7 +49,7 @@ class Twitter {
    */
   start () {
     if(this._start_promise != null) {
-      log.warn("Twitter",  "Attempted to call start() while having been started previously.");
+      log.warn("Attempted to call start() while having been started previously.");
       return this._start_promise;
     }
 
@@ -75,7 +76,7 @@ class Twitter {
       this._processor.start();
 
     }).catch((error) => {
-      log.error('Twitter', 'Error trying to retrieve bearer token:', error);
+      log.error('Error trying to retrieve bearer token:', error);
       throw error;
     });
     return this._start_promise;
@@ -127,9 +128,9 @@ class Twitter {
   notify_matrix_user (user, message) {
     const roomstore = this._bridge.getRoomStore();
     roomstore.getEntriesByRemoteId("service_"+user).then((items) => {
-      log.info("Twitter", 'Sending %s "%s"', user, message);
+      log.info('Sending %s "%s"', user, message);
       if(items.length === 0) {
-        log.warn("Twitter", "Couldn't find service room for %s, so couldn't send notice.", user);
+        log.warn("Couldn't find service room for %s, so couldn't send notice.", user);
         return;
       }
       const latest_service = items[items.length-1].matrix.getId();
@@ -140,7 +141,7 @@ class Twitter {
   update_profile (user_profile) {
     var ts = new Date().getTime();
     if(user_profile == null) {
-      log.warn("Twitter", "Tried to preform a profile update with a null profile.");
+      log.warn("Tried to preform a profile update with a null profile.");
       return Promise.resolve();
     }
 
@@ -166,7 +167,7 @@ class Twitter {
       var url;
       if(update_avatar) {
         if(user_profile == null || user_profile.profile_image_url_https == null) {
-          log.warn("Twitter", "Tried to preform a user avatar update with a null profile.");
+          log.warn("Tried to preform a user avatar update with a null profile.");
         }
         else{
           //We have to replace _normal because it gives us a bad quality image
@@ -177,9 +178,7 @@ class Twitter {
             url = obj.mxc_url;
             return intent.setAvatarUrl(obj.mxc_url);
           }).catch(err => {
-            log.error(
-                'Twitter',
-                "Couldn't set new avatar for @%s because of %s",
+            log.error("Couldn't set new avatar for @%s because of %s",
                 user_profile.screen_name,
                 err
               );
@@ -210,7 +209,7 @@ class Twitter {
           intent.setDisplayName(user_profile.name + " (@" + user_profile.screen_name + ")");
         }
         else {
-          log.warn("Twitter", "Tried to preform a user display name update with a null profile.");
+          log.warn("Tried to preform a user display name update with a null profile.");
         }
       }
 
@@ -226,7 +225,7 @@ class Twitter {
    * to be returned. See https://dev.twitter.com/rest/reference/get/users/show
    */
   get_profile_by_id (user_id) {
-    log.info("Twitter", "Looking up T" + user_id);
+    log.info("Looking up T" + user_id);
     return this._storage.get_profile_by_id(user_id).then((profile)=>{
       if(profile != null) {
         if(!profile._outofdate) {
@@ -246,7 +245,7 @@ class Twitter {
    * @see {@link https://dev.twitter.com/rest/reference/get/users/show}
    */
   get_profile_by_screenname (screen_name) {
-    log.info("Twitter", "Looking up T" + screen_name);
+    log.info("Looking up T" + screen_name);
     return this._storage.get_profile_by_name(screen_name).then((profile)=>{
       if(profile != null) {
         if(!profile._outofdate) {
@@ -267,7 +266,6 @@ class Twitter {
         error = error[0];
       }
       log.error(
-        'Twitter',
         "_get_profile: GET /users/show returned: %s %s",
         error.code,
         error.message
@@ -291,7 +289,7 @@ class Twitter {
       }
       var intent = this._bridge.getIntent();
       var users = {};
-      users[this._bridge.getBot().getUserId()] = 100;
+      users["@_twitter_bot:"+this._bridge.opts.domain] = 100;
       users[user] = 100;
       var powers = util.roomPowers(users);
       //Create the room
@@ -315,7 +313,7 @@ class Twitter {
           }
         }
       ).then(room =>{
-        log.verbose("Twitter", "Created new user timeline room %s", room.room_id);
+        log.verbose("Created new user timeline room %s", room.room_id);
         var mroom = new Bridge.MatrixRoom(room.room_id);
         var rroom = new Bridge.RemoteRoom("tl_"+user);
         rroom.set("twitter_type", "user_timeline");

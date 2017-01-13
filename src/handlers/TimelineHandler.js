@@ -1,5 +1,7 @@
 const log  = require('../logging.js');
 const util  = require('../util.js');
+const log  = util.logPrefix("Handler.Timeline");
+
 const RemoteRoom  = require("matrix-appservice-bridge").RemoteRoom;
 
 /**
@@ -35,7 +37,7 @@ class TimelineHandler {
   processLeave (event, request, context) {
     var remote = context.rooms.remote;
     if( remote.data.twitter_type === "user_timeline" && remote.data.twitter_owner === event.sender ) {
-      log.info("Handler.Timeline", "User %s left room. Leaving", event.sender);
+      log.info("User %s left room. Leaving", event.sender);
       this.twitter.user_stream.detach(event.sender);
       var intent = this._bridge.getIntent();
       this.twitter.storage.remove_timeline_room(event.sender);
@@ -60,7 +62,7 @@ class TimelineHandler {
       context.senders.matrix,
       context.rooms.remotes
     ).catch(() => {
-      log.info("Handler.Timeline", "Failed to send tweet.");
+      log.info("Failed to send tweet.");
     });
   }
 
@@ -73,27 +75,27 @@ class TimelineHandler {
    */
   processAliasQuery (alias) {
     //Create the room
-    log.info("Handler.Timeline", "Looking up " + alias);
+    log.info("Looking up " + alias);
     var tuser;
     return this.twitter.get_profile_by_screenname(alias).then((tu) => {
       tuser = tu;
       if (tuser != null) {
         if (tuser.protected) {
-          log.warn("Handler.Timeline", tuser.screen_name + " is a protected account, so we can't read from it.");
+          log.warn(tuser.screen_name + " is a protected account, so we can't read from it.");
           throw "User is protected, can't create timeline."
         }
         return;
       }
-      log.warn("Handler.Timeline", tuser.screen_name + " was not found.");
+      log.warn(tuser.screen_name + " was not found.");
       throw "User not found";
     }).then(() => {
-      log.info("Handler.Timeline", "User found, getting profile image");
+      log.info("User found, getting profile image");
       return util.uploadContentFromUrl(this._bridge, tuser.profile_image_url_https).then(obj =>{
-        log.info("Handler.Timeline", "Got profile image, constructing room.");
+        log.info("Got profile image, constructing room.");
         return this._constructTimelineRoom(tuser, alias, obj.mxc_url);
       })
     }).catch(reason =>{
-      log.error("Handler.Timeline", "Couldn't create timeline room: ", reason);
+      log.error("Couldn't create timeline room: ", reason);
     });
   }
 

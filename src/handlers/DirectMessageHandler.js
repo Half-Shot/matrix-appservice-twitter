@@ -55,7 +55,7 @@ class DirectMessageHandler {
     }).then(()=>{
       return intentS.join(event.room_id);
     }).catch(err => {
-      log.error("Handler.DirectMessage", "Failed to process an invite for a DM. %s", err);
+      log.error("Failed to process an invite for a DM. %s", err);
     })
 
   }

@@ -50,10 +50,10 @@ class Status {
     }).catch(err =>{
       if(err.notify) {
         this._twitter.notify_matrix_user(user.userId, err.notify);
-        log.info("Status", "Couldn't send tweet: ", err.error);
+        log.info("Couldn't send tweet: ", err.error);
       }
       else {
-        log.info("Status", "Couldn't send tweet: ", err);
+        log.info("Couldn't send tweet: ", err);
       }
       throw err;
     });
@@ -175,7 +175,7 @@ We support ${CONSECUTIVE_TWEET_MAX*(TWEET_SIZE-(sname.length))} characters (or $
     return client.postAsync("statuses/update", tweet).then(res => {
       return this._send_tweets(client, tweets, res);
     }).catch(err =>{
-      log.error("Twitter", "Failed to send tweet. %s", err);
+      log.error("Failed to send tweet. %s", err);
       throw err;
     });
   }

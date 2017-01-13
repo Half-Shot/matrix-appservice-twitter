@@ -5,6 +5,7 @@ const Twitter = require('twitter');
 const log = require('../logging.js');
 const OAuth = require('oauth');
 const util = require('../util.js');
+const log = util.logPrefix("Handler.AccountServices");
 const Promise = require('bluebird');
 const promiseRetry = require('bluebird-retry');
 
@@ -49,7 +50,7 @@ class AccountServices {
    * @param  {Context} context Context given by the appservice.
    */
   processInvite (event, request, context) {
-    log.info("Handler.AccountServices", "Got invite");
+    log.info("Got invite");
     const intent = this._bridge.getIntent();
     // Will retry 5 times before giving up
     promiseRetry( () =>{
@@ -71,12 +72,12 @@ class AccountServices {
       );
       //Add the room to the list.
     }).catch(err => {
-      log.error("Handler.AccountServices", "Couldn't join service room. %s", err);
+      log.error("Couldn't join service room. %s", err);
     })
   }
 
   processLeave (event, request, context) {
-    log.info("Handler.AccountServices", "User %s left room. Leaving", event.sender);
+    log.info("User %s left room. Leaving", event.sender);
     var intent = this._bridge.getIntent();
     intent.leave(event.room_id).then(() =>{
       var roomstore = this._bridge.getRoomStore();
@@ -201,7 +202,7 @@ DM Rooms:
 ${dm_rooms}`
       });
     }).catch(err => {
-      log.warn("Handler.AccountServices", "Encountered an error trying to get profile information. %s", err);
+      log.warn("Encountered an error trying to get profile information. %s", err);
       intent.sendMessage(event.room_id, {
         "msgtype": "m.notice",
         "body": err
@@ -289,7 +290,7 @@ ${dm_rooms}`
     var intent = this._bridge.getIntent();
     this._storage.get_twitter_account(event.sender).then((client_data) => {
       var pin = event.content.body;
-      log.info("Handler.AccountServices", `${event.sender} sent a pin (${pin}) to auth with.`);
+      log.info(`${event.sender} sent a pin (${pin}) to auth with.`);
       if(client_data == null) {
         intent.sendMessage(event.room_id, {
           "body": "You must request access with 'link account' first.",
@@ -311,7 +312,7 @@ ${dm_rooms}`
               + " might need to request it again.",
           "msgtype": "m.notice"
         });
-        log.error("Handler.AccountServices", "OAuth Access Token Failed:%s", err);
+        log.error("OAuth Access Token Failed:%s", err);
       });
     });
   }
@@ -449,7 +450,7 @@ ${dm_rooms}`
         throw "RoomID was in the wrong format";
       }
       return intent.join(room_id).catch(err =>{
-        log.warn("Handler.AccountServices", "Couldn't verify a room exists for bridging %s", err);
+        log.warn("Couldn't verify a room exists for bridging %s", err);
         throw "Unable to verify that the room exists."
       })
 
@@ -498,7 +499,7 @@ ${dm_rooms}`
         "msgtype": "m.notice",
         "body": "Error occured"
       });
-      log.error("Handler.AccountServices", "Error occured %s", err);
+      log.error("Error occured %s", err);
     });
 
   }
@@ -564,7 +565,7 @@ ${dm_rooms}`
         "msgtype": "m.notice"
       });
     }).catch( (err) => {
-      log.error("Handler.AccountServices", "Error occured during unbridge", err);
+      log.error("Error occured during unbridge", err);
       intent.sendMessage(event.room_id, {
         "body": "Couldn't unbridge the room.",
         "msgtype": "m.notice"

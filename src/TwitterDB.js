@@ -13,7 +13,7 @@ class TwitterDB {
   constructor (filepath) {
     this.db = new SQLite3.Database(filepath, (err) => {
       if(err) {
-        log.error("TwitDB", "Error opening database, %s");
+        log.error("Error opening database, %s");
         throw new Error("Couldn't open database. The appservice won't be able to continue.");
       }
     });
@@ -40,7 +40,7 @@ class TwitterDB {
    * Checks the database has all the tables needed.
    */
   init () {
-    log.info("TwitDB", "Starting DB Init");
+    log.info("Starting DB Init");
     var old_version;
     var version;
     return this._get_schema_version().then(o =>{
@@ -50,22 +50,22 @@ class TwitterDB {
         version++;
         var schema = require(`./database_schema/v${version}.js`);
         schema.run(this);
-        log.info("TwitDB", "Updated database v%s", version);
+        log.info("Updated database v%s", version);
         this.version = version;
       }
     }).then(() => {
       return this._set_schema_version(old_version, version).then( () => {
-        log.info("TwitDB", "Updated database to the latest schema");
+        log.info("Updated database to the latest schema");
       });
     }).catch(err => {
-      log.error("TwitDB", "Couldn't update database to the latest version! Bailing");
+      log.error("Couldn't update database to the latest version! Bailing");
       throw err;
     })
 
   }
 
   _create (statement, tablename) {
-    log.info("SQL", "_create %s", tablename);
+    log.info("_create %s", tablename);
     return this.db.run(statement, (err) => {
       if(err) {
         throw `Error creating '${tablename}': ${err}`;
@@ -78,7 +78,7 @@ class TwitterDB {
   }
 
   _get_schema_version ( ) {
-    log.silly("SQL", "_get_schema_version");
+    log.silly("_get_schema_version");
     return this.db.getAsync(
       `
       SELECT version
@@ -92,7 +92,7 @@ class TwitterDB {
   }
 
   _set_schema_version (old_ver, ver ) {
-    log.silly("SQL", "_set_schema_version => %s", ver);
+    log.silly("_set_schema_version => %s", ver);
     return this.db.getAsync(
       `
       UPDATE schema
