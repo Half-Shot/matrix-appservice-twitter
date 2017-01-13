@@ -1,7 +1,6 @@
 /*eslint no-invalid-this: 0*/ // eslint doesn't understand Promise.coroutine wrapping
 const log = require('./logging.js');
 const util = require('./util.js');
-const log = util.logPrefix("Provisioner");
 const Promise = require('bluebird');
 
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;

@@ -167,17 +167,6 @@ function isTwitterHashtag (str) {
   return /^[a-zA-Z0-9_]+$/.test(str);
 }
 
-function logPrefix (prefix) {
-  const levels = ["silly", "verbose", "info", "warn", "error"];
-  const logObject = { }
-  for(const level of levels) {
-    logObject[level] = (msg, ...args) => {
-      log.log(level, prefix, msg, args);
-    }
-  }
-  return logObject;
-}
-
 module.exports = {
   uploadContentFromUrl,
   downloadFile,
@@ -188,5 +177,4 @@ module.exports = {
   roomPowers,
   isTwitterScreenName,
   isTwitterHashtag,
-  logPrefix
 }
