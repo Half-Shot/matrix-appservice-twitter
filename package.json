@@ -27,7 +27,6 @@
     "js-yaml": "^3.6.1",
     "logrotate-stream": "^0.2.5",
     "matrix-appservice-bridge": "1.3.5",
-    "matrix-js-sdk": "^0.5.3",
     "mime": "^1.3.4",
     "mime-types": "^2.1.12",
     "oauth": "^0.9.14",
