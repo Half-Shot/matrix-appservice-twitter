@@ -1,6 +1,9 @@
 const assert = require('chai').assert;
 const Provisioner = require('../src/Provisioner.js');
 
+// Initialise logging
+require('../src/logging.js').init({level: 'silent'});
+
 const _bridge = {
   appService: {
     app: {

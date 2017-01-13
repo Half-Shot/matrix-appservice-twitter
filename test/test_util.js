@@ -4,6 +4,8 @@ const assert = chai.assert;
 const nock = require('nock');
 const util = require('../src/util.js');
 
+// Initialise logging
+require('../src/logging.js').init({level: 'silent'});
 
 describe('Util', function () {
 
