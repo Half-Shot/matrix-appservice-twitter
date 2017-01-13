@@ -18,15 +18,23 @@ function init (loggingConfig) {
     level: loggingConfig.level,
   }));
 
-  const logrotateConfig = {
-    file: loggingConfig.file,
-    json: false,
-    size: loggingConfig.size,
-    keep: loggingConfig.count,
-    compress: loggingConfig.compress,
-  };
+  if (loggingConfig && loggingConfig.file) {
+    const logrotateConfig = {
+      file: loggingConfig.file,
+      json: false,
+      size: loggingConfig.size,
+      keep: loggingConfig.count,
+      compress: loggingConfig.compress,
+      timestamp: () => new Date().toISOString().replace(/[TZ]/g, ' '),
+      formatter: function (options) {
+        return options.timestamp() + options.level + ' ' + (options.message ? options.message : '') +
+          (options.meta && Object.keys(options.meta).length ? '\n\t'+ JSON.stringify(options.meta) : '' );
+      },
+      level: loggingConfig.level,
+    };
+    transports.push(new Rotate(logrotateConfig));
+  }
 
-  transports.push(new Rotate(logrotateConfig));
 
   log = new winston.Logger({
     transports: transports,

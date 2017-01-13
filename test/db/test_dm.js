@@ -3,6 +3,8 @@ chai.use(require("chai-as-promised"));
 const assert = chai.assert;
 const TwitterDB = require('../../src/TwitterDB.js');
 
+// Initialise logging
+require('../../src/logging.js').init({level: 'silent'});
 
 describe('TwitterDB.dm', function () {
   var db;
