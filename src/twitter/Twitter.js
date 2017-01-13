@@ -8,7 +8,6 @@ const UserStream    = require('./UserStream.js');
 const Timeline      = require('./Timeline.js');
 const Status      = require('./Status.js');
 const util = require('../util.js');
-const log = util.logPrefix("Twitter");
 const Promise = require('bluebird');
 /**
  * This class handles the connections between the Twitter API

@@ -5,7 +5,6 @@ const Twitter = require('twitter');
 const log = require('../logging.js');
 const OAuth = require('oauth');
 const util = require('../util.js');
-const log = util.logPrefix("Handler.AccountServices");
 const Promise = require('bluebird');
 const promiseRetry = require('bluebird-retry');
 
