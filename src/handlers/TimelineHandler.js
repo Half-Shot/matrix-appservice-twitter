@@ -1,6 +1,5 @@
 const log  = require('../logging.js');
 const util  = require('../util.js');
-const log  = util.logPrefix("Handler.Timeline");
 
 const RemoteRoom  = require("matrix-appservice-bridge").RemoteRoom;
 
