@@ -49,7 +49,6 @@ var cli = new AppService.Cli({
     var room_handler;
 
     var clientFactory = new AppService.ClientFactory({
-      sdk: require("matrix-js-sdk"),
       url: config.bridge.homeserverUrl,
       token: regObj.as_token,
       appServiceUserId: "@" + regObj.sender_localpart + ":" + config.bridge.domain
