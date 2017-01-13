@@ -43,7 +43,7 @@ function init (loggingConfig) {
 
 function handle (level, args) {
   if (!log) {
-    console.error("Log not initialised");
+    console.error("Log not initialised"); // eslint-disable-line no-console
   }
   // Take the first arg as context
   // apply util.format to the second arg, with the remaining args as input

@@ -156,7 +156,12 @@ var cli = new AppService.Cli({
 
           if(type === 'timeline' && config.timelines.enable) {
             const exclude_replies = entry.remote.data.twitter_exclude_replies;
-            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId(), {exclude_replies, is_new: !config.timelines.shouldSyncInitially});
+            twitter.timeline.add_timeline(
+              entry.remote.data.twitter_user, entry.matrix.getId(),
+              {
+                exclude_replies, is_new: !config.timelines.shouldSyncInitially}
+
+            );
           }
           else if(type === 'hashtag' && config.hashtags.enable) {
             twitter.timeline.add_hashtag(entry.remote.roomId.substr("hashtag_".length), entry.matrix.getId());
@@ -180,8 +185,8 @@ try{
   cli.run();
 }
 catch(err) {
-  console.error("Init", "Failed to start bridge.");
-  console.error("Init", err);
+  console.error("Init", "Failed to start bridge.");// eslint-disable-line no-console
+  console.error("Init", err);// eslint-disable-line no-console
 }
 
 /**
