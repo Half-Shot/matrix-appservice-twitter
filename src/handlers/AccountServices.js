@@ -2,6 +2,7 @@
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 const MatrixRoom = require("matrix-appservice-bridge").MatrixRoom;
 const Twitter = require('twitter');
+const log = require('../logging.js');
 const OAuth = require('oauth');
 const util = require('../util.js');
 const log = util.logPrefix("Handler.AccountServices");
@@ -36,7 +37,7 @@ class AccountServices {
       this._app_auth.consumer_key,
       this._app_auth.consumer_secret,
       '1.0A',
-      "oob",
+      null,
       'HMAC-SHA1'
     );
   }
@@ -187,7 +188,7 @@ timeline.replies [option]
       }
       return this._storage.get_timeline_room(event.sender);
     }).then(room => {
-      account.timeline_room = room.room_id;
+      account.timeline_room = room === null ? "No Timeline Room" : room.room_id;
       return Promise.resolve("[Not implemented yet]");
     }).then(dm_rooms => {
       intent.sendMessage(event.room_id, {
@@ -217,7 +218,7 @@ ${dm_rooms}`
    */
   _beginLinkAccount (event) {
     var intent = this._bridge.getIntent();
-    var access_type = event.content.body.substr("link account ".length);
+    var access_type = event.content.body.substr("account.link ".length);
     if(!["read", "write", "dm"].includes(access_type)) {
       intent.sendMessage(event.room_id, {
         "body": "You must specify either read, write or dm access.",
@@ -228,15 +229,15 @@ ${dm_rooms}`
     log.info("Handler.AccountServices",
     `${event.sender} is requesting a twitter account link (${access_type} access).`
     );
-    this._oauth_getUrl(event.sender, access_type).then( (url) =>{
+    this._oauth_getUrl(event.sender, access_type, "oob").then( (url) =>{
       intent.sendMessage(event.room_id, {
         "body": `Go to ${url} to receive your PIN, and then type it in below.`,
         "msgtype": "m.notice"
       });
     }).catch(err => {
-      log.error(`Couldn't get authentication URL: ${err}` );
+      log.error("Handler.AccountServices", `Couldn't get authentication URL: ${err.message}` );
       intent.sendMessage(event.room_id, {
-        "body": "We are unable to process your request at this time. Make sure you entered the command correctly.",
+        "body": `Could not retrieve an OAuth URL for your account: ${err.message}`,
         "msgtype": "m.notice"
       });
     });
@@ -250,13 +251,33 @@ ${dm_rooms}`
    */
   _unlinkAccount (event) {
     var intent = this._bridge.getIntent();
-    this._storage.remove_twitter_account(event.sender);
-    this._storage.remove_timeline_room(event.sender);
-    this._twitter.user_stream.detach(event.sender);
-    intent.sendMessage(event.room_id, {
-      "body": "Your account (if it was linked) is now unlinked from Matrix.",
-      "msgtype": "m.notice"
-    });
+    this._unlinkAccountbyUserId(event.sender).then(
+      () => {
+        intent.sendMessage(event.room_id, {
+          "body": "Your account (if it was linked) is now unlinked from Matrix.",
+          "msgtype": "m.notice"
+        });
+      },
+      (err) => {
+        log.error(
+          "Handler.AccountServices",
+          `An error was encountered in _unlinkAccountbyUserId(${event.sender}): ${err.message}`
+        );
+        intent.sendMessage(event.room_id, {
+          "body": "Your account could not be unlinked from Matrix.",
+          "msgtype": "m.notice"
+        });
+      }
+    );
+  }
+
+  _unlinkAccountbyUserId (user_id) {
+    const promises = [];
+    promises.push(this._storage.remove_twitter_account(user_id));
+    promises.push(this._storage.remove_timeline_room(user_id));
+    promises.push(this._twitter.user_stream.detach(user_id));
+    this._twitter.client_factory.invalidate_twitter_client(user_id);
+    return Promise.all(promises);
   }
 
   /**
@@ -296,16 +317,25 @@ ${dm_rooms}`
     });
   }
 
+  _oauth_processRedirect (oauth_verifier, client_data) {
+    return this._oauth_getAccessToken(oauth_verifier, client_data, client_data.user_id).then(() => {
+      return this._twitter.create_user_timeline(client_data.user_id);
+    }).then(() => {
+      return this._twitter.user_stream.attach(client_data.user_id);
+    }).then(() => {
+      return {body: "The Twitter bridge has been successfully authorised to use your Twitter account."}
+    });
+  }
 
   /**
    * description Verify the pin with Twitter and get an access token.
    *
    * @param  {string} pin         User supplied pin code.
    * @param  {object} client_data OAuth data for the user.
-   * @param  {int} id          Twitter profile ID
-   * @return {Promise<object>}             description
+   * @param  {string} user_id     Matrix user ID
+   * @return {Promise<object>}    Resolves with Twitter profile, or rejects with reason string.
    */
-  _oauth_getAccessToken (pin, client_data, id) {
+  _oauth_getAccessToken (pin, client_data, user_id) {
     return new Promise((resolve, reject) => {
       if (!client_data || client_data.oauth_token === "" || client_data.oauth_secret === "") {
         reject("User has no associated token request data");
@@ -330,12 +360,12 @@ ${dm_rooms}`
           });
           client.get("account/verify_credentials", (error, profile) =>{
             if(error) {
-              log.error(`We couldn't authenticate with `
-            +`the supplied access token for ${id}. ${error}`);
+              log.error("Handler.AccountServices", `We couldn't authenticate with `
+            +`the supplied access token for ${user_id}. ${error}`);
               reject("Twitter account could not be authenticated.");
               return;
             }
-            this._storage.set_twitter_account(id, profile.id, client_data).then(() =>{
+            this._storage.set_twitter_account(user_id, profile.id, client_data).then(() =>{
               resolve(profile);
             }).catch(() => {
               reject("Failed to store account information.")
@@ -350,43 +380,60 @@ ${dm_rooms}`
    *
    * @param  {type}   id    The matrix user id wishing to authenticate.
    * @param  {string} access_type The type of access to register for. One of read, write, dm
-   * @return {Promise<string>}  A promise that will return an auth url or reject with nothing.
+   * @return {Promise<string>}  A promise that will return an auth url or reject with an Error.
    */
-  _oauth_getUrl (id, access_type) {
+  _oauth_getUrl (id, access_type, oauth_callback) {
     if(!['read', 'write', 'dm'].includes(access_type)) {
       throw "None or invalid access_type given to OAuth.";
     }
-    return new Promise((resolve, reject) => {
-      this._oauth.getOAuthRequestToken(
-          /* 'x_auth_access_type' is used to specify the access level.
-           * Valid options are:
-           * read - Read from the API
-           * write - read + make changes
-           * dm - read+write + be able to send/read direct messages
-           * */
-         {"x_auth_access_type": access_type},
-         (error, oAuthToken, oAuthTokenSecret) => {
-           if(error) {
-             reject(error);
-             return;
-           }
-           //We are modifying the data. So make sure to detach the rooms first.
-           this._twitter.user_stream.detach(id);
-           var data = {
-             oauth_token: oAuthToken,
-             oauth_secret: oAuthTokenSecret,
-             access_token: null,
-             access_token_secret: null,
-             access_type: access_type
-           };
-           this._storage.set_twitter_account(id, "", data).then(()=>{
-             var authURL = 'https://twitter.com/oauth/authenticate?oauth_token=' + oAuthToken;
-             resolve(authURL);
-           }).catch(() => {
-             reject("Failed to store account information.");
-           });
-         });
-    });
+    // Do not allow OAuth with someone who has already stored started/completed OAuth
+    return this._storage.get_twitter_account(id).then(
+      (account) => {
+        return new Promise((resolve, reject) => {
+          if (account) {
+            reject(new Error(`Account already exists for user ${id}`));
+            return;
+          }
+          this._oauth.getOAuthRequestToken(
+              /* 'x_auth_access_type' is used to specify the access level.
+               * Valid options are:
+               * read - Read from the API
+               * write - read + make changes
+               * dm - read+write + be able to send/read direct messages
+               * */
+            {
+              "x_auth_access_type": access_type,
+              "oauth_callback": oauth_callback
+            },
+            (error, oAuthToken, oAuthTokenSecret) => {
+              if(error) {
+                reject(error);
+                return;
+              }
+              //We are modifying the data. So make sure to detach the rooms first.
+              this._twitter.user_stream.detach(id);
+              var data = {
+                oauth_token: oAuthToken,
+                oauth_secret: oAuthTokenSecret,
+                access_token: null,
+                access_token_secret: null,
+                access_type: access_type
+              };
+              this._storage.set_twitter_account(id, "", data).then(()=>{
+                var authURL = 'https://twitter.com/oauth/authenticate?oauth_token=' + oAuthToken;
+                resolve(authURL);
+              }).catch(() => {
+                reject(new Error("Failed to store account information."));
+              });
+            });
+        });
+      }
+    ).catch(
+      err => {
+        log.error("Handler.AccountServices._oauth_getUrl", err.message);
+        throw err;
+      }
+    );
   }
 
   _bridgeRoom (event) {

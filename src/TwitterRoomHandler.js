@@ -6,7 +6,7 @@
                 provide general assistance.
 
 */
-const log = require('./util.js').logPrefix("RoomHandler");
+const log = require('./logging.js');
 
 class TwitterRoomHandler {
   /**

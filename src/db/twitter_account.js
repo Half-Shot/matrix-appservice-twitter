@@ -1,4 +1,4 @@
-const log = require('npmlog');
+const log = require('../logging.js');
 const TWITTER_PROFILE_INTERVAL_MS = 10*60000;
 module.exports = {
   get_twitter_account: function (user_id) {
@@ -11,6 +11,24 @@ module.exports = {
       `
     , {
       $id: user_id
+    }).then( row => {
+      return row !== undefined ? row : null;
+    }).catch( err => {
+      log.error("TwitDB", "Error retrieving client data: %s", err.Error);
+      throw err;
+    });
+  },
+
+  get_twitter_account_by_oauth_token: function (oauth_token) {
+    log.silly("SQL", "get_twitter_account_by_oauth_token => %s", oauth_token);
+    return this.db.getAsync(
+      `
+      SELECT *
+      FROM twitter_account
+      WHERE twitter_account.oauth_token = $ot;
+      `
+    , {
+      $ot: oauth_token
     }).then( row => {
       return row !== undefined ? row : null;
     }).catch( err => {

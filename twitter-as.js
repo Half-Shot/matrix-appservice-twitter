@@ -1,4 +1,4 @@
-const log = require('npmlog');
+const log = require('./src/logging.js');
 const yaml = require("js-yaml");
 const fs = require("fs");
 
@@ -32,10 +32,11 @@ var cli = new AppService.Cli({
     callback(reg);
   },
   run: function (port, config) {
-    log.level = config.logging.level || "info";
-    if(config.logging.file) {
-      var lrstream = require('logrotate-stream');
-      log.stream = lrstream(config.logging);
+    log.init(config.logging);
+
+    // Set default config
+    if (config.timelines.shouldSyncInitially === undefined) {
+      config.timelines.shouldSyncInitially = true;
     }
 
     //Read registration file
@@ -92,9 +93,10 @@ var cli = new AppService.Cli({
       twitter: twitter,
       sender_localpart: regObj.sender_localpart
     }
+    const account_services = new RoomHandlers.AccountServices(opt);
     room_handler = new TwitterRoomHandler(bridge, config,
       {
-        services: new RoomHandlers.AccountServices(opt),
+        services: account_services,
         timeline: new RoomHandlers.TimelineHandler(bridge, twitter),
         hashtag: new RoomHandlers.HashtagHandler(bridge, twitter),
         directmessage: new RoomHandlers.DirectMessageHandler(bridge, twitter, tstorage)
@@ -108,7 +110,7 @@ var cli = new AppService.Cli({
 
       // Setup provisioning - If not enabled it will still return an error code.
       if (config.provisioning) {
-        provisioner = new Provisioner(bridge, twitter, config);
+        provisioner = new Provisioner(bridge, twitter, config, account_services);
         provisioner.init();
       }
 
@@ -155,7 +157,7 @@ var cli = new AppService.Cli({
 
           if(type === 'timeline' && config.timelines.enable) {
             const exclude_replies = entry.remote.data.twitter_exclude_replies;
-            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId(), {exclude_replies});
+            twitter.timeline.add_timeline(entry.remote.data.twitter_user, entry.matrix.getId(), {exclude_replies, is_new: !config.timelines.shouldSyncInitially});
           }
           else if(type === 'hashtag' && config.hashtags.enable) {
             twitter.timeline.add_hashtag(entry.remote.roomId.substr("hashtag_".length), entry.matrix.getId());
@@ -179,8 +181,8 @@ try{
   cli.run();
 }
 catch(err) {
-  log.error("Init", "Failed to start bridge.");
-  log.error("Init", err);
+  console.error("Init", "Failed to start bridge.");
+  console.error("Init", err);
 }
 
 /**

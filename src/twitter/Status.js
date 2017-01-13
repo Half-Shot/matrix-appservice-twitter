@@ -10,7 +10,7 @@
 - Send
 */
 
-const log = require('../util.js').logPrefix("Status");
+const log      = require('../logging.js');
 const TWEET_SIZE = 140;
 const CONSECUTIVE_TWEET_MAX = 3;
 

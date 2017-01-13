@@ -1,4 +1,4 @@
-const log  = require('../util.js').logPrefix("TClientFactory");
+const log  = require('../logging.js');
 const Request  = require('request');
 const FS       = require('fs');
 const Buffer   = require('buffer').Buffer;
@@ -174,6 +174,18 @@ class TwitterClientFactory {
         // );
       });
     });
+  }
+
+  /**
+   * Remove a authenticated twitter client for a user from the cache.
+   *
+   * @param  {string} sender Matrix UserID of the user.
+   */
+  invalidate_twitter_client (sender) {
+    if (!this._tclients.has(sender)) {
+      return;
+    }
+    this._tclients.delete(sender);
   }
 
   _create_twitter_client (creds) {

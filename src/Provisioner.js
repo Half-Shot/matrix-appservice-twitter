@@ -1,4 +1,5 @@
 /*eslint no-invalid-this: 0*/ // eslint doesn't understand Promise.coroutine wrapping
+const log = require('./logging.js');
 const util = require('./util.js');
 const log = util.logPrefix("Provisioner");
 const Promise = require('bluebird');
@@ -11,7 +12,7 @@ const ROOM_JOIN_TIMEOUT_MS = 1*60*1000;
 const DEFAULT_POWER_REQ = 50;
 
 class Provisioner {
-  constructor (bridge, twitter, config) {
+  constructor (bridge, twitter, config, account_services) {
     this._bridge = bridge;
     this._as = bridge.appService;
     this._app = bridge.appService.app;
@@ -22,6 +23,7 @@ class Provisioner {
     if(this._config.required_power_level === undefined) {
       this._config.required_power_level = DEFAULT_POWER_REQ;
     }
+    this._account_services = account_services;
   }
 
   init () {
@@ -72,6 +74,18 @@ class Provisioner {
     this._app.get("/_matrix/provision/show/:screenName", (req, res) => {
       Promise.coroutine(this._requestWrap.bind(this))(this._queryProfile, req, res);
     });
+    this._app.post("/_matrix/provision/oauth", (req, res) => {
+      Promise.coroutine(this._requestWrap.bind(this))(this._handleOAuth, req, res);
+    });
+    this._app.post("/_matrix/provision/unoauth", (req, res) => {
+      Promise.coroutine(this._requestWrap.bind(this))(this._handleUnOAuth, req, res);
+    });
+    this._app.get("/_matrix/provision/oauth_tokens", (req, res) => {
+      Promise.coroutine(this._requestWrap.bind(this))(this._handleOAuthTokens, req, res);
+    });
+    this._app.post("/_matrix/provision/get_oauthed_timeline", (req, res) => {
+      Promise.coroutine(this._requestWrap.bind(this))(this._getOAuthedTimeline, req, res);
+    });
   }
 
   * _requestWrap (func, req, res) {
@@ -89,6 +103,7 @@ class Provisioner {
     catch (err) {
       res.status(500).json({message: "An internal error occured."});
       log.error("Error occured: ", err.message, err.stack);
+      log.error("Provisioner", "Error occured: ", err);
     }
   }
 
@@ -315,7 +330,7 @@ class Provisioner {
   }
 
   isProvisionRequest (req) {
-    return req.url.match(/^\/_matrix\/provision\/(\S+)\/(link|links|timeline)/)
+    return req.url.match(/^\/_matrix\/provision\/(\S+)\/(link|links|timeline|unoauth|oauth|oauth_tokens|get_oauthed_timeline)/)
       || req.url.startsWith("/_matrix/provision/show");
   }
 
@@ -394,7 +409,82 @@ class Provisioner {
     }
   }
 
+  * _handleOAuth (req) {
+    const user_id = req.body.user_id;
+    const access_type = req.body.access_type;
+    const oauth_callback = req.body.oauth_callback;
 
+    if (!user_id) {
+      return {err: 400, body: {error: `User ID required to do OAuth.`}};
+    }
+    const allowed_types = ['read', 'write', 'dm'];
+    if (!allowed_types.includes(access_type)) {
+      return {err: 400, body: {error: `Access type must be one of ${allowed_types}.`}};
+    }
+    if (!oauth_callback) {
+      return {err: 400, body: {error: `oauth_callback required to do OAuth.`}};
+    }
+    try {
+      const url = yield this._account_services._oauth_getUrl(user_id, access_type, oauth_callback);
+      return {body: {url: url}};
+    } catch (err) {
+      return {err: 500, body: {error: err.message}};
+    }
+  }
+
+  * _handleUnOAuth (req) {
+    const user_id = req.body.user_id;
+    if (!user_id) {
+      return {err: 400, body: {error: "User ID required to remove OAuth credentials."}};
+    }
+    yield this._account_services._unlinkAccountbyUserId(user_id);
+
+    return {body: {message: "Success"}};
+  }
+
+  * _getOAuthedTimeline (req) {
+    const user_id = req.body.user_id;
+    if (!user_id) {
+      return {err: 400, body: {error: "User ID required to get OAuthed timeline."}};
+    }
+    const client_data = yield this._account_services._storage.get_twitter_account(user_id);
+    if (!client_data) {
+      return {err: 404, body: {error: "User ID not recognised."}};
+    }
+    if (client_data.twitter_id === "") {
+      return {err: 401, body: {error: "User has not completed the OAuth process."}};
+    }
+    const profile = yield this._twitter.get_profile_by_id(client_data.twitter_id);
+    if (!profile) {
+      return {err: 404, body: {error: "Timeline not found."}};
+    }
+    else {
+      return {
+        body: {
+          twitterId: profile.id_str,
+          avatarUrl: profile.profile_image_url_https,
+          name: profile.name,
+          screenName: profile.screen_name,
+          description: profile.description
+        }
+      }
+    }
+  }
+
+  * _handleOAuthTokens (req) {
+    const oauth_verifier = req.query.oauth_verifier;
+    const oauth_token = req.query.oauth_token;
+    try {
+      const client_data = yield this._account_services._storage.get_twitter_account_by_oauth_token(
+        oauth_token
+      );
+      const res = this._account_services._oauth_processRedirect(oauth_verifier, client_data);
+      return res;
+    } catch (err) {
+      log.error("Provisioning", "Error authorising users by OAuth redirect: %s", err);
+      throw err;
+    }
+  }
 }
 
 module.exports = Provisioner;

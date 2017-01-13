@@ -1,4 +1,4 @@
-const log = require('../util.js').logPrefix("Timeline");
+const log      = require('../logging.js');
 
 const TIMELINE_POLL_INTERVAL = 3010; //Twitter allows 300 calls per 15 minute (We add 10 milliseconds for a little safety).
 const HASHTAG_POLL_INTERVAL = 2010; //Twitter allows 450 calls per 15 minute (We add 10 milliseconds for a little safety).
@@ -247,7 +247,9 @@ class Timeline {
       }
       return this.twitter.client_factory.get_client();
     }).then((client)=>{
-      return client.getAsync('statuses/user_timeline', req);
+      return client.getAsync('statuses/user_timeline', req).catch((error) =>{
+        log.error("Timeline", "_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
+      });
     }).then((feed) => {
       if (feed.length === 0) {
         return;
@@ -256,11 +258,18 @@ class Timeline {
         log.info("Timeline poll request hit count limit. Request likely incomplete.");
       }
       const s = feed[0].id_str;
+
+      log.silly("Timeline", "Storing since: %s", s);
       this.twitter.storage.set_since("@"+tline.twitter_id, s);
-      log.silly("Storing since: %s", s);
-      this.twitter.processor.process_tweets(tline.room, feed, TWEET_REPLY_MAX_DEPTH);
-    }).catch((error) =>{
-      log.error("_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
+
+      // If req.count = 1, the resp will be the initial tweet used to get initial "since"
+      if (req.count !== 1) {
+        this.twitter.processor.process_tweets(tline.room, feed, TWEET_REPLY_MAX_DEPTH);
+      }
+
+      tline.hasProcessedTweets = true;
+    }).catch((err) => {
+      log.error("Timeline", "Error whilst processing timeline %s: %s", tline.twitter_id, err);
     });
 
     this._t++;

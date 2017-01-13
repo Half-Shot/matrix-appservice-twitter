@@ -2,7 +2,7 @@ const https   = require('https');
 const http   = require('http');
 
 const Buffer  = require("buffer").Buffer;
-const log     = require('npmlog');
+const log     = require('./logging.js');
 const mime    = require('mime');
 const Promise = require('bluebird');
 

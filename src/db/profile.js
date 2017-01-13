@@ -1,4 +1,4 @@
-const log = require('npmlog');
+const log = require('../logging.js');
 const TWITTER_PROFILE_INTERVAL_MS   = 300000;
 
 module.exports = {

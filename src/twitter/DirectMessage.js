@@ -1,4 +1,4 @@
-const log = require('../util.js').logPrefix("DirectMessage");
+const log  = require('../logging.js');
 const Bridge = require("matrix-appservice-bridge");
 const Promise = require('bluebird');
 

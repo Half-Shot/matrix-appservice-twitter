@@ -1,5 +1,5 @@
 const SQLite3 = require('sqlite3').verbose();
-const log = require('./util.js').logPrefix("TwitDB");
+const log = require('./logging.js');
 const Promise = require('bluebird');
 
 const CURRENT_SCHEMA = 4;

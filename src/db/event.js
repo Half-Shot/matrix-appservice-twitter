@@ -1,4 +1,4 @@
-const log = require('npmlog');
+const log = require('../logging.js');
 
 module.exports = {
   add_event: function (event_id, sender, room_id, tweet_id, ts) {
