@@ -72,7 +72,7 @@ class TweetProcessor {
     if (text.entities && tweet.entities.urls) {
       text = this._tweet_expand_urls(text,  tweet.entities.urls );
     }
-
+    text = HTMLDecoder.decode(text);
 
     const mxtweet = {
       "body": text,
