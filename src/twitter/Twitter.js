@@ -164,8 +164,6 @@ class Twitter {
          (old.description !== user_profile.description);
       }
 
-      log.verbose(`Old profile for @${user_profile.screen_name}`, old);
-      log.verbose(`New profile for @${user_profile.screen_name}`, user_profile);
       if(update_description || update_avatar || update_name) {
         log.verbose(`Updating profile for @${user_profile.screen_name}`);
       } else {
@@ -182,7 +180,7 @@ class Twitter {
           //We have to replace _normal because it gives us a bad quality image
           // E.g https://pbs.twimg.com/profile_images/796729706318012418/VdozW4mO_normal.jpg
           // becomes https://pbs.twimg.com/profile_images/796729706318012418/VdozW4mO.jpg
-          const image_url = user_profile.profile_image_url_https.substr("_normal", "");
+          const image_url = user_profile.profile_image_url_https.replace("_normal", "");
           log.verbose(`Updating avatar for @${user_profile.screen_name} with @${image_url.screen_name}.`);
           util.uploadContentFromUrl(this._bridge, image_url, intent).then((obj) =>{
             url = obj.mxc_url;
@@ -211,8 +209,6 @@ class Twitter {
             intent.setRoomName(entry.matrix.getId(), "[Twitter] " + user_profile.name);
           }
         })
-      }
-      else {
       }
 
       if(update_name) {
