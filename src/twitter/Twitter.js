@@ -146,6 +146,9 @@ class Twitter {
 
     return this._storage.get_profile_by_id(user_profile.id_str).then((old)=>{
       let update_name = user_profile.name != null;
+      if (!this._config.media.enable_profile_images) {
+        user_profile.profile_image_url_https = null;
+      }
       let update_avatar = user_profile.profile_image_url_https != null;
       let update_description = user_profile.description != null; //Update if exists.
       if(old) { //Does an older profile exist. If not, update everything!
@@ -155,11 +158,16 @@ class Twitter {
 
         //Has the avatar changed.
         update_avatar = update_avatar &&
-         (old.profile_image_url_https !== user_profile.profile_image_url_https) &&
-         this._config.media.enable_profile_images; // Do we care?
+         (old.profile_image_url_https !== user_profile.profile_image_url_https)
 
         update_description = update_description &&
          (old.description !== user_profile.description);
+      }
+
+      if(update_description || update_avatar || update_name) {
+        log.verbose(`Updating profile for @${user_profile.screen_name}`);
+      } else {
+        log.verbose(`NOT updating profile for @${user_profile.screen_name}`);
       }
 
       const intent = this.get_intent(user_profile.id_str);
@@ -172,13 +180,13 @@ class Twitter {
           //We have to replace _normal because it gives us a bad quality image
           // E.g https://pbs.twimg.com/profile_images/796729706318012418/VdozW4mO_normal.jpg
           // becomes https://pbs.twimg.com/profile_images/796729706318012418/VdozW4mO.jpg
-          const image_url = user_profile.profile_image_url_https.substr("_normal", "");
+          const image_url = user_profile.profile_image_url_https.replace("_normal", "");
+          log.verbose(`Updating avatar for @${user_profile.screen_name} with @${image_url.screen_name}.`);
           util.uploadContentFromUrl(this._bridge, image_url, intent).then((obj) =>{
             url = obj.mxc_url;
             return intent.setAvatarUrl(obj.mxc_url);
           }).catch(err => {
-            log.error("Couldn't set new avatar for @%s because of %s",
-                user_profile.screen_name,
+            log.error(`Couldn't set new avatar for @${user_profile.screen_name} because of`,
                 err
               );
           });
