@@ -54,19 +54,19 @@ describe('Util', function () {
     var test_name = "";
     const intent = {
       getClient: function () {
-        return { uploadContent: function (req) {
+        return { uploadContent: function (file, opts) {
 
-          if(typeof req.stream !== "object") {
-            assert.isObject(req.stream, "stream was not a object");
+          if(typeof file !== "object") {
+            assert.isObject(file, "stream was not a object");
           }
 
-          if(typeof req.name !== "string") {
-            assert.isString(req.name, "name was not a string");
-            assert.isEqual(req.name, test_name);
+          if(typeof opts.name !== "string") {
+            assert.isString(opts.name, "name was not a string");
+            assert.isEqual(opts.name, test_name);
           }
 
-          if(typeof req.type !== "string") {
-            assert.isString(req.type, "type was not a string");
+          if(typeof opts.type !== "string") {
+            assert.isString(opts.type, "type was not a string");
           }
 
           return Promise.resolve(JSON.stringify({

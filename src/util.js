@@ -92,13 +92,13 @@ function uploadContentFromUrl (bridge, url, id, name) {
     if(id === null || typeof id === "string") {
       id = bridge.getIntent(id);
     }
-    return id.getClient().uploadContent({
-      stream: buffer,
+    return id.getClient().uploadContent(buffer, {
       name,
-      type: contenttype
+      type: contenttype,
+      onlyContentUri: true,
+      rawResponse: false,
     });
-  }).then((response) => {
-    var content_uri = JSON.parse(response).content_uri;
+  }).then((content_uri) => {
     log.verbose("UploadContent", "Media uploaded to %s", content_uri);
     return {
       mxc_url: content_uri,
