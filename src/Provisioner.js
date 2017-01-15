@@ -1,4 +1,3 @@
-/*eslint no-invalid-this: 0*/ // eslint doesn't understand Promise.coroutine wrapping
 const log = require('./logging.js');
 const util = require('./util.js');
 const Promise = require('bluebird');
@@ -329,8 +328,10 @@ class Provisioner {
   }
 
   isProvisionRequest (req) {
-    return req.url.match(/^\/_matrix\/provision\/(\S+)\/(link|links|timeline|unoauth|oauth|oauth_tokens|get_oauthed_timeline)/)
-      || req.url.startsWith("/_matrix/provision/show");
+    return new req.url.match(RegExp(
+      "^\/_matrix\/provision\/(\S+)\/" +
+      "(link|links|timeline|unoauth|oauth|oauth_tokens|get_oauthed_timeline)"
+    )) || req.url.startsWith("/_matrix/provision/show");
   }
 
   _updateBridgingState (roomId, userId, status, skey) {

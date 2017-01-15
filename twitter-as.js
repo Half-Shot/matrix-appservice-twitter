@@ -159,8 +159,8 @@ var cli = new AppService.Cli({
             twitter.timeline.add_timeline(
               entry.remote.data.twitter_user, entry.matrix.getId(),
               {
-                exclude_replies, is_new: !config.timelines.shouldSyncInitially}
-
+                exclude_replies, is_new: !config.timelines.shouldSyncInitially
+              }
             );
           }
           else if(type === 'hashtag' && config.hashtags.enable) {
