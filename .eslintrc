@@ -13,7 +13,7 @@
     rules: {
       prefer-const: 2,
       curly: "error",
-      max-lines: ["error",{
+      max-lines: ["warn",{
         max: 400,
         skipComments: true,
         skipBlankLines: true
