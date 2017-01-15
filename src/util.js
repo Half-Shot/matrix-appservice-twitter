@@ -41,6 +41,13 @@ function downloadFile (url) {
   });
 }
 
+function formatStringFromObject (fmtstring, obj) {
+  Object.keys(obj).forEach(key => {
+    fmtstring = fmtstring.replace(`%${key}`, obj[key]);
+  });
+  return fmtstring;
+}
+
 
 /**
  * uploadContentFromUrl - Upload content from a given URL to the homeserver
@@ -177,4 +184,5 @@ module.exports = {
   roomPowers,
   isTwitterScreenName,
   isTwitterHashtag,
+  formatStringFromObject,
 }

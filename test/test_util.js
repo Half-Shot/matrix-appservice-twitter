@@ -238,6 +238,19 @@ describe('Util', function () {
     });
   });
 
+  describe('formatStringFromObject', function () {
+    it('should not format an incompatible string', function () {
+      assert.equal(util.formatStringFromObject("This is a test string.", {}), "This is a test string." );
+      assert.equal(util.formatStringFromObject("This is a test string.", {"test": "foo"}), "This is a test string." );
+      assert.equal(util.formatStringFromObject("This is a %test string.", {"test": "foo"}), "This is a foo string." );
+      assert.equal(util.formatStringFromObject(
+        "%This is a %test string.",
+        {"test": "foo", "This": "bar"}),
+        "bar is a foo string."
+      );
+    });
+  });
+
   describe('roomPowers', function () {
     var users = {"alpha": 5, "beta": 10};
     var powers = util.roomPowers(users);

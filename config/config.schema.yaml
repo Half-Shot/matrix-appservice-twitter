@@ -74,3 +74,8 @@ properties:
       properties:
         enable:
           type: "boolean"
+    formatting:
+      type: "object"
+      properties:
+        user_displayname:
+          type: "string"

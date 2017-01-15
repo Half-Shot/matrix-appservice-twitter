@@ -37,3 +37,9 @@ provisioning: # Provisioning system for scalar-enabled clients such as Riot.
 
 metrics: # Expose prometheus-style bridge statistics from '/metrics'
   enable: true
+
+formatting:
+  # Set the user's displayname to the specified format. Common options are
+  # %name %id_str %screen_name
+  # though you may use any top level field from https://dev.twitter.com/overview/api/users
+  user_displayname: "%name (@%screen_name)"

@@ -9,6 +9,9 @@ const Timeline      = require('./Timeline.js');
 const Status      = require('./Status.js');
 const util = require('../util.js');
 const Promise = require('bluebird');
+
+const DISPLAYNAME_FORMAT = "%name (@%screen_name)";
+
 /**
  * This class handles the connections between the Twitter API
  * and the bridge.
@@ -17,8 +20,7 @@ class Twitter {
 
   /**
     * @param  {matrix-appservice-bridge.Bridge} bridge
-    * @param  config. Bridge configuration (currently only make use of the auth
-    *  information)
+    * @param  config. Bridge configuration
     * @param  config.app_auth.consumer_key Twitter consumer key
     * @param  config.app_auth.consumer_secret Twitter consumer secret
     * @param  {TwitterDB}       storage
@@ -204,12 +206,13 @@ class Twitter {
       }
 
       if(update_name) {
-        if(user_profile != null && user_profile.name != null && user_profile.screen_name != null ) {
-          intent.setDisplayName(user_profile.name + " (@" + user_profile.screen_name + ")");
+        let fmt = DISPLAYNAME_FORMAT;
+        if (this.config.formatting) {
+          if (this.config.formatting.user_displayname) {
+            fmt = this.config.formatting.user_displayname;
+          }
         }
-        else {
-          log.warn("Tried to preform a user display name update with a null profile.");
-        }
+        intent.setDisplayName(util.formatStringFromObject(fmt, user_profile));
       }
 
       return this._storage.cache_user_profile(user_profile.id_str, user_profile.screen_name, user_profile, ts);
