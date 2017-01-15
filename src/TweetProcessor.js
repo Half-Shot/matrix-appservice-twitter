@@ -26,10 +26,19 @@ class TweetProcessor {
   start () {
     if(this._msg_queue_intervalID != null) {
       log.warn("Attempted to call start() while already running.");
+      return;
     }
     this._msg_queue_intervalID = setInterval(() => {
       this._process_head_of_msg_queue();
     }, TWITTER_MSG_QUEUE_INTERVAL_MS);
+  }
+
+  stop () {
+    if(this._msg_queue_intervalID != null) {
+      log.warn("Attempted to call stop() while not running.");
+      return;
+    }
+    clearInterval(this._msg_queue_intervalID);
   }
 
   //Runs every TWITTER_MSG_QUEUE_INTERVAL_MS to help not overflow the HS.
@@ -69,8 +78,14 @@ class TweetProcessor {
    */
   tweet_to_matrix_content (tweet, type) {
     let text = tweet.full_text || tweet.text;
-    if (text.entities && tweet.entities.urls) {
+    let tags = [];
+    if (tweet.entities.urls) {
       text = this._tweet_expand_urls(text,  tweet.entities.urls );
+    }
+    if (tweet.entities.hashtags) {
+      tags = tweet.entities.hashtags.map((hashtag) => {
+        return hashtag.text;
+      })
     }
     text = HTMLDecoder.decode(text);
 
@@ -80,7 +95,7 @@ class TweetProcessor {
       "likes": tweet.favorite_count,
       "reblogs": tweet.retweet_count,
       "tweet_id": tweet.id_str,
-      "tags": tweet.entities.hashtags,
+      "tags": tags,
       "msgtype": type,
       "external_url": `https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`
     }
