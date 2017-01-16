@@ -43,9 +43,10 @@ function downloadFile (url) {
 
 function formatStringFromObject (fmtstring, obj) {
   Object.keys(obj).forEach(key => {
-    fmtstring = fmtstring.replace(`%${key}`, obj[key]);
+    const val = obj[key].replace(new RegExp(`%`, 'g'), '&per;');
+    fmtstring = fmtstring.replace(new RegExp(`%${key}`, 'g'), val);
   });
-  return fmtstring;
+  return fmtstring.replace(new RegExp(`&per;`, 'g'), '%');
 }
 
 

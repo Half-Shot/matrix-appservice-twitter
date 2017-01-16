@@ -239,7 +239,7 @@ describe('Util', function () {
   });
 
   describe('formatStringFromObject', function () {
-    it('should not format an incompatible string', function () {
+    it('should format correctly', function () {
       assert.equal(util.formatStringFromObject("This is a test string.", {}), "This is a test string." );
       assert.equal(util.formatStringFromObject("This is a test string.", {"test": "foo"}), "This is a test string." );
       assert.equal(util.formatStringFromObject("This is a %test string.", {"test": "foo"}), "This is a foo string." );
@@ -247,6 +247,18 @@ describe('Util', function () {
         "%This is a %test string.",
         {"test": "foo", "This": "bar"}),
         "bar is a foo string."
+      );
+    });
+    it('should replace multiple times', function () {
+      assert.equal(util.formatStringFromObject("%a %b is the same as %a %b.", {
+        "a": "foo", "b": "bar"
+      }), "foo bar is the same as foo bar." );
+    });
+    it('should not format recursively', function () {
+      assert.equal(util.formatStringFromObject(
+        "A should be %a and B should be %b.",
+        {"a": "%b", "b": "%c", "c": "well this failed."}),
+        "A should be %b and B should be %c."
       );
     });
   });
