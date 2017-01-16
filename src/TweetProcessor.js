@@ -79,6 +79,12 @@ class TweetProcessor {
   tweet_to_matrix_content (tweet, type) {
     let text = tweet.full_text || tweet.text;
     let tags = [];
+    if (!tweet.entities) {
+      tweet.entities = {}
+    }
+    if (!tweet.user) {
+      throw Error("User field not found in tweet");
+    }
     if (tweet.entities.urls) {
       text = this._tweet_expand_urls(text,  tweet.entities.urls );
     }
@@ -120,12 +126,18 @@ class TweetProcessor {
 
   _push_to_msg_queue (muser, roomid, tweet, type) {
     var time = Date.parse(tweet.created_at);
+    let content;
+    try {
+      content = this.tweet_to_matrix_content(tweet, type)
+    } catch (e) {
+      return Promise.reject("Tweet was missing user field.");
+    }
     var newmsg = {
       userId: muser,
       roomId: roomid,
       time: time,
       type: "m.room.message",
-      content: this.tweet_to_matrix_content(tweet, type)
+      content: content,
     };
 
     var media_promises = [];

@@ -94,20 +94,23 @@ describe('TweetProcessor', function () {
     });
   });
   describe('tweet_to_matrix_content', function () {
+    it('will throw on missing user.', function () {
+      assert.throws(() => {processor.tweet_to_matrix_content({
+        text: "test",
+      })});
+    });
     it('will convert html special chars to regular characters.', function () {
       const mx_content = processor.tweet_to_matrix_content({
         text: "&lt;3",
-        entities: { },
         user: {
 
-        }
+        },
       });
       const mx_content2 = processor.tweet_to_matrix_content({
         text: "<3",
-        entities: { },
         user: {
 
-        }
+        },
       });
       assert.equal(mx_content.body, "<3");
       assert.equal(mx_content2.body, "<3");
@@ -118,22 +121,22 @@ describe('TweetProcessor', function () {
         entities: {
           hashtags: [
             {
-              indices: [0, 3],
+              indices: [0, 4],
               text: "foo"
             },
             {
-              indices: [6, 10],
+              indices: [7, 11],
               text: "bar"
             },
             {
               indices: [15, 19],
               text: "baz"
-            }
-          ]
+            },
+          ],
         },
         user: {
 
-        }
+        },
       });
       assert.sameMembers(mx_content.tags, ["foo", "bar", "baz"]);
     });
@@ -149,7 +152,7 @@ describe('TweetProcessor', function () {
           screen_name: "Half_Shot",
           id_str: "366675043"
         },
-        _retweet_info: "This would be a retweet thing, but here is some content"
+        _retweet_info: "This would be a retweet thing, but here is some content",
       });
       assert.equal(mx_content.body, "This is a fulltext.");
       assert.equal(mx_content.created_at, "Today");
@@ -160,7 +163,6 @@ describe('TweetProcessor', function () {
       assert.equal(mx_content.created_at, "Today");
       assert.equal(mx_content.retweet, "This would be a retweet thing, but here is some content");
     });
-    // full_text or text
   });
 
   describe('_tweet_expand_urls', function () {
