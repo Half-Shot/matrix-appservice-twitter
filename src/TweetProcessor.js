@@ -130,7 +130,7 @@ class TweetProcessor {
     try {
       content = this.tweet_to_matrix_content(tweet, type)
     } catch (e) {
-      return Promise.reject("Tweet was missing user field.");
+      return Promise.reject("Tweet was missing user field.", e);
     }
     var newmsg = {
       userId: muser,
