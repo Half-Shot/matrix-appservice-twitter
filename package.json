@@ -1,6 +1,6 @@
 {
   "name": "matrix-appservice-twitter",
-  "version": "0.1.0",
+  "version": "0.1.0-rc1",
   "description": "A Matrix AS Bridge for Twitter",
   "main": "twitter-as.js",
   "scripts": {
