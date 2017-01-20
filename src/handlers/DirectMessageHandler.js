@@ -39,7 +39,7 @@ class DirectMessageHandler {
       }
       sender = profile;
       var remote_id = event.state_key.substr(0, event.state_key.indexOf(':')).substr("@_twitter_".length);
-      return this.twitter.get_profile_by_id(remote_id);
+      return this.twitter.profile.get_by_id(remote_id);
     }).then(profile =>{
       if(profile == null) {
         throw "No profile found for recipient";

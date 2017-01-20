@@ -66,8 +66,8 @@ class DirectMessage {
   process_dm (msg) {
     const users = [msg.sender.id_str, msg.recipient.id_str].sort().join(';');
 
-    this.twitter.update_profile(msg.sender);
-    this.twitter.update_profile(msg.recipient);
+    this.twitter.profile.update(msg.sender);
+    this.twitter.profile.update(msg.recipient);
 
     if(this._sent_dms.get(users) === msg.id_str) {
       log.verbose("DM has already been processed, ignoring.");

@@ -160,7 +160,7 @@ class TwitterClientFactory {
 
       log.info("Credentials for %s need to be reverified.", sender);
       return client.getAsync("account/verify_credentials").then(profile => {
-        this._twitter.update_profile(profile);
+        this._twitter.profile.update(profile);
         client.profile = profile;
         client.last_auth = ts;
         this._tclients.set(id, client);

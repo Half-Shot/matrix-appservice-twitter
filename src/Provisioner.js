@@ -186,7 +186,7 @@ class Provisioner {
       return rooms;
     }).each(room =>{
       if(room.remote.data.twitter_type === "timeline") {
-        return this._twitter.get_profile_by_id(room.remote.data.twitter_user).then(profile =>{
+        return this._twitter.profile.get_by_id(room.remote.data.twitter_user).then(profile =>{
           body.timelines.push({
             twitterId: profile.id_str,
             avatarUrl: profile.profile_image_url_https,
@@ -206,7 +206,7 @@ class Provisioner {
   // Returns basic profile information if a timeline
   // or empty object for hashtags
   * _queryProfile (req) {
-    const profile = yield this._twitter.get_profile_by_screenname(req.params.screenName);
+    const profile = yield this._twitter.profile.get_by_screenname(req.params.screenName);
     if (!profile) {
       return {err: 404, body: {message: "User not found."}}
     }
@@ -235,7 +235,7 @@ class Provisioner {
       });
     }
     else if(type === "timeline") {
-      const profile = yield this._twitter.get_profile_by_screenname(name);
+      const profile = yield this._twitter.profile.get_by_screenname(name);
       remove_id = profile.id;
       rooms = yield Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
         return item.remote.data.twitter_type === "timeline" &&
@@ -261,7 +261,7 @@ class Provisioner {
 
   * _linkTimeline (room_id, screenname, opts) {
     const roomstore = this._bridge.getRoomStore();
-    const profile = yield this._twitter.get_profile_by_screenname(screenname);
+    const profile = yield this._twitter.profile.get_by_screenname(screenname);
 
     if (!profile) {
       return {err: 404, body: {message: "Twitter profile not found!"}};
@@ -454,7 +454,7 @@ class Provisioner {
     if (client_data.twitter_id === "") {
       return {err: 401, body: {error: "User has not completed the OAuth process."}};
     }
-    const profile = yield this._twitter.get_profile_by_id(client_data.twitter_id);
+    const profile = yield this._twitter.profile.get_by_id(client_data.twitter_id);
     if (!profile) {
       return {err: 404, body: {error: "Timeline not found."}};
     }
