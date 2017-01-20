@@ -157,8 +157,7 @@ class TweetProcessor {
         media_promises.push(
           util.uploadContentFromUrl(
             this._bridge,
-            media.media_url_https,
-            this._bridge.getIntent(muser)
+            media.media_url_https
           ).then( (obj) => {
             media_info.size = obj.size;
             return {
