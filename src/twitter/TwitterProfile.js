@@ -87,7 +87,7 @@ Description:${new_profile.description}`);
       // becomes https://pbs.twimg.com/profile_images/796729706318012418/VdozW4mO.jpg
       const image_url = new_profile.profile_image_url_https.replace("_normal", "");
       log.verbose(`Updating avatar for @${new_profile.screen_name} with @${image_url}.`);
-      url = yield util.uploadContentFromUrl(this._bridge, image_url, intent);
+      url = yield util.uploadContentFromUrl(this._bridge, image_url);
       url = url.mxc_url;
       intent.setAvatarUrl(url);
       rooms.forEach(entry => {
