@@ -1,4 +1,4 @@
-const log      = require('../logging.js');
+const log  = require('../logging.js');
 const Promise  = require('bluebird');
 const util = require("../util.js");
 const DISPLAYNAME_FORMAT = "%name (@%screen_name)";
@@ -32,10 +32,10 @@ class TwitterProfile {
     if(old_profile) { //Does an older profile exist. If not, update everything!
       log.silly(
         `Old profile
-SN:${old_profile.screen_name}
-Name:${old_profile.screen_name}
-Avatar:${old_profile.profile_image_url_https}
-Description:${old_profile.description}`);
+        SN:${old_profile.screen_name}
+        Name:${old_profile.screen_name}
+        Avatar:${old_profile.profile_image_url_https}
+        Description:${old_profile.description}`);
       update_name = update_name &&
         this.format_displayname(old_profile) !== this.format_displayname(new_profile);
 
@@ -49,10 +49,10 @@ Description:${old_profile.description}`);
 
     log.silly(
       `New profile
-SN:${new_profile.screen_name}
-Name:${new_profile.screen_name}
-Avatar:${new_profile.profile_image_url_https}
-Description:${new_profile.description}`);
+      SN:${new_profile.screen_name}
+      Name:${new_profile.screen_name}
+      Avatar:${new_profile.profile_image_url_https}
+      Description:${new_profile.description}`);
 
     if(update_description || update_avatar || update_name) {
       log.verbose(`Updating profile for @${new_profile.screen_name}`);
@@ -61,7 +61,7 @@ Description:${new_profile.description}`);
       return Promise.resolve();
     }
 
-    const intent = this._twitter.get_intent(new_profile.id_str);
+    const intent = this._bridge.getIntentFromLocalpart(`_twitter_${new_profile.id_str}`);
 
     const rooms = yield this._twitter.bridge.getRoomStore().getEntriesByMatrixRoomData(
       {"twitter_user": new_profile.id_str}
@@ -150,20 +150,25 @@ Description:${new_profile.description}`);
 
   _get_profile (data) {
     return this._twitter.client_factory.get_client().then(client => {
-      return client.getAsync('users/show', data);
+      return client.getAsync('users/show', data).catch(error => {
+        if(Array.isArray(error)) {
+          error = error[0];
+        }
+        log.error(
+          "_get_profile: GET /users/show returned: %s %s",
+          error.code,
+          error.message
+        );
+        return null;
+      });
     }).then(user => {
       return this.update_profile(user).thenReturn(user);
-    }).catch(error => {
-      if(Array.isArray(error)) {
-        error = error[0];
-      }
+    }).catch(err => {
       log.error(
-        "_get_profile: GET /users/show returned: %s %s",
-        error.code,
-        error.message
+        "_get_profile failed: %s",
+        err
       );
-      return null;
-    });
+    })
   }
 }
 
