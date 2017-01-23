@@ -61,7 +61,7 @@ class TwitterProfile {
       return Promise.resolve();
     }
 
-    const intent = this._bridge.getIntentFromLocalpart(`_twitter_${new_profile.id_str}`);
+    const intent = this._twitter.bridge.getIntentFromLocalpart(`_twitter_${new_profile.id_str}`);
 
     const rooms = yield this._twitter.bridge.getRoomStore().getEntriesByMatrixRoomData(
       {"twitter_user": new_profile.id_str}
