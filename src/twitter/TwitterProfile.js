@@ -118,7 +118,7 @@ class TwitterProfile {
    */
   get_by_id (twitter_id) {
     log.info("Looking up T" + twitter_id);
-    return this._storage.get_profile_by_id(twitter_id).then((profile)=>{
+    return this._twitter.storage.get_profile_by_id(twitter_id).then((profile)=>{
       if(profile != null) {
         if(!profile._outofdate) {
           return profile;
@@ -162,7 +162,7 @@ class TwitterProfile {
         return null;
       });
     }).then(user => {
-      return this.update_profile(user).thenReturn(user);
+      return this.update(user).thenReturn(user);
     }).catch(err => {
       log.error(
         "_get_profile failed: %s",
