@@ -124,7 +124,7 @@ class TwitterProfile {
           return profile;
         }
       }
-      return this._get_profile({twitter_id});
+      return this._get_profile({user_id: twitter_id});
     });
   }
 
