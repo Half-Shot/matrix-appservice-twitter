@@ -157,8 +157,7 @@ class TweetProcessor {
         media_promises.push(
           util.uploadContentFromUrl(
             this._bridge,
-            media.media_url_https,
-            this._bridge.getIntent(muser)
+            media.media_url_https
           ).then( (obj) => {
             media_info.size = obj.size;
             return {
@@ -251,11 +250,11 @@ class TweetProcessor {
       promise = Promise.resolve();
     }
 
-    this._twitter.update_profile(tweet.user);
+    this._twitter.profile.update(tweet.user);
     if(tweet.retweeted_status) {
       tweet.retweeted_status._retweet_info = { id: tweet.id_str, tweet: tweet.user.id_str };
       tweet = tweet.retweeted_status; // We always want the root tweet.
-      this._twitter.update_profile(tweet.user);
+      this._twitter.profile.update(tweet.user);
     }
 
     promise.then( () => {

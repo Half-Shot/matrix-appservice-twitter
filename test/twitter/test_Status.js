@@ -12,13 +12,13 @@ const twitter = {
   notify_matrix_user: function () {
     notified = true;
   },
-
-  get_profile_by_id: function (id) {
-    return Promise.resolve({
-      screen_name: id
-    });
+  profile: {
+    get_by_id: function (id) {
+      return Promise.resolve({
+        screen_name: id
+      });
+    },
   },
-
   client_factory: {
     get_client: function () {
       return Promise.resolve();

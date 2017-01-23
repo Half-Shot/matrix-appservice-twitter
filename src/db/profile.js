@@ -92,21 +92,20 @@ module.exports = {
 
   /**
    * Insert/Update a Twitter profile into the database.
-   * @param  {type} id          Twitter ID of the profile.
-   * @param  {string} name      screenname of the profile.
+   * @param  {string} id        Twitter ID of the profile.
+   * @param  {string} screenname      screenname of the profile.
    * @param  {object} data      The profile data.
-   * @param  {number} timestamp The time when this data was *fetched*.
+   * @param  {number} timestamp The time when this data was recieved.
    */
-  cache_user_profile: function (id, name, data, timestamp) {
+  cache_user_profile: function (id, screenname, data, timestamp) {
     log.silly("SQL", "cache_user_profile => %s", id);
-
     return this.db.runAsync(
       `
-      REPLACE INTO user_cache (id,screenname,profile,timestamp) VALUES ($id,$name,$data,$timestamp);
+      REPLACE INTO user_cache (id,screenname,profile,timestamp) VALUES ($id,$screenname,$data,$timestamp);
       `
     , {
       $id: id,
-      $name: name,
+      $screenname: screenname,
       $data: JSON.stringify(data),
       $timestamp: timestamp
     }).catch( err => {

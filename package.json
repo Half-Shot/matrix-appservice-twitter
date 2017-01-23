@@ -6,7 +6,7 @@
   "scripts": {
     "test": "mocha",
     "lint": "eslint twitter-as.js src",
-    "coverage": "istanbul --include-all-sources cover _mocha -- test/ -R spec",
+    "coverage": "istanbul --include-all-sources cover -x twitter-as.js _mocha -- test/ -R spec",
     "start": "node twitter-as.js -p 9000 -c config.yaml",
     "debug": "node --debug=5858 twitter-as.js -p 9000 -c config.yaml"
   },

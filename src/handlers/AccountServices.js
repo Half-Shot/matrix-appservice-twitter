@@ -177,7 +177,7 @@ timeline.replies [option]
         throw "No account linked.";
       }
       account.access_type = a.access_type;
-      return this._twitter.get_profile_by_id(a.twitter_id);
+      return this._twitter.profile.get_by_id(a.twitter_id);
     }).then(profile => {
       if(profile) {
         account.screenname = profile.screen_name;
@@ -459,7 +459,7 @@ ${dm_rooms}`
       get_twitter_feed = Promise.resolve(feed_id.substr(1));//hashtag
     }
     else if(feed_id[0] === '@' && util.isTwitterScreenName(feed_id.substr(1))) {
-      get_twitter_feed = this._twitter.get_profile_by_screenname(feed_id.substr(1));
+      get_twitter_feed = this._twitter.profile.get_by_screenname(feed_id.substr(1));
     }
     else{
       throw "You need to specify a valid Twitter username or hashtag.";
@@ -522,7 +522,7 @@ ${dm_rooms}`
     }
 
     if(util.isTwitterScreenName(feed) && symbol === '@') {
-      rooms = this._twitter.get_profile_by_screenname(feed).then(profile => {
+      rooms = this._twitter.profile.get_by_screenname(feed).then(profile => {
         return Promise.filter(roomstore.getEntriesByMatrixId(room_id), item =>{
           return item.remote.data.twitter_type === "timeline" &&
             item.remote.data.twitter_user === profile.id_str;

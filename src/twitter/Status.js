@@ -108,7 +108,7 @@ class Status {
         context.hashtags.push(room.data.twitter_hashtag);
       }
       else if(room.data.twitter_type === "timeline" && isbi) {
-        promises.push(this._twitter.get_profile_by_id(room.data.twitter_user).then(profile =>{
+        promises.push(this._twitter.profile.get_by_id(room.data.twitter_user).then(profile =>{
           context.screennames.push(profile.screen_name);
         }));
       }
