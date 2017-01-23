@@ -69,6 +69,7 @@ class TwitterProfile {
 
 
     if(update_name) {
+      log.verbose(`Updating displayname for @${new_profile.screen_name}`);
       intent.setDisplayName(this.format_displayname(new_profile));
       rooms.forEach(entry => {
         intent.setRoomName(entry.matrix.getId(), util.formatStringFromObject(ROOMNAME_FORMAT, new_profile));
@@ -76,6 +77,7 @@ class TwitterProfile {
     }
 
     if(update_description) {
+      log.verbose(`Updating description for @${new_profile.screen_name}`);
       rooms.forEach(entry => {
         intent.setRoomTopic(entry.matrix.getId(), util.formatStringFromObject(ROOMTOPIC_FORMAT, new_profile));
       });
@@ -83,6 +85,7 @@ class TwitterProfile {
 
     var url = null;
     if(update_avatar) {
+      log.verbose(`Updating avatar for @${new_profile.screen_name}`);
       //We have to replace _normal because it gives us a bad quality image
       // E.g https://pbs.twimg.com/profile_images/796729706318012418/VdozW4mO_normal.jpg
       // becomes https://pbs.twimg.com/profile_images/796729706318012418/VdozW4mO.jpg
