@@ -55,7 +55,7 @@ class DirectMessage {
       if(room_id) {
         return room_id;
       }
-      return this._create_dm_room(users).then(room => {
+      return this._create_dm_room(sender, recipient).then(room => {
         return this.set_room(sender, recipient, room.room_id);
       });
     }).catch(reason =>{
@@ -68,16 +68,16 @@ class DirectMessage {
 
     this.twitter.profile.update(msg.sender);
     this.twitter.profile.update(msg.recipient);
-
     if(this._sent_dms.get(users) === msg.id_str) {
       log.verbose("DM has already been processed, ignoring.");
       return;
     }
 
     return this.get_room(msg.sender, msg.recipient).then(room_id => {
-      this._put_dm_in_room(room_id, msg);
+      return this._put_dm_in_room(room_id, msg);
     }).catch(reason =>{
       log.error("Couldn't process incoming DM: %s", reason);
+      log.silly("DM message:", msg);
     });
   }
 
@@ -113,7 +113,6 @@ the DB. This shouldn't happen.`;
 
       return client.postAsync("direct_messages/new", {user_id: otheruser, text: text}).then(msg => {
         this._sent_dms.set(users, msg.id_str);
-
       }).catch( error => {
         throw "direct_messages/new failed. Reason: " + error;
       });
@@ -124,14 +123,13 @@ the DB. This shouldn't happen.`;
 
   _put_dm_in_room (room_id, msg) {
     var intent = this.twitter.get_intent(msg.sender.id_str);
-
     log.verbose(
       "Recieved DM from %s(%s) => %s(%s)",
       msg.sender.id_str, msg.sender.screen_name,
       msg.recipient.id_str,
       msg.recipient.screen_name
     );
-    intent.sendMessage(room_id, {"msgtype": "m.text", "body": msg.text});
+    return intent.sendMessage(room_id, {"msgtype": "m.text", "body": msg.text});
   }
 
   _create_dm_room (sender, recipient) {
