@@ -78,6 +78,7 @@ class DirectMessage {
       this._put_dm_in_room(room_id, msg);
     }).catch(reason =>{
       log.error("Couldn't process incoming DM: %s", reason);
+      log.verbose("DM message:", msg);
     });
   }
 
