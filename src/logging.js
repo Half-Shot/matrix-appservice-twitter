@@ -45,9 +45,17 @@ function handle (level, args) {
   if (!log) {
     console.error("Log not initialised"); // eslint-disable-line no-console
   }
-  // Take the first arg as context
-  // apply util.format to the second arg, with the remaining args as input
-  const message = args[0] + " " + util.format.apply(null, args.slice(1));
+
+  // If the first arg does NOT contain '%', assume it is context and append it onto the
+  // string created by passing the remaining args to util.format. Otherwise pass all args
+  // to util.format
+
+  let context = '';
+  if (args[0].indexOf('%') === -1) {
+    context = args.shift() + ' ';
+  }
+
+  const message = context + util.format.apply(null, args);
 
   log.log(level, message);
 }
