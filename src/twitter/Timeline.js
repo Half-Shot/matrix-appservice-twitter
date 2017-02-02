@@ -3,7 +3,7 @@ const Promise  = require('bluebird');
 
 const TIMELINE_POLL_INTERVAL = 3010; //Twitter allows 300 calls per 15 minute (We add 10 milliseconds for a little safety).
 const HASHTAG_POLL_INTERVAL = 2010; //Twitter allows 450 calls per 15 minute (We add 10 milliseconds for a little safety).
-const EMPTY_ROOM_INTERVAL = 5000;
+const EMPTY_ROOM_INTERVAL = 30000;
 const TIMELINE_TWEET_FETCH_COUNT = 100;
 const HASHTAG_TWEET_FETCH_COUNT = 100;
 const TWEET_REPLY_MAX_DEPTH = 0;
