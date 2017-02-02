@@ -31,6 +31,9 @@ class Twitter {
     this._dm = new DirectMessage(this);
     this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
     this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
+    this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
+    this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
+
     this._timeline = new Timeline(this, this._config.timelines, this._config.hashtags);
 
     this._userstream = new UserStream(this);
@@ -71,6 +74,11 @@ class Twitter {
         this.timeline.start_hashtag();
       }
       this._userstream.start();
+
+      if (this._config.hashtags.enable && this._config.timelines.enable) {
+        this.timeline.start_empty_room_checker();
+      }
+
       this._userstream.attach_all();
 
       this._processor.start();
@@ -89,6 +97,7 @@ class Twitter {
   stop () {
     this.timeline.stop_timeline();
     this.timeline.stop_hashtag();
+    this.timeline.stop_empty_room_checker();
     this._userstream.detach_all();
     this._userstream.stop();
   }

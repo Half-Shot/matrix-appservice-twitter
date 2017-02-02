@@ -10,9 +10,10 @@ app_auth: # Get these from twitter by creating an application through the API si
 hashtags:
   enable: true # Enable processing hashtag rooms and creating new ones
   admin_only: false # NOT USED. Only an admin listed can create these rooms.
-
+  poll_if_empty: false # Poll the timeline, even if the room is empty
 timelines:
   enable: true # Enable processing timeline rooms and creating new ones
+  poll_if_empty: false # Poll the timeline, even if the room is empty
   # NOT CURRENTLY IN USE
   # admin_only: false. Only an admin listed can create these rooms.
 
