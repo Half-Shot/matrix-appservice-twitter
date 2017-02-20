@@ -253,27 +253,44 @@ class TweetProcessor {
     promise = promise.then(() => { return this._twitter.profile.update(tweet.user); });
     if (tweet.retweeted_status) {
       tweet.retweeted_status._retweet_info = { id: tweet.id_str, tweet: tweet.user.id_str };
-      tweet = tweet.retweeted_status; // We always want the root tweet.
-      promise = promise.then(() => { return this._twitter.profile.update(tweet.user) });
+      tweet.text = 'RT @' + tweet.retweeted_status.user.screen_name;
+      tweet.text += ': ' + tweet.retweeted_status.text;
     }
 
-    promise.then( () => {
-      if(typeof rooms == "string") {
-        rooms = [rooms];
-      }
-      rooms.forEach((roomid) => {
-        this._storage.room_has_tweet(roomid, tweet.id_str).then(
-          (room_has_tweet) => {
-            if (!room_has_tweet) {
-              this._push_to_msg_queue(
-                '@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type
-              );
+    if(typeof rooms == "string") {
+      rooms = [rooms];
+    }
+
+    var need_retweeted_user_update = false;
+    var push_promises = [];
+    rooms.forEach((roomid) => {
+      var push_promise = this._storage.room_has_tweet(roomid, tweet.id_str).then((room_has_tweet) => {
+        if (!room_has_tweet) {
+          this._storage.room_retweets(roomid).then((retweets) => {
+            if (tweet.retweeted_status) {
+              if (retweets === "root") {
+                need_retweeted_user_update = true;
+                return tweet.retweeted_status;
+              }
             }
-          }
-        );
+
+            return tweet;
+          }).then((tweet) => {
+            this._push_to_msg_queue(
+              '@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type
+            );
+          });
+        }
       });
+
+      push_promises.push(push_promise);
     });
-    return promise;
+
+    if (need_retweeted_user_update) {
+      promise = promise.then(() => { return this._twitter.profile.update(tweet.retweeted_status.user) });
+    }
+
+    return promise.then(() => Promise.all(push_promises));
   }
 }
 

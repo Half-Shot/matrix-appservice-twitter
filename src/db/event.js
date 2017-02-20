@@ -75,5 +75,23 @@ module.exports = {
       log.error("TwitDB", "Error checking room_has_tweet: %s", err.Error);
       throw err;
     });
+  },
+
+  room_retweets: function (room_id) {
+    log.silly("SQL", "room_retweets => %s", room_id);
+    return this.db.getAsync(
+      `
+      SELECT retweets
+      FROM timeline_room
+      WHERE room_id = $room_id
+      `
+    , {
+      $room_id: room_id
+    }).then(row => {
+      return row === undefined ? "root" : row.retweets;
+    }).catch( err => {
+      log.error("TwitDB", "Error getting room_retweets: %s", err.Error);
+      throw err;
+    });
   }
 }

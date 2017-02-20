@@ -2,7 +2,7 @@ const SQLite3 = require('sqlite3').verbose();
 const log = require('./logging.js');
 const Promise = require('bluebird');
 
-const CURRENT_SCHEMA = 4;
+const CURRENT_SCHEMA = 5;
 /**
  * Stores data for specific users and data not specific to rooms.
  */

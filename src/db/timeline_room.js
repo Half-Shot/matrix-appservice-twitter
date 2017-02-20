@@ -51,6 +51,22 @@ module.exports = {
       });
   },
 
+  set_timeline_retweets_option: function (room_id, retweets) {
+    log.silly("SQL", "set_timeline_retweets_option => %s, %s", room_id, retweets);
+    return this.db.runAsync(
+      `
+        UPDATE timeline_room
+        SET retweets = $retweets
+        WHERE room_id = $room_id;
+      `, {
+        $room_id: room_id,
+        $retweets: retweets
+      }).catch(err => {
+        log.error("TwitDB", "Error setting 'retweets' filter: %s", err.Error);
+        throw err;
+      });
+  },
+
   set_timeline_room: function (user_id, room_id, _with, replies) {
     log.silly("SQL", "set_timeline_room => %s", room_id);
     return this.db.runAsync(
