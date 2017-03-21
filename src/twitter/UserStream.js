@@ -91,7 +91,7 @@ class UserStream {
         log.info(
           "UserStream",
           "Got 'end'. %s",
-          response
+          JSON.stringify(response)
         );
       });
       stream.on('error', (error) => {this._on_error(error, user_id)});
