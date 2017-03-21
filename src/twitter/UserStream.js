@@ -3,6 +3,7 @@ const log  = require('../logging.js');
 const STREAM_RETRY_INTERVAL = 5000;
 const BACKOFF_NOTIFY_USER_AT = (1000*60*2);
 const STREAM_LOCKOUT_RETRY_INTERVAL = 60*60*1000;
+const STREAM_CONCERN_TIMER = 40*60*1000; // Twitter should send something every 30s.
 const TWEET_REPLY_MAX_DEPTH = 0;
 
 class UserStream {
@@ -10,6 +11,27 @@ class UserStream {
     this.twitter = twitter;
     this._user_streams = new Map();
     this._backoff = new Map();
+    this._user_keepalive = new Map();
+    this.keepalive_timer = null;
+  }
+
+  start () {
+    this.keepalive_timer = setInterval(() => {
+      log.verbose("UserStream", "Checking keepalives.");
+      this._user_keepalive.forEach(this._check_keepalive.bind(this));
+    }, STREAM_CONCERN_TIMER);
+  }
+
+  _check_keepalive (last_activity, user_id) {
+    if (Date.now() - last_activity - STREAM_CONCERN_TIMER > 0) {
+      log.warn("UserStream", `Stream ${user_id} stopped responding. Restarting stream...`);
+      this._on_error("Bridge noticed expired keepalive.", user_id);
+    }
+  }
+
+  stop () {
+    clearInterval(this.keepalive_timer);
+    this.detach_all();
   }
 
   attach_all () {
@@ -55,17 +77,15 @@ class UserStream {
         this._on_stream_data(user_id, data);
       });
       stream.on('event', (event) => {
-        log.info(
-          "UserStream",
-          "Got 'event'. %s",
-          event
-        );
+        this._process_event(user_id, event);
       });
       stream.on('ping', () => {
-        log.info(
+        log.silly(
           "UserStream",
-          "Got 'ping'. %s"
+          "%s got 'ping'.",
+          user_id
         );
+        this._user_keepalive.set(user_id, Date.now());
       })
       stream.on('end', (response) => {
         log.info(
@@ -76,6 +96,7 @@ class UserStream {
       });
       stream.on('error', (error) => {this._on_error(error, user_id)});
       this._user_streams.set(user_id, stream);
+      this._user_keepalive.set(user_id, Date.now());
       log.info("UserStream", "Attached stream for " + user_id);
     }).catch( err => {
       log.error(
@@ -116,6 +137,7 @@ class UserStream {
   }
 
   _on_stream_data (user_id, data) {
+    this._user_keepalive.set(user_id, Date.now());
     if(data.direct_message) {
       this.twitter.dm.process_dm(data.direct_message);
     }
@@ -127,9 +149,6 @@ class UserStream {
     }
     else if (data.disconnect) {
       this._handle_disconnect(user_id, data);
-    }
-    else if(data.event) {
-      this._process_event(data);
     }
     else if (data.id) { //Yeah..the only way to know if it's a tweet is to check if the ID field is set at the root level.
       let client;
@@ -179,7 +198,8 @@ class UserStream {
     }
   }
 
-  _process_event (data) {
+  _process_event (user_id, data) {
+    this._user_keepalive.set(user_id, Date.now());
     log.verbose("UserStream", "Got unknown event %s", data.event);
   }
 
