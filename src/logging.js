@@ -51,7 +51,7 @@ function handle (level, args) {
   // to util.format
 
   let context = '';
-  if (args[0].indexOf('%') === -1) {
+  if (typeof args[0] === 'string' && args[0].indexOf('%') === -1) {
     context = args.shift() + ' ';
   }
 
