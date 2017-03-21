@@ -55,7 +55,7 @@ class Timeline {
    */
   start_timeline () {
     this._t_intervalID = setInterval(() => {
-      Promise.coroutine(this._process_timeline.bind(this))()
+      Promise.coroutine(this._process_timeline.bind(this))();
     }, TIMELINE_POLL_INTERVAL);
   }
 
@@ -74,7 +74,7 @@ class Timeline {
    */
   start_hashtag () {
     this._h_intervalID = setInterval(() => {
-      Promise.coroutine(this._process_hashtags.bind(this))()
+      Promise.coroutine(this._process_hashtags.bind(this))();
     }, HASHTAG_POLL_INTERVAL);
   }
 
