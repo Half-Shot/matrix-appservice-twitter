@@ -153,7 +153,7 @@ class TwitterProfile {
 
   _get_profile (data) {
     return this._twitter.client_factory.get_client().then(client => {
-      return client.getAsync('users/show', data).catch(error => {
+      return client.get('users/show', data).catch(error => {
         if(Array.isArray(error)) {
           error = error[0];
         }

@@ -5,7 +5,7 @@ const Buffer   = require('buffer').Buffer;
 const Twitter  = require('twitter');
 const Promise = require('bluebird');
 
-const TWITTER_CLIENT_INTERVAL_MS    = 60000*10;
+const TWITTER_CLIENT_INTERVAL_MS    = 60000*12; // Check creds every 12 hours.
 
 /**
   * Deals with authentication
@@ -159,7 +159,7 @@ class TwitterClientFactory {
       }
 
       log.info("Credentials for %s need to be reverified.", sender);
-      return client.getAsync("account/verify_credentials").then(profile => {
+      return client.get("account/verify_credentials").then(profile => {
         this._twitter.profile.update(profile);
         client.profile = profile;
         client.last_auth = ts;
@@ -198,7 +198,7 @@ class TwitterClientFactory {
     /* Store a timestamp to track the point of login with the client. We do this
        to avoid having to keep track of auth timestamps in another map. */
     client.last_auth = 0;
-    return Promise.promisifyAll(client);
+    return client;
   }
 
 }

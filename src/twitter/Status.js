@@ -172,7 +172,7 @@ We support ${CONSECUTIVE_TWEET_MAX*(TWEET_SIZE-(sname.length))} characters (or $
     if(tweet.in_reply_to_status_id === "previous") {
       tweet.in_reply_to_status_id = previous.id_str;
     }
-    return client.postAsync("statuses/update", tweet).then(res => {
+    return client.post("statuses/update", tweet).then(res => {
       return this._send_tweets(client, tweets, res);
     }).catch(err =>{
       log.error("Failed to send tweet. %s", err);

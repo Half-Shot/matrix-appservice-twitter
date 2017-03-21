@@ -284,7 +284,7 @@ describe('Status', function () {
     });
 
     const client = {
-      postAsync: function (url, tweet) {
+      post: function (url, tweet) {
         sent_count++;
         last_tweet = tweet;
         return Promise.resolve({
@@ -317,7 +317,7 @@ describe('Status', function () {
       });
     });
     it('will report a failed send', function () {
-      client.postAsync = function () {
+      client.post = function () {
         return Promise.reject("Some dumb error");
       }
       tweets.push({

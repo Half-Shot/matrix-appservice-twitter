@@ -238,7 +238,7 @@ class TweetProcessor {
     var type = "m.text";
     var promise;
     if (tweet.in_reply_to_status_id_str != null && depth > 0) {
-      promise = client.getAsync('statuses/show/' + tweet.in_reply_to_status_id_str, {})
+      promise = client.get('statuses/show/' + tweet.in_reply_to_status_id_str, {})
       .then((newtweet) => {
         return this._process_tweet(rooms, newtweet, depth, client);
       }).catch(error => {
