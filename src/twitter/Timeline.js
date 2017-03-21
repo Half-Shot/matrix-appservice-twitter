@@ -247,7 +247,7 @@ class Timeline {
       }
       return this.twitter.client_factory.get_client();
     }).then((client)=>{
-      return client.getAsync('statuses/user_timeline', req).catch((error) =>{
+      return client.get('statuses/user_timeline', req).catch((error) =>{
         log.error("Timeline", "_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
       });
     }).then((feed) => {
@@ -303,7 +303,7 @@ class Timeline {
       }
       return this.twitter.client_factory.get_client();
     }).then((client)=>{
-      return client.getAsync('search/tweets', req);
+      return client.get('search/tweets', req);
     }).then((results) => {
       if (results.statuses.length === 0) {
         return;

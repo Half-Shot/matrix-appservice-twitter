@@ -111,7 +111,7 @@ the DB. This shouldn't happen.`;
         otheruser
       );
 
-      return client.postAsync("direct_messages/new", {user_id: otheruser, text: text}).then(msg => {
+      return client.post("direct_messages/new", {user_id: otheruser, text: text}).then(msg => {
         this._sent_dms.set(users, msg.id_str);
       }).catch( error => {
         throw "direct_messages/new failed. Reason: " + error;
