@@ -70,7 +70,7 @@ class Twitter {
       if (this._config.hashtags.enable) {
         this.timeline.start_hashtag();
       }
-
+      this._userstream.start();
       this._userstream.attach_all();
 
       this._processor.start();
@@ -90,6 +90,7 @@ class Twitter {
     this.timeline.stop_timeline();
     this.timeline.stop_hashtag();
     this._userstream.detach_all();
+    this._userstream.stop();
   }
 
   get dm () {
