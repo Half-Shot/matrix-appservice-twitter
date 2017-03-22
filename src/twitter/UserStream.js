@@ -124,6 +124,7 @@ class UserStream {
 
   detach (user_id) {
     if(this._user_streams.has(user_id)) {
+      this._user_keepalive.delete(user_id);
       this._user_streams.get(user_id).destroy();
       this._user_streams.delete(user_id);
       log.info("UserStream", "Detached stream for ", user_id);
