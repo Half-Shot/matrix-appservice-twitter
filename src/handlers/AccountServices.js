@@ -114,6 +114,9 @@ class AccountServices {
     else if(body.startsWith("timeline.replies")) {
       this._setReplies(event);
     }
+    else if(body.startsWith("timeline.retweets")) {
+      this._setRetweets(event);
+    }
     else if (event.content.body === "help") {
       this._helpText(event.room_id);
     }
@@ -163,6 +166,10 @@ timeline.filter [option] Filter the type of tweets coming in. Defaults to 'follo
 timeline.replies [option]
 'all'
 'mutual'
+
+timeline.retweets [option] How to show retweets. Defaults to 'root'
+'root'    show the retweeted tweet as you where following this user
+'rt'    show the tweet from the people retweeting it with 'RT'
 `
     });
   }
@@ -619,6 +626,31 @@ ${dm_rooms}`
         this._twitter.user_stream.detach(event.sender);
         this._twitter.user_stream.attach(event.sender);
       });
+    });
+  }
+
+  _setRetweets (event) {
+    const intent = this._bridge.getIntent();
+    var option = event.content.body.substr("timeline.retweets ".length);
+    if(['root', 'rt'].indexOf(option) === -1) {
+      intent.sendMessage(event.room_id, {
+        "msgtype": "m.notice",
+        "body": "Please select one of: root, rt."
+      });
+      return;
+    }
+    this._storage.get_timeline_room(event.sender).then(room => {
+      if(room == null) {
+        intent.sendMessage(event.room_id, {
+          "msgtype": "m.notice",
+          "body": "Your account isn't linked yet."
+        });
+        return;
+      }
+      this._storage.set_timeline_retweets_option(room.room_id, option).then(() => {
+        this._twitter.user_stream.detach(event.sender);
+        this._twitter.user_stream.attach(event.sender);
+      })
     });
   }
 }
