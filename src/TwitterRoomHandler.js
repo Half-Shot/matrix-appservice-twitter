@@ -25,8 +25,8 @@ class TwitterRoomHandler {
   }
 
   processInvite (event, request, context) {
-    var remote = context.rooms.remote;
-    var twitbot = "@"+this._bridge.opts.registration.sender_localpart+":"+this._bridge.opts.domain;
+    const remote = context.rooms.remote;
+    const twitbot = "@"+this._bridge.opts.registration.sender_localpart+":"+this._bridge.opts.domain;
     if(event.sender === twitbot) {
       return;
     }
@@ -42,11 +42,11 @@ class TwitterRoomHandler {
   }
 
   processLeave (event, request, context) {
-    var remote = context.rooms.remote;
+    const remote = context.rooms.remote;
     if(remote == null) {
       return;
     }
-    var type = remote.data.twitter_type;
+    const type = remote.data.twitter_type;
 
     if(type === "service") {
       this.handlers.services.processLeave(event, request, context);
@@ -57,8 +57,8 @@ class TwitterRoomHandler {
   }
 
   passEvent (request, context) {
-    var event = request.getData();
-    var remote = context.rooms.remote;
+    const event = request.getData();
+    const remote = context.rooms.remote;
     if (event.type === "m.room.member") {
       if(event.membership === "invite") {
         this.processInvite(event, request, context);
@@ -93,8 +93,8 @@ class TwitterRoomHandler {
   }
 
   processAliasQuery (alias, aliasLocalpart) {
-    var type = aliasLocalpart.substr("_twitter_".length, 2);
-    var part = aliasLocalpart.substr("_twitter_.".length);
+    const type = aliasLocalpart.substr("_twitter_".length, 2);
+    const part = aliasLocalpart.substr("_twitter_.".length);
 
     //TODO: Check permissions for admins
     if(type[0] === '@' && this._timelines.enable) { //User timeline
@@ -110,13 +110,13 @@ class TwitterRoomHandler {
   }
 
   onRoomCreated (alias, roomId) {
-    var roomstore = this._bridge.getRoomStore();
+    const roomstore = this._bridge.getRoomStore();
     return roomstore.getEntriesByMatrixId(roomId).then(entries =>{
       if(entries.length === 0) {
         log.error("Got a onRoomCreated, but no remote is associated.");
         return;
       }
-      var type = entries[0].remote.data.twitter_type
+      const type = entries[0].remote.data.twitter_type
       if(type === "timeline") {
         this.handlers.timeline.onRoomCreated(alias, entries[0]);
       }

@@ -59,7 +59,7 @@ class AccountServices {
       backoff: 2,
       max_tries: RETRY_INVITE_COUNT
     }).then( () => {
-      var rroom = new RemoteRoom("service_"+event.sender);
+      const rroom = new RemoteRoom("service_"+event.sender);
       rroom.set("twitter_type", "service");
       this._bridge.getRoomStore().linkRooms(context.rooms.matrix, rroom);
       intent.sendMessage(event.room_id,
@@ -77,9 +77,9 @@ class AccountServices {
 
   processLeave (event, request, context) {
     log.info("User %s left room. Leaving", event.sender);
-    var intent = this._bridge.getIntent();
+    const intent = this._bridge.getIntent();
     intent.leave(event.room_id).then(() =>{
-      var roomstore = this._bridge.getRoomStore();
+      const roomstore = this._bridge.getRoomStore();
       roomstore.removeEntriesByRemoteRoomData(context.rooms.remote.data);
     });
   }
@@ -121,7 +121,7 @@ class AccountServices {
       this._processPIN(event);
     }
     else{
-      var intent = this._bridge.getIntent();
+      const intent = this._bridge.getIntent();
       intent.sendMessage(event.room_id, {
         "msgtype": "m.notice",
         "body": "Unknown command or invalid arguments"
@@ -130,7 +130,7 @@ class AccountServices {
   }
 
   _helpText (room_id) {
-    var intent = this._bridge.getIntent();
+    const intent = this._bridge.getIntent();
     intent.sendMessage(room_id, {
       "msgtype": "m.notice",
       "body":
@@ -216,8 +216,8 @@ ${dm_rooms}`
    * @param  {object} event The Matrix Event from the requesting user.
    */
   _beginLinkAccount (event) {
-    var intent = this._bridge.getIntent();
-    var access_type = event.content.body.substr("account.link ".length);
+    const intent = this._bridge.getIntent();
+    const access_type = event.content.body.substr("account.link ".length);
     if(!["read", "write", "dm"].includes(access_type)) {
       intent.sendMessage(event.room_id, {
         "body": "You must specify either read, write or dm access.",
@@ -249,7 +249,7 @@ ${dm_rooms}`
    * @param  {object} event The Matrix Event from the requesting user.
    */
   _unlinkAccount (event) {
-    var intent = this._bridge.getIntent();
+    const intent = this._bridge.getIntent();
     this._unlinkAccountbyUserId(event.sender).then(
       () => {
         intent.sendMessage(event.room_id, {
@@ -286,9 +286,9 @@ ${dm_rooms}`
    * @param  {object} event The Matrix Event from the requesting user.
    */
   _processPIN (event) {
-    var intent = this._bridge.getIntent();
+    const intent = this._bridge.getIntent();
     this._storage.get_twitter_account(event.sender).then((client_data) => {
-      var pin = event.content.body;
+      const pin = event.content.body;
       log.info(`${event.sender} sent a pin (${pin}) to auth with.`);
       if(client_data == null) {
         intent.sendMessage(event.room_id, {
@@ -351,7 +351,7 @@ ${dm_rooms}`
           }
           client_data.access_token = access_token;
           client_data.access_token_secret = access_token_secret;
-          var client = new Twitter({
+          const client = new Twitter({
             consumer_key: this._app_auth.consumer_key,
             consumer_secret: this._app_auth.consumer_secret,
             access_token_key: client_data.access_token,
@@ -411,7 +411,7 @@ ${dm_rooms}`
               }
               //We are modifying the data. So make sure to detach the rooms first.
               this._twitter.user_stream.detach(id);
-              var data = {
+              const data = {
                 oauth_token: oAuthToken,
                 oauth_secret: oAuthTokenSecret,
                 access_token: null,
@@ -419,7 +419,7 @@ ${dm_rooms}`
                 access_type: access_type
               };
               this._storage.set_twitter_account(id, "", data).then(()=>{
-                var authURL = 'https://twitter.com/oauth/authenticate?oauth_token=' + oAuthToken;
+                const authURL = 'https://twitter.com/oauth/authenticate?oauth_token=' + oAuthToken;
                 resolve(authURL);
               }).catch(() => {
                 reject(new Error("Failed to store account information."));
@@ -436,7 +436,7 @@ ${dm_rooms}`
   }
 
   _bridgeRoom (event) {
-    var args = event.content.body.split(" ");
+    const args = event.content.body.split(" ");
     if(args.length < 3) {
       return;//Not enough args.
     }
@@ -454,7 +454,7 @@ ${dm_rooms}`
       })
 
     });
-    var get_twitter_feed;
+    let get_twitter_feed;
     if(feed_id[0] === '#' && util.isTwitterHashtag(feed_id.substr(1))) {
       get_twitter_feed = Promise.resolve(feed_id.substr(1));//hashtag
     }
@@ -466,7 +466,7 @@ ${dm_rooms}`
     }
 
     get_twitter_feed.then(item => {
-      var remote;
+      let remote;
       if(typeof item == "string") {
         remote = new RemoteRoom("hashtag_" + item);
         remote.set("twitter_type", "hashtag");
@@ -574,7 +574,7 @@ ${dm_rooms}`
 
   _setFilter (event) {
     const intent = this._bridge.getIntent();
-    var option = event.content.body.substr("timeline.filter ".length);
+    const option = event.content.body.substr("timeline.filter ".length);
     if(['followings', 'user'].indexOf(option) === -1) {
       intent.sendMessage(event.room_id, {
         "msgtype": "m.notice",
@@ -599,7 +599,7 @@ ${dm_rooms}`
 
   _setReplies (event) {
     const intent = this._bridge.getIntent();
-    var option = event.content.body.substr("timeline.replies ".length);
+    const option = event.content.body.substr("timeline.replies ".length);
     if(['all', 'mutual'].indexOf(option) === -1) {
       intent.sendMessage(event.room_id, {
         "msgtype": "m.notice",

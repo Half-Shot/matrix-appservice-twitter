@@ -155,11 +155,11 @@ class Twitter {
       if(troom != null) {
         return;
       }
-      var intent = this._bridge.getIntent();
-      var users = {};
+      const intent = this._bridge.getIntent();
+      const users = {};
       users["@_twitter_bot:"+this._bridge.opts.domain] = 100;
       users[user] = 100;
-      var powers = util.roomPowers(users);
+      const powers = util.roomPowers(users);
       //Create the room
       return intent.createRoom(
         {
@@ -182,8 +182,8 @@ class Twitter {
         }
       ).then(room =>{
         log.verbose("Created new user timeline room %s", room.room_id);
-        var mroom = new Bridge.MatrixRoom(room.room_id);
-        var rroom = new Bridge.RemoteRoom("tl_"+user);
+        const mroom = new Bridge.MatrixRoom(room.room_id);
+        const rroom = new Bridge.RemoteRoom("tl_"+user);
         rroom.set("twitter_type", "user_timeline");
         rroom.set("twitter_bidirectional", true);
         rroom.set("twitter_owner", user);

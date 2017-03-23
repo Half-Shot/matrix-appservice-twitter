@@ -32,7 +32,7 @@ class DirectMessage {
   }
 
   set_room (sender, recipient, room_id) {
-    var users = [sender.id_str, recipient.id_str].sort().join(';');
+    const users = [sender.id_str, recipient.id_str].sort().join(';');
     return this.twitter.storage.get_dm_room(users).then(room_id =>{
       if(room_id) {
         return this.twitter.storage.remove_dm_room(users);
@@ -40,8 +40,8 @@ class DirectMessage {
       return;
     }).then(() => {
       return this.twitter.storage.add_dm_room(room_id, users).then(() => {
-        var mroom = new Bridge.MatrixRoom(room_id);
-        var rroom = new Bridge.RemoteRoom("dm_"+users);
+        const mroom = new Bridge.MatrixRoom(room_id);
+        const rroom = new Bridge.RemoteRoom("dm_"+users);
         rroom.set("twitter_type", "dm");
         this.twitter.bridge.getRoomStore().linkRooms(mroom, rroom);
         return room_id;
@@ -50,7 +50,7 @@ class DirectMessage {
   }
 
   get_room (sender, recipient) {
-    var users = [sender.id_str, recipient.id_str].sort().join(';');
+    const users = [sender.id_str, recipient.id_str].sort().join(';');
     return this.twitter.storage.get_dm_room(users).then(room_id =>{
       if(room_id) {
         return room_id;
@@ -92,7 +92,7 @@ class DirectMessage {
    */
   send (user_id, room_id, text) {
     //Get the users from the room
-    var users = "";
+    let users = null;
     return this.twitter.storage.get_users_from_dm_room(room_id).then(u =>{
       users = u;
       if(users == null) {
@@ -101,9 +101,9 @@ the DB. This shouldn't happen.`;
       }
       return this.twitter.client_factory.get_client(user_id);
     }).then(client => {
-      var ausers = users.split(';');
+      const ausers = users.split(';');
       ausers.splice(ausers.indexOf(client.profile.id_str), 1);
-      var otheruser = ausers[0];
+      const otheruser = ausers[0];
       log.info(
         "Sending DM from %s(%s) => %s",
         client.profile.id_str,
@@ -122,7 +122,7 @@ the DB. This shouldn't happen.`;
   }
 
   _put_dm_in_room (room_id, msg) {
-    var intent = this.twitter.get_intent(msg.sender.id_str);
+    const intent = this.twitter.get_intent(msg.sender.id_str);
     log.verbose(
       "Recieved DM from %s(%s) => %s(%s)",
       msg.sender.id_str, msg.sender.screen_name,
@@ -144,18 +144,18 @@ the DB. This shouldn't happen.`;
       this.twitter.storage.get_matrixid_from_twitterid(sender.id_str),
       this.twitter.storage.get_matrixid_from_twitterid(recipient.id_str)
     ]).then(user_ids =>{
-      var invitees = new Set([
+      const invitees = new Set([
         "@_twitter_" + sender.id_str + ":" + this.twitter.bridge.opts.domain,
         "@_twitter_" + recipient.id_str + ":" + this.twitter.bridge.opts.domain
       ]);
-      for(var user_id of user_ids) {
+      for(const user_id of user_ids) {
         if(user_id != null) {
           invitees.add(user_id);
         }
       }
       return [...invitees];
     }).then(invitees => {
-      var intent = this.twitter.get_intent(sender.id_str);
+      const intent = this.twitter.get_intent(sender.id_str);
       return intent.createRoom(
         {
           createAsClient: true,

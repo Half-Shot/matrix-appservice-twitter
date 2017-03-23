@@ -28,8 +28,8 @@ class DirectMessageHandler {
    * @param  {Context} context Context given by the appservice.
    */
   processInvite (event, request, context) {
-    var user_id = context.senders.matrix.getId();
-    var sender, recipient, intentS, intentR = null;
+    const user_id = context.senders.matrix.getId();
+    let sender, recipient, intentS, intentR = null;
     return this.twitter.dm.can_use(context.senders.matrix.getId()).then(() =>{
       //Get the senders account.
       return this._storage.get_profile_from_mxid(user_id);
@@ -38,7 +38,7 @@ class DirectMessageHandler {
         throw "No profile found for sender";
       }
       sender = profile;
-      var remote_id = event.state_key.substr(0, event.state_key.indexOf(':')).substr("@_twitter_".length);
+      const remote_id = event.state_key.substr(0, event.state_key.indexOf(':')).substr("@_twitter_".length);
       return this.twitter.profile.get_by_id(remote_id);
     }).then(profile =>{
       if(profile == null) {

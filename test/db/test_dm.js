@@ -4,7 +4,7 @@ const assert = chai.assert;
 const TwitterDB = require('../../src/TwitterDB.js');
 
 describe('TwitterDB.dm', function () {
-  var db;
+  let db;
   beforeEach(() => {
     db = new TwitterDB(":memory:");
     return db.init();
@@ -26,7 +26,7 @@ describe('TwitterDB.dm', function () {
   describe('get_dm_room()', () => {
 
     it("should return null if no entry exists", () => {
-      var promise = db.get_dm_room("potato");
+      const promise = db.get_dm_room("potato");
       return assert.isFulfilled(promise) && assert.becomes(promise, null);
     });
 
@@ -42,7 +42,7 @@ describe('TwitterDB.dm', function () {
   describe('get_users_from_dm_room()', () => {
 
     it("should return null if no entry exists", () => {
-      var promise = db.get_users_from_dm_room("potato");
+      const promise = db.get_users_from_dm_room("potato");
       return assert.isFulfilled(promise) && assert.becomes(promise, null);
     });
 

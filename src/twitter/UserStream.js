@@ -56,7 +56,7 @@ class UserStream {
     }
 
     this._user_streams.set(user_id, "pending");//Block race attempts;
-    var client;
+    let client;
     return this.twitter.client_factory.get_client(user_id).then((c) => {
       if(!c) {
         this._user_streams.delete(user_id);

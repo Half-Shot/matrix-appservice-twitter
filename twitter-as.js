@@ -11,11 +11,11 @@ const TwitterDB = require("./src/TwitterDB.js");
 const util = require('./src/util.js');
 const Provisioner = require("./src/Provisioner.js");
 
-var twitter;
-var bridge;
-var provisioner;
+let twitter;
+let bridge;
+let provisioner;
 
-var cli = new AppService.Cli({
+const cli = new AppService.Cli({
   registrationPath: "twitter-registration.yaml",
   bridgeConfig: {
     affectsRegistration: true,
@@ -40,15 +40,13 @@ var cli = new AppService.Cli({
     }
 
     //Read registration file
-    var regObj = yaml.safeLoad(fs.readFileSync("twitter-registration.yaml", 'utf8'));
+    let regObj = yaml.safeLoad(fs.readFileSync("twitter-registration.yaml", 'utf8'));
     regObj = AppService.AppServiceRegistration.fromObject(regObj);
     if (regObj === null) {
       throw new Error("Failed to parse registration file");
     }
 
-    var room_handler;
-
-    var clientFactory = new AppService.ClientFactory({
+    const clientFactory = new AppService.ClientFactory({
       url: config.bridge.homeserverUrl,
       token: regObj.as_token,
       appServiceUserId: "@" + regObj.sender_localpart + ":" + config.bridge.domain
@@ -77,7 +75,7 @@ var cli = new AppService.Cli({
     });
     log.info("AppServ", "Started listening on port %s at %s", port, new Date().toUTCString() );
 
-    var tstorage = new TwitterDB(config.bridge.database_file || "twitter.db");
+    const tstorage = new TwitterDB(config.bridge.database_file || "twitter.db");
 
     if (config.metrics && config.metrics.enable) {
       bridge.getPrometheusMetrics();
@@ -85,7 +83,7 @@ var cli = new AppService.Cli({
     }
 
     twitter = new Twitter(bridge, config, tstorage);
-    var opt = {
+    const opt = {
       bridge: bridge,
       app_auth: config.app_auth,
       storage: tstorage,
@@ -93,7 +91,7 @@ var cli = new AppService.Cli({
       sender_localpart: regObj.sender_localpart
     }
     const account_services = new RoomHandlers.AccountServices(opt);
-    room_handler = new TwitterRoomHandler(bridge, config,
+    const room_handler = new TwitterRoomHandler(bridge, config,
       {
         services: account_services,
         timeline: new RoomHandlers.TimelineHandler(bridge, twitter),
@@ -101,7 +99,7 @@ var cli = new AppService.Cli({
         directmessage: new RoomHandlers.DirectMessageHandler(bridge, twitter, tstorage)
       }
     );
-    var roomstore;
+    let roomstore;
     tstorage.init().then(() => {
       return twitter.start();
     }).then(() => {
@@ -129,17 +127,17 @@ var cli = new AppService.Cli({
     }).then((entries) => {
       entries.forEach((entry) => {
         if (entry.remote.data.hasOwnProperty('twitter_type')) {
-          var type = entry.remote.data.twitter_type;
+          const type = entry.remote.data.twitter_type;
 
           //Fix rooms that are alias rooms
           // Criteria: canonical_alias is #_twitter_@*+:domain
           if (type === "timeline" && entry.matrix.get("twitter_user") === null) {
             log.info("Init", `Checking ${entry.remote.getId()} to see if it's an alias room.`);
-            var stateLookup = new AppService.StateLookup(
+            const stateLookup = new AppService.StateLookup(
               {client: bridge.getIntent(), eventTypes: ["m.room.canonical_alias"]}
             );
             stateLookup.trackRoom(entry.matrix.getId()).then(() => {
-              var evt = stateLookup.getState(entry.matrix.getId(), "m.room.canonical_alias", "");
+              const evt = stateLookup.getState(entry.matrix.getId(), "m.room.canonical_alias", "");
               if(evt == null) {
                 return;
               }

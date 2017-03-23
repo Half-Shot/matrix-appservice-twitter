@@ -96,7 +96,7 @@ class Status {
   _get_room_context (rooms) {
     const context = {screennames: [], hashtags: [], pass: false};
     const promises = [];
-    for(var room of rooms) {
+    for(const room of rooms) {
       const isbi = (room.data.twitter_bidirectional === true) ;
       if(room.data.twitter_type === "user_timeline" && isbi) {
         context.pass = true;
@@ -120,7 +120,7 @@ class Status {
 
   _build_tweets (event, context, profile) {
     //TODO: Get context for REPLYING
-    var content = [];
+    const content = [];
     if(event.content.msgtype === "m.text" || event.content.msgtype === "m.emote") {
       let body = event.content.body;
       if(event.content.msgtype === "m.emote") {

@@ -11,6 +11,7 @@
     extends: "eslint:recommended",
 
     rules: {
+      no-var: 1,
       prefer-const: 2,
       curly: "error",
       max-lines: ["warn",{

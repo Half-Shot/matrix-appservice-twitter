@@ -22,7 +22,7 @@ function downloadFile (url) {
 
     const ht = url.startsWith("https") ? https : http;
     const req = ht.get((url), (res) => {
-      var buffer = Buffer.alloc(0);
+      let buffer = Buffer.alloc(0);
       if(res.statusCode !== 200) {
         reject(`Non 200 status code (${res.statusCode}) `)
       }
@@ -61,7 +61,7 @@ function formatStringFromObject (fmtstring, obj) {
  * @return {Promise<string>}  Promise resolving with a MXC URL.
  */
 function uploadContentFromUrl (bridge, url, id, name) {
-  var contenttype;
+  let contenttype;
   let size;
   id = id || null;
   name = name || null;

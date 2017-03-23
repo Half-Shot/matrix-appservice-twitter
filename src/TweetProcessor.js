@@ -54,7 +54,7 @@ class TweetProcessor {
       }
       const msgs = this.msg_queue.pop();
       for(const msg of msgs) {
-        var intent = this._bridge.getIntent(msg.userId);
+        const intent = this._bridge.getIntent(msg.userId);
         promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).then(res => {
           if (msg.content.msgtype === "m.text" ) {
             this._storage.add_event(res.event_id, msg.userId, msg.roomId, msg.content.tweet_id, Date.now());
@@ -125,14 +125,14 @@ class TweetProcessor {
   }
 
   _push_to_msg_queue (muser, roomid, tweet, type) {
-    var time = Date.parse(tweet.created_at);
+    const time = Date.parse(tweet.created_at);
     let content;
     try {
       content = this.tweet_to_matrix_content(tweet, type)
     } catch (e) {
       return Promise.reject("Tweet was missing user field.", e);
     }
-    var newmsg = {
+    const newmsg = {
       userId: muser,
       roomId: roomid,
       time: time,
@@ -140,9 +140,9 @@ class TweetProcessor {
       content: content,
     };
 
-    var media_promises = [];
+    const media_promises = [];
     if(tweet.entities.hasOwnProperty("media") && this.media_cfg.enable_download) {
-      for(var media of tweet.entities.media) {
+      for(const media of tweet.entities.media) {
         if(media.type !== 'photo') {
           continue;
         }
@@ -179,7 +179,7 @@ class TweetProcessor {
 
     return Promise.all(media_promises).then(msgs =>{
       msgs.unshift(newmsg);
-      for(var m in this.msg_queue) {
+      for(const m in this.msg_queue) {
         if(newmsg.time > this.msg_queue[m].time) {
           this.msg_queue.splice(m, 0, msgs);
           return;
@@ -235,8 +235,8 @@ class TweetProcessor {
    */
   _process_tweet (rooms, tweet, depth, client) {
     depth--;
-    var type = "m.text";
-    var promise;
+    const type = "m.text";
+    let promise;
     if (tweet.in_reply_to_status_id_str != null && depth > 0) {
       promise = client.get('statuses/show/' + tweet.in_reply_to_status_id_str, {})
       .then((newtweet) => {

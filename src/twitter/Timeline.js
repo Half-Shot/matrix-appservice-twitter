@@ -78,8 +78,8 @@ class Timeline {
    * @param  {boolean} opts.is_new Is the room 'new', and we shouldn't do a full poll.
    */
   add_hashtag (hashtag, room_id, opts) {
-    var htag = this._find_hashtag(hashtag);
-    var obj;
+    const htag = this._find_hashtag(hashtag);
+    let obj;
 
     if (this.config.hashtags.enable === false) {
       return;
@@ -125,8 +125,8 @@ class Timeline {
    * @param  {boolean} opts.exclude_replies Should we not fetch replies.
    */
   add_timeline (twitter_id, room_id, opts) {
-    var tline = this._find_timeline(twitter_id);
-    var obj;
+    const tline = this._find_timeline(twitter_id);
+    let obj;
 
     if (this.config.timelines.enable === false) {
       return;
@@ -189,10 +189,10 @@ class Timeline {
 
   _remove_from_queue (isTimeline, id, room_id) {
     const i = isTimeline ? this._find_timeline(id) : this._find_hashtag(id);
-    var queue = isTimeline ? this._timelines : this._hashtags;
+    let queue = isTimeline ? this._timelines : this._hashtags;
     if(i !== -1) {
       if(room_id) {
-        var r = queue[i].room.indexOf(room_id);
+        const r = queue[i].room.indexOf(room_id);
         if (r !== -1) {
           delete queue[i].room[r];
         }
@@ -227,8 +227,8 @@ class Timeline {
       return;
     }
 
-    var tline = this._timelines[this._t];
-    var req = {
+    const tline = this._timelines[this._t];
+    const req = {
       user_id: tline.twitter_id,
       count: TIMELINE_TWEET_FETCH_COUNT,
       exclude_replies: tline.exclude_replies,
@@ -283,8 +283,8 @@ class Timeline {
       return;
     }
 
-    var feed = this._hashtags[this._h];
-    var req = {
+    const feed = this._hashtags[this._h];
+    const req = {
       q: "%23"+feed.hashtag,
       result_type: 'recent',
       count: HASHTAG_TWEET_FETCH_COUNT,
