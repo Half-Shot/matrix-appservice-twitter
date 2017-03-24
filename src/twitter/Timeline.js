@@ -8,6 +8,7 @@ const EMPTY_ROOM_INTERVAL = 30000;
 const TIMELINE_TWEET_FETCH_COUNT = 100;
 const HASHTAG_TWEET_FETCH_COUNT = 100;
 const TWEET_REPLY_MAX_DEPTH = 0;
+const NEW_PROFILE_THRESHOLD_MIN = 15; // Max number of new profiles that can be made per minute.
 
 /**
   Terms:
@@ -282,6 +283,18 @@ class Timeline {
     return false;
   }
 
+  is_feed_exceeding_user_limit (tweets, timeline = true) {
+    let max = (timeline ? (TIMELINE_POLL_INTERVAL*this._t) : (HASHTAG_POLL_INTERVAL*this._h))/60000;
+    max = Math.max(max * NEW_PROFILE_THRESHOLD_MIN, 1)
+    if (this.config.hashtags.single_account_fallback === true) {
+      console.log(tweets.length);
+      const user_ids = new Set(tweets.map((tweet) => {tweet.id_str})).size;
+      log.verbose(`is_feed_exceeding_user_limit: ${user_ids} > ${max}`);
+      return user_ids > max;
+    }
+    return false;
+  }
+
   * _process_timeline () {
     if (this._timelines.length === 0) {
       return;
@@ -387,6 +400,11 @@ class Timeline {
     }
     else if(results.statuses.length === HASHTAG_TWEET_FETCH_COUNT) {
       log.info("Timeline", "Poll request hit count limit. Request likely incomplete.");
+    }
+    const force_user_id = this.is_feed_exceeding_user_limit(results.statuses, false)
+      ? `_twitter_#${feed.hashtag}` : null;
+    if(force_user_id) {
+      log.verbose("Timeline", `Forcing single user mode for ${feed.hashtag}`);
     }
     const s = results.statuses[0].id_str;
     this.twitter.storage.set_since(feed.hashtag, s);
