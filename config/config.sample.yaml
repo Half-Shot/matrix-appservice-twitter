@@ -10,11 +10,11 @@ app_auth: # Get these from twitter by creating an application through the API si
 hashtags:
   enable: true # Enable processing hashtag rooms and creating new ones
   poll_if_empty: false # Poll the timeline, even if the room is empty
-  single_account_fallback: false # Use a single account if a bunch of new accounts join.
+  single_account_fallback: false # Use a single account if a bunch of new members join.
 timelines:
   enable: true # Enable processing timeline rooms and creating new ones
   poll_if_empty: false # Poll the timeline, even if the room is empty
-
+  single_account_fallback: false # Use a single account if a bunch of new members join.
 
 media:
   enable_download: true # Enable download of media attached to tweets

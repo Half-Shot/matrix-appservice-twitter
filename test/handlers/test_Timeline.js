@@ -10,8 +10,6 @@ const Timeout = setTimeout(function () { }, 0).constructor; // Only way to acces
 require('../../src/logging.js').init({level: 'silent'});
 describe('Timeline', function () {
   let timeline;
-  let _process_timeline; //For coroutine.
-  let _process_hashtag; //For coroutine.
   let _check_empty_rooms; //For coroutine.
   let _since = null;
   let _tweets_fetched;
@@ -73,8 +71,6 @@ describe('Timeline', function () {
     }, {
       enable: true,
     });
-    _process_timeline = Promise.coroutine(timeline._process_timeline.bind(timeline));
-    _process_hashtag = Promise.coroutine(timeline._process_hashtag.bind(timeline));
     _check_empty_rooms = Promise.coroutine(timeline._check_empty_rooms.bind(timeline));
   });
 
@@ -229,9 +225,9 @@ describe('Timeline', function () {
     });
   });
 
-  describe('_process_timeline', function () {
+  describe('timeline._process_timeline', function () {
     it('should not process if the timeline list is empty.', function () {
-      return _process_timeline().then(() => {
+      return timeline._process_timeline().then(() => {
         assert.equal(timeline._t, -1);
       });
     });
@@ -241,7 +237,7 @@ describe('Timeline', function () {
         room: new Set(["bacon"])
       });
       timeline._empty_rooms.add("bacon");
-      return _process_timeline().then(() => {
+      return timeline._process_timeline().then(() => {
         assert.isFalse(_tweets_fetched);
       });
     });
@@ -250,7 +246,7 @@ describe('Timeline', function () {
         twitter_id: "test",
         room: new Set(["bacon"])
       });
-      return _process_timeline().then(() => {
+      return timeline._process_timeline().then(() => {
         assert.equal(timeline._t, 0, "Queue is incremented.");
         assert.equal(_since, "0");
       });
@@ -268,15 +264,15 @@ describe('Timeline', function () {
         twitter_id: "test2",
         room: new Set(["bacon"])
       });
-      return _process_timeline().then(() => {
+      return timeline._process_timeline().then(() => {
         assert.equal(timeline._t, 0, "Queue is incremented.");
-        return _process_timeline();
+        return timeline._process_timeline();
       }).then(() => {
         assert.equal(timeline._t, 1, "Queue is incremented.");
-        return _process_timeline();
+        return timeline._process_timeline();
       }).then(() => {
         assert.equal(timeline._t, 2, "Queue is incremented.");
-        return _process_timeline();
+        return timeline._process_timeline();
       }).then(() => {
         assert.equal(timeline._t, 0, "Queue is incremented.");
       });
@@ -287,16 +283,16 @@ describe('Timeline', function () {
         room: new Set(["bacon"])
       });
       timeline._newtags.add("test");
-      return _process_timeline().then(() => {
+      return timeline._process_timeline().then(() => {
         assert.equal(timeline._t, 0, "Queue is incremented.");
         assert.equal(_since, "0");
         assert.isFalse(timeline._newtags.has("test"));
       });
     });
   });
-  describe('_process_hashtags', function () {
+  describe('timeline._process_hashtags', function () {
     it('should not process if the hashtag list is empty.', function () {
-      return _process_hashtag().then(() => {
+      timeline._process_hashtag().then(() => {
         assert.equal(timeline._h, -1);
       });
     });
@@ -306,7 +302,7 @@ describe('Timeline', function () {
         room: new Set(["bacon"])
       });
       timeline._empty_rooms.add("bacon");
-      return _process_hashtag().then(() => {
+      return timeline._process_hashtag().then(() => {
         assert.isFalse(_tweets_fetched);
       });
     });
@@ -315,7 +311,7 @@ describe('Timeline', function () {
         hashtag: "test",
         room: new Set(["bacon"])
       });
-      return _process_hashtag().then(() => {
+      return timeline._process_hashtag().then(() => {
         assert.equal(timeline._h, 0, "Queue is incremented.");
         assert.equal(_since, "0");
       });
@@ -333,15 +329,15 @@ describe('Timeline', function () {
         hashtag: "test2",
         room: new Set(["bacon"])
       });
-      return _process_hashtag().then(() => {
+      return timeline._process_hashtag().then(() => {
         assert.equal(timeline._h, 0, "Queue is incremented.");
-        return _process_hashtag();
+        return timeline._process_hashtag();
       }).then(() => {
         assert.equal(timeline._h, 1, "Queue is incremented.");
-        return _process_hashtag();
+        return timeline._process_hashtag();
       }).then(() => {
         assert.equal(timeline._h, 2, "Queue is incremented.");
-        return _process_hashtag();
+        return timeline._process_hashtag();
       }).then(() => {
         assert.equal(timeline._h, 0, "Queue is incremented.");
       });
@@ -352,7 +348,7 @@ describe('Timeline', function () {
         room: new Set(["bacon"])
       });
       timeline._newtags.add("#test");
-      return _process_hashtag().then(() => {
+      return timeline._process_hashtag().then(() => {
         assert.equal(timeline._h, 0, "Queue is incremented.");
         assert.equal(_since, "0");
         assert.isFalse(timeline._newtags.has("#test"));

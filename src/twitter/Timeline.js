@@ -59,7 +59,7 @@ class Timeline {
    */
   start_timeline () {
     this._t_intervalID = setInterval(() => {
-      Promise.coroutine(this._process_timeline.bind(this))();
+      this._process_timeline();
     }, TIMELINE_POLL_INTERVAL);
   }
 
@@ -80,7 +80,7 @@ class Timeline {
    */
   start_hashtag () {
     this._h_intervalID = setInterval(() => {
-      Promise.coroutine(this._process_hashtag.bind(this))();
+      this._process_hashtag();
     }, HASHTAG_POLL_INTERVAL);
   }
 
@@ -285,7 +285,7 @@ class Timeline {
   is_feed_exceeding_user_limit (tweets, timeline = true) {
     let max = (timeline ? (TIMELINE_POLL_INTERVAL*this._t) : (HASHTAG_POLL_INTERVAL*this._h))/60000;
     max = Math.max(max * NEW_PROFILE_THRESHOLD_MIN, 1)
-    if (this.config.hashtags.single_account_fallback === true) {
+    if ((timeline ? this.config.timelines : this.config.hashtags).single_account_fallback === true) {
       const user_ids = new Set(tweets.map((tweet) => {tweet.id_str})).size;
       log.verbose(`is_feed_exceeding_user_limit: ${user_ids} > ${max}`);
       return user_ids > max;
@@ -293,9 +293,9 @@ class Timeline {
     return false;
   }
 
-  * _process_timeline () {
+  _process_timeline () {
     if (this._timelines.length === 0) {
-      return;
+      return Promise.resolve();
     }
     // Rotate to the next timeline.
     this._t++;
@@ -307,9 +307,9 @@ class Timeline {
     return Promise.coroutine(this._process_feed.bind(this))(true, tline);
   }
 
-  * _process_hashtag () {
+  _process_hashtag () {
     if (this._hashtags.length === 0) {
-      return;
+      return Promise.resolve();
     }
     this._h++;
     if(this._h >= this._hashtags.length) {
@@ -329,7 +329,7 @@ class Timeline {
       return;
     }
     const req = {
-      count: isTimeline ? TIMELINE_TWEET_FETCH_COUNT : HASHTAG_TWEET_FETCH_COUNT ,
+      count: isTimeline ? TIMELINE_TWEET_FETCH_COUNT : HASHTAG_TWEET_FETCH_COUNT,
       tweet_mode: "extended" // https://github.com/Half-Shot/matrix-appservice-twitter/issues/31
     };
     if (isTimeline) {
@@ -381,7 +381,7 @@ class Timeline {
     // If req.count = 1, the resp will be the initial tweet used to get initial "since"
     if (req.count !== 1) {
       try {
-       return this.twitter.processor.process_tweets(feed.room, results, {depth: 0, force_user_id});
+        return this.twitter.processor.process_tweets(feed.room, results, {depth: TWEET_REPLY_MAX_DEPTH, force_user_id});
       }
       catch(err) {
         log.error("Timeline", "Error whilst processing %s: %s", sinceId, err);
