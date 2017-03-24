@@ -79,6 +79,10 @@ class Twitter {
         this.timeline.start_empty_room_checker();
       }
 
+      if (this._config.hashtags.enable && this._config.timelines.enable) {
+        this.timeline.start_empty_room_checker();
+      }
+
       this._userstream.attach_all();
 
       this._processor.start();
