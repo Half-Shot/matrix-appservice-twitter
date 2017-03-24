@@ -28,7 +28,7 @@ properties:
             type: "boolean"
           poll_if_empty:
             type: "boolean"
-          admin_only:
+          single_account_fallback:
             type: "boolean"
     timelines:
         type: "object"
@@ -37,8 +37,6 @@ properties:
           enable:
             type: "boolean"
           poll_if_empty:
-            type: "boolean"
-          admin_only:
             type: "boolean"
     media:
         type: "object"
