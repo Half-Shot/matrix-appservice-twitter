@@ -272,11 +272,10 @@ class Timeline {
     }
   }
 
-  is_room_excluded (rooms, id) {
+  is_room_excluded (rooms) {
     if (!this.config.timelines.poll_if_empty) {
       const difference = new Set([...rooms].filter(x => !this._empty_rooms.has(x)));
       if (difference.size === 0) {
-        log.info("Timeline", "Skipping %s because no real users are using it.", id);
         return true;
       }
     }
@@ -305,54 +304,7 @@ class Timeline {
     }
 
     const tline = this._timelines[this._t];
-    if(this.is_room_excluded(tline.room, tline.twitter_id)) {
-      return;
-    }
-
-    const client = yield this.twitter.client_factory.get_client();
-    const req = {
-      user_id: tline.twitter_id,
-      count: TIMELINE_TWEET_FETCH_COUNT,
-      exclude_replies: tline.exclude_replies,
-      tweet_mode: "extended" // https://github.com/Half-Shot/matrix-appservice-twitter/issues/31
-    };
-
-    if(this._newtags.has(req.user_id)) {
-      req.count = 1;
-      this._newtags.delete(req.user_id);
-    }
-
-    const since = yield this.twitter.storage.get_since("@"+tline.twitter_id);
-    if (since) {
-      req.since_id = since;
-    }
-    let feed;
-    try {
-      feed = yield client.get('statuses/user_timeline', req);
-    }
-    catch (error) {
-      log.error("Timeline", "_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
-      return;
-    }
-    if (feed.length === 0) {
-      return;
-    }
-    else if(feed.length === TIMELINE_TWEET_FETCH_COUNT) {
-      log.info("Timeline", "Poll request hit count limit. Request likely incomplete.");
-    }
-
-    const s = feed[0].id_str;
-    this.twitter.storage.set_since("@"+tline.twitter_id, s);
-    // If req.count = 1, the resp will be the initial tweet used to get initial "since"
-    if (req.count !== 1) {
-      try {
-        yield this.twitter.processor.process_tweets(tline.room, feed, {depth: TWEET_REPLY_MAX_DEPTH} );
-      }
-      catch(err) {
-        log.error("Timeline", "Error whilst processing timeline %s: %s", tline.twitter_id, err);
-      }
-    }
-    return;
+    return Promise.coroutine(this._process_feed.bind(this))(true, tline);
   }
 
   * _process_hashtag () {
@@ -364,56 +316,75 @@ class Timeline {
       this._h = 0;
     }
 
-    const client = yield this.twitter.client_factory.get_client();
     const feed = this._hashtags[this._h];
-    if(this.is_room_excluded(feed.room, feed.hashtag)) {
+    return Promise.coroutine(this._process_feed.bind(this))(false, feed);
+  }
+
+  *_process_feed (isTimeline, feed) {
+    const client = yield this.twitter.client_factory.get_client();
+    const sinceId = isTimeline ? "@"+feed.twitter_id : feed.hashtag;
+    const getPath = isTimeline ? 'statuses/user_timeline' : 'search/tweets'
+    if(this.is_room_excluded(feed.room)) {
+      log.info("Timeline", `${feed.hashtag} is ignored because the room(s) contains no real members`);
       return;
     }
-
     const req = {
-      q: "%23"+feed.hashtag,
-      result_type: 'recent',
-      count: HASHTAG_TWEET_FETCH_COUNT,
+      count: isTimeline ? TIMELINE_TWEET_FETCH_COUNT : HASHTAG_TWEET_FETCH_COUNT ,
       tweet_mode: "extended" // https://github.com/Half-Shot/matrix-appservice-twitter/issues/31
     };
-
-    if(this._newtags.has("#"+feed.hashtag)) {
-      req.count = 1;
-      this._newtags.delete("#"+feed.hashtag);
+    if (isTimeline) {
+      req.user_id = feed.twitter_id;
+      req.exclude_replies = feed.exclude_replies;
+      if(this._newtags.has(feed.twitter_id)) {
+        req.count = 1;
+        this._newtags.delete(feed.twitter_id);
+      }
+    } else {
+      req.q = "%23"+feed.hashtag;
+      req.result_type = 'recent';
+      if(this._newtags.has("#"+feed.hashtag)) {
+        req.count = 1;
+        this._newtags.delete("#"+feed.hashtag);
+      }
     }
-
-    const since = yield this.twitter.storage.get_since(feed.hashtag);
+    const since = yield this.twitter.storage.get_since(sinceId);
     if (since) {
       req.since_id = since;
     }
     let results;
     try {
-      results = yield client.get('search/tweets', req);
+      results = yield client.get(getPath, req);
+      if(!isTimeline) {
+        results = results.statuses;
+      }
     }
     catch (error) {
-      log.error("Timeline", "_process_hashtags: GET /search/tweets returned: %s", error.code);
+      log.error("Timeline", `_process_feed: GET ${getPath} returned: %s`, error.code);
       return;
     }
-    if (results.statuses.length === 0) {
+
+    if (results.length === 0) {
       return;
     }
-    else if(results.statuses.length === HASHTAG_TWEET_FETCH_COUNT) {
+    else if(results.length === req.count) {
       log.info("Timeline", "Poll request hit count limit. Request likely incomplete.");
     }
-    const force_user_id = this.is_feed_exceeding_user_limit(results.statuses, false)
-      ? `_twitter_#${feed.hashtag}` : null;
-    if(force_user_id) {
+    this.twitter.storage.set_since(sinceId, results[0].id_str);
+    const shouldForceUserId = this.is_feed_exceeding_user_limit(results, isTimeline);
+    let force_user_id;
+    if(shouldForceUserId) {
       log.verbose("Timeline", `Forcing single user mode for ${feed.hashtag}`);
+      force_user_id = shouldForceUserId ? `_twitter_@` + feed.twitter_id : `_twitter_#` + feed.hashtag;
+    } else {
+      force_user_id = null;
     }
-    const s = results.statuses[0].id_str;
-    this.twitter.storage.set_since(feed.hashtag, s);
     // If req.count = 1, the resp will be the initial tweet used to get initial "since"
     if (req.count !== 1) {
       try {
-        yield this.twitter.processor.process_tweets(feed.room, results.statuses, {depth: 0, force_user_id});
+       return this.twitter.processor.process_tweets(feed.room, results, {depth: 0, force_user_id});
       }
       catch(err) {
-        log.error("Timeline", "Error whilst processing hashtag feed %s: %s", feed.hashtag, err);
+        log.error("Timeline", "Error whilst processing %s: %s", sinceId, err);
       }
     }
   }
