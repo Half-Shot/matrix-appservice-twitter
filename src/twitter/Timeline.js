@@ -406,10 +406,8 @@ class Timeline {
     for (const room in memberLists) {
       if (memberLists[room].realJoinedUsers.length === 0) {
         log.silly("Timeline", "%s has no real users", room);
-        console.log("A:"+room);
         this._empty_rooms.add(room);
       } else {
-        console.log("D:"+room);
         this._empty_rooms.delete(room);
       }
     }
