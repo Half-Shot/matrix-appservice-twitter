@@ -334,7 +334,7 @@ class Timeline {
     // If req.count = 1, the resp will be the initial tweet used to get initial "since"
     if (req.count !== 1) {
       try {
-        yield this.twitter.processor.process_tweets(tline.room, feed, TWEET_REPLY_MAX_DEPTH);
+        yield this.twitter.processor.process_tweets(tline.room, feed, {depth: TWEET_REPLY_MAX_DEPTH} );
       }
       catch(err) {
         log.error("Timeline", "Error whilst processing timeline %s: %s", tline.twitter_id, err);
@@ -393,7 +393,7 @@ class Timeline {
     // If req.count = 1, the resp will be the initial tweet used to get initial "since"
     if (req.count !== 1) {
       try {
-        yield this.twitter.processor.process_tweets(feed.room, results.statuses, 0);
+        yield this.twitter.processor.process_tweets(feed.room, results.statuses, {depth: 0, force_user_id});
       }
       catch(err) {
         log.error("Timeline", "Error whilst processing hashtag feed %s: %s", feed.hashtag, err);

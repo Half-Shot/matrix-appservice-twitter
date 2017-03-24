@@ -158,7 +158,7 @@ class UserStream {
         return this.twitter.storage.get_timeline_room(user_id);
       }).then((room) =>{
         if(room !== null) {
-          this.twitter.processor.process_tweet(room.room_id, data, TWEET_REPLY_MAX_DEPTH, client);
+          this.twitter.processor.process_tweet(room.room_id, data, {depth: TWEET_REPLY_MAX_DEPTH, client});
         }
         else{
           log.verbose("UserStream", `${user_id} does not have a registered timeline view for their stream.`);

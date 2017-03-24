@@ -7,6 +7,7 @@ const Promise = require('bluebird');
 
 const TWITTER_MSG_QUEUE_INTERVAL_MS = 150;
 const MSG_QUEUE_LAGGING_THRESHOLD = 50; // The number of messages to be stored in the msg queue before we complain about lag.
+const DEFAULT_TWEET_DEPTH = 1;
 
 class TweetProcessor {
   constructor (opts) {
@@ -54,7 +55,7 @@ class TweetProcessor {
       }
       const msgs = this.msg_queue.pop();
       for(const msg of msgs) {
-        const intent = this._bridge.getIntent(msg.userId);
+        const intent = this._bridge.getIntentFromLocalpart(msg.userId);
         promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).then(res => {
           if (msg.content.msgtype === "m.text" ) {
             this._storage.add_event(res.event_id, msg.userId, msg.roomId, msg.content.tweet_id, Date.now());
@@ -76,7 +77,7 @@ class TweetProcessor {
    *
    * @see {@link https://dev.twitter.com/overview/api/tweets}
    */
-  tweet_to_matrix_content (tweet, type) {
+  tweet_to_matrix_content (tweet, type, on_behalf_of) {
     let text = tweet.full_text || tweet.text;
     let tags = [];
     if (!tweet.entities) {
@@ -94,6 +95,9 @@ class TweetProcessor {
       })
     }
     text = HTMLDecoder.decode(text);
+    if (on_behalf_of) {
+      text = `@${tweet.user.screen_name}: ${text}`;
+    }
 
     const mxtweet = {
       "body": text,
@@ -110,6 +114,10 @@ class TweetProcessor {
       mxtweet.retweet = tweet._retweet_info;
     }
 
+    if (on_behalf_of) {
+      mxtweet.on_behalf_of = on_behalf_of;
+    }
+
     return mxtweet;
   }
 
@@ -124,11 +132,11 @@ class TweetProcessor {
     return text;
   }
 
-  _push_to_msg_queue (muser, roomid, tweet, type) {
+  _push_to_msg_queue (muser, roomid, tweet, type, on_behalf_of) {
     const time = Date.parse(tweet.created_at);
     let content;
     try {
-      content = this.tweet_to_matrix_content(tweet, type)
+      content = this.tweet_to_matrix_content(tweet, type, on_behalf_of);
     } catch (e) {
       return Promise.reject("Tweet was missing user field.", e);
     }
@@ -194,29 +202,55 @@ class TweetProcessor {
 
 
   /**
-   * A function used to process
+   * A function used to process tweets and post them to rooms.
    *
-   * @param  {type} roomid        description
-   * @param  {type} tweets        description
-   * @param  {type} depth         description
-   * @param  {type} client = null description
-   * @return {type}               description
+   * @param  {type} rooms Rooms to post the tweets to.
+   * @param  {type} tweets Tweets to process
+   * @param  {type} opts.depth The maximum depth of the tweet chain (replies to
+   * replies) to be traversed. Set this to how deep you wish to traverse and it
+   * will be decreased when the function calls itself.
+   * @param  {type} opts.client = null The twitter authed client to use.
+   * @param  {string} opts.force_user_id Should we force one account to post for every tweet.
    */
-  process_tweets (rooms, tweets, depth, client = null) {
-    if (client == null) {
-      client = this._tclient;
+  process_tweets (rooms, tweets, opts) {
+    if (opts == null) {
+      opts = { }
     }
+    if (opts.client == null) {
+      opts.client = this._tclient;
+    }
+    if (opts.depth == null) {
+      opts.depth = DEFAULT_TWEET_DEPTH;
+    }
+    const promises = [];
     tweets.forEach( (tweet) => {
-      this._process_tweet(rooms, tweet, depth, client);
+      promises.push(this._process_tweet(rooms, tweet, opts.depth, opts));
     });
-
+    return Promise.all(promises);
   }
 
-  process_tweet (rooms, tweet, depth, client = null) {
-    if (client == null) {
-      client = this._tclient;
+  /**
+   * A function used to process a tweet and post them to rooms.
+   *
+   * @param  {type} rooms Rooms to post the tweets to.
+   * @param  {type} tweet Tweet to process
+   * @param  {type} opts.depth The maximum depth of the tweet chain (replies to
+   * replies) to be traversed. Set this to how deep you wish to traverse and it
+   * will be decreased when the function calls itself.
+   * @param  {type} opts.client = null The twitter authed client to use.
+   * @param  {string} opts.force_user_id Should we force one account to post for every tweet.
+   */
+  process_tweet (rooms, tweet, opts) {
+    if (opts == null) {
+      opts = { }
     }
-    this._process_tweet(rooms, tweet, depth, client);
+    if (opts.client == null) {
+      opts.client = this._tclient;
+    }
+    if (opts.depth == null) {
+      opts.depth = DEFAULT_TWEET_DEPTH;
+    }
+    return this._process_tweet(rooms, tweet, opts.depth, opts);
   }
 
   /**
@@ -226,21 +260,23 @@ class TweetProcessor {
    *
    * @param  {String} rooms Matrix Room ID of the room that we are processing.
    * @param  {TwitterTweet} tweet The tweet object from the Twitter API See {@link}
-   * @param  {Number} depth  The maximum depth of the tweet chain (replies to
+   * @param  {type} opts.depth The maximum depth of the tweet chain (replies to
    * replies) to be traversed. Set this to how deep you wish to traverse and it
    * will be decreased when the function calls itself.
+   * @param  {type} opts.client = null The twitter authed client to use.
+   * @param  {string} opts.force_user_id Should we force one account to post for every tweet.
    * @return {Promise[]]}  A promise that resolves once the tweet has been queued.
    *
    * @see {@link https://dev.twitter.com/overview/api/tweets}
    */
-  _process_tweet (rooms, tweet, depth, client) {
+  _process_tweet (rooms, tweet, depth, opts) {
     depth--;
     const type = "m.text";
     let promise;
     if (tweet.in_reply_to_status_id_str != null && depth > 0) {
-      promise = client.get('statuses/show/' + tweet.in_reply_to_status_id_str, {})
+      promise = opts.client.get('statuses/show/' + tweet.in_reply_to_status_id_str, {})
       .then((newtweet) => {
-        return this._process_tweet(rooms, newtweet, depth, client);
+        return this._process_tweet(rooms, newtweet, depth, opts);
       }).catch(error => {
         log.error("process_tweet: GET /statuses/show returned: " + error);
         throw error;
@@ -257,7 +293,7 @@ class TweetProcessor {
       promise = promise.then(() => { return this._twitter.profile.update(tweet.user) });
     }
 
-    promise.then( () => {
+    return promise.then( () => {
       if(typeof rooms == "string") {
         rooms = [rooms];
       }
@@ -265,15 +301,16 @@ class TweetProcessor {
         this._storage.room_has_tweet(roomid, tweet.id_str).then(
           (room_has_tweet) => {
             if (!room_has_tweet) {
+              const realUserId = '_twitter_'+tweet.user.id_str;
+              const userId = opts.force_user_id == null ? realUserId : opts.force_user_id
               this._push_to_msg_queue(
-                '@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type
+                userId, roomid, tweet, type, opts.force_user_id != null ? realUserId : null
               );
             }
           }
         );
       });
     });
-    return promise;
   }
 }
 
