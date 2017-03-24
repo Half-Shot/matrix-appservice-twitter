@@ -20,7 +20,7 @@ const intent = {
 }
 
 const bridge = {
-  getIntent: function () {
+  getIntentFromLocalpart: function () {
     return intent;
   }
 }

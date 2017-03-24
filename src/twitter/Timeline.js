@@ -287,7 +287,6 @@ class Timeline {
     let max = (timeline ? (TIMELINE_POLL_INTERVAL*this._t) : (HASHTAG_POLL_INTERVAL*this._h))/60000;
     max = Math.max(max * NEW_PROFILE_THRESHOLD_MIN, 1)
     if (this.config.hashtags.single_account_fallback === true) {
-      console.log(tweets.length);
       const user_ids = new Set(tweets.map((tweet) => {tweet.id_str})).size;
       log.verbose(`is_feed_exceeding_user_limit: ${user_ids} > ${max}`);
       return user_ids > max;
