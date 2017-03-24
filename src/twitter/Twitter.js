@@ -31,8 +31,6 @@ class Twitter {
     this._dm = new DirectMessage(this);
     this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
     this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
-    this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
-    this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
 
     this._timeline = new Timeline(this, this._config.timelines, this._config.hashtags);
 
