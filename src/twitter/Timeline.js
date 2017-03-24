@@ -79,7 +79,7 @@ class Timeline {
    */
   start_hashtag () {
     this._h_intervalID = setInterval(() => {
-      Promise.coroutine(this._process_hashtags.bind(this))();
+      Promise.coroutine(this._process_hashtag.bind(this))();
     }, HASHTAG_POLL_INTERVAL);
   }
 
@@ -112,7 +112,7 @@ class Timeline {
     if (!Util.isRoomId(room_id)) {
       throw Error("Not a valid room_id");
     }
-    if(!Util.isTwitterHashtag(hashtag)){
+    if(!Util.isTwitterHashtag(hashtag)) {
       throw Error("Not a valid hashtag");
     }
     const htag = this._find_hashtag(hashtag);
@@ -286,6 +286,7 @@ class Timeline {
     if (this._timelines.length === 0) {
       return;
     }
+    // Rotate to the next timeline.
     this._t++;
     if(this._t >= this._timelines.length) {
       this._t = 0;
@@ -342,7 +343,7 @@ class Timeline {
     return;
   }
 
-  * _process_hashtags () {
+  * _process_hashtag () {
     if (this._hashtags.length === 0) {
       return;
     }
