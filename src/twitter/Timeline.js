@@ -1,5 +1,6 @@
 const log      = require('../logging.js');
 const Promise  = require('bluebird');
+const Util  = require('../util.js');
 
 const TIMELINE_POLL_INTERVAL = 3010; //Twitter allows 300 calls per 15 minute (We add 10 milliseconds for a little safety).
 const HASHTAG_POLL_INTERVAL = 2010; //Twitter allows 450 calls per 15 minute (We add 10 milliseconds for a little safety).
@@ -23,7 +24,7 @@ class Timeline {
     this._timelines = [] // {twitter_id:string, room:[string]}
     this._hashtags = [] // {hashtag:string, room:[string]}
     this._newtags = new Set();
-    this._empty_rooms = [];
+    this._empty_rooms = new Set();
     this._h = -1;
     this._t = -1;
     this.config = {
@@ -38,7 +39,7 @@ class Timeline {
    * If a room has 'real' members then keep/ignore it.
    */
   start_empty_room_checker () {
-    this._t_intervalID = setInterval(() => {
+    this._empty_intervalID = setInterval(() => {
       Promise.coroutine(this._check_empty_rooms.bind(this))()
     }, EMPTY_ROOM_INTERVAL);
   }
@@ -47,6 +48,8 @@ class Timeline {
     if (this._empty_intervalID) {
       clearInterval(this._empty_intervalID);
       this._empty_intervalID = null;
+    } else {
+      throw Error("Timer not started");
     }
   }
 
@@ -66,6 +69,8 @@ class Timeline {
     if (this._t_intervalID) {
       clearInterval(this._t_intervalID);
       this._t_intervalID = null;
+    } else {
+      throw Error("Timer not started");
     }
   }
 
@@ -85,6 +90,8 @@ class Timeline {
     if (this._h_intervalID) {
       clearInterval(this._h_intervalID);
       this._h_intervalID = null;
+    } else {
+      throw Error("Timer not started");
     }
   }
 
@@ -96,14 +103,21 @@ class Timeline {
    * @param  {string} room_id The room_id to insert tweets into.
    * @param  {object} opts Options
    * @param  {boolean} opts.is_new Is the room 'new', and we shouldn't do a full poll.
+   * @return {boolean} was the hashtag added/changed
    */
   add_hashtag (hashtag, room_id, opts) {
+    if (this.config.hashtags.enable === false) {
+      return false;
+    }
+    if (!Util.isRoomId(room_id)) {
+      throw Error("Not a valid room_id");
+    }
+    if(!Util.isTwitterHashtag(hashtag)){
+      throw Error("Not a valid hashtag");
+    }
     const htag = this._find_hashtag(hashtag);
     let obj;
 
-    if (this.config.hashtags.enable === false) {
-      return;
-    }
 
     if(opts === undefined) {
       opts = {};
@@ -117,21 +131,20 @@ class Timeline {
       obj = this._hashtags[htag]
     }
     else {
-      obj = {hashtag, room: [] }
+      obj = {hashtag, room: new Set() }
       if(opts.is_new) {
         this._newtags.add("#"+hashtag);
       }
     }
-    if(!obj.room.includes(room_id)) {
-      obj.room.push(room_id);
-    }
+    obj.room.add(room_id);
     if(htag !== -1) {
-      obj = this._hashtags[htag] = obj;
+      this._hashtags[htag] = obj;
     }
     else {
       this._hashtags.push(obj);
     }
     log.info("Added Hashtag: %s", hashtag);
+    return true;
   }
 
   /**
@@ -147,14 +160,17 @@ class Timeline {
    * @param  {boolean} opts.is_new Is the room 'new', and we shouldn't do a full poll.
    * @param  {boolean} opts.exclude_replies Should we not fetch replies.
    * @param  {boolean} opts.high_traffic_mode Enable high traffic mode on the timeline*.
-   */
+   * @return {boolean} was the hashtag added/changed
+  */
   add_timeline (twitter_id, room_id, opts) {
+    if (this.config.timelines.enable === false) {
+      return false;
+    }
+    if (!Util.isRoomId(room_id)) {
+      throw Error("Not a valid room_id");
+    }
     const tline = this._find_timeline(twitter_id);
     let obj;
-
-    if (this.config.timelines.enable === false) {
-      return;
-    }
 
     if(opts === undefined) {
       opts = {};
@@ -176,21 +192,25 @@ class Timeline {
       obj = this._timelines[tline]
     }
     else {
-      obj = {twitter_id, room: [], exclude_replies: opts.exclude_replies, high_traffic_mode: opts.high_traffic_mode }
+      obj = {
+        twitter_id,
+        room: new Set(),
+        exclude_replies: opts.exclude_replies,
+        high_traffic_mode: opts.high_traffic_mode
+      }
       if(opts.is_new) {
         this._newtags.add(twitter_id);
       }
     }
-    if(!obj.room.includes(room_id)) {
-      obj.room.push(room_id);
-    }
+    obj.room.add(room_id);
     if(tline !== -1) {
-      obj = this._timelines[tline] = obj;
+      this._timelines[tline] = obj;
     }
     else {
       this._timelines.push(obj);
     }
     log.info("Added Timeline: %s", twitter_id);
+    return true;
   }
 
   /**
@@ -199,9 +219,10 @@ class Timeline {
    *
    * @param  {string} twitter_id The twitter id of the timeline to remove.
    * @param  {string} [room_id] If specified, only remove from this room.
+   * @return {boolean} Was the operation successful.
    */
   remove_timeline (twitter_id, room_id) {
-    this._remove_from_queue(true, twitter_id, room_id);
+    return this._remove_from_queue(true, twitter_id, room_id);
   }
 
   /**
@@ -210,31 +231,30 @@ class Timeline {
    *
    * @param  {string} hashtag The hashtag to remove. (without the #)
    * @param  {string} [room_id] If specified, only remove from this room.
+   * @return {boolean} Was the operation successful.
    */
   remove_hashtag (hashtag, room_id) {
-    this._remove_from_queue(false, hashtag, room_id);
+    return this._remove_from_queue(false, hashtag, room_id);
   }
 
   _remove_from_queue (isTimeline, id, room_id) {
     const i = isTimeline ? this._find_timeline(id) : this._find_hashtag(id);
-    let queue = isTimeline ? this._timelines : this._hashtags;
+    const queue = isTimeline ? this._timelines : this._hashtags;
     if(i !== -1) {
       if(room_id) {
-        const r = queue[i].room.indexOf(room_id);
-        if (r !== -1) {
-          delete queue[i].room[r];
+        if (queue[i].room.has(room_id)) {
+          queue[i].room.delete(room_id);
         }
         else{
           log.warn("Tried to remove %s for %s but it didn't exist", room_id, id);
-          return;
+          return true; // Well, the room doesn't exist
         }
       }
       else {
-        queue[i].room = []
+        queue[i].room.clear();
       }
-
-      if(queue[i].room.length === 0) {
-        queue = queue.splice(i, 1);
+      if(queue[i].room.size === 0) {
+        queue.splice(i, 1);
       }
 
       if(isTimeline) {
@@ -243,11 +263,23 @@ class Timeline {
       else{
         this._hashtags = queue;
       }
-
+      return true;
     }
     else {
       log.warn("Tried to remove %s but it doesn't exist", id);
+      return false;
     }
+  }
+
+  is_room_excluded (rooms, id) {
+    if (!this.config.timelines.poll_if_empty) {
+      const difference = new Set([...rooms].filter(x => !this._empty_rooms.has(x)));
+      if (difference.size === 0) {
+        log.info("Timeline", "Skipping %s because no real users are using it.", id);
+        return true;
+      }
+    }
+    return false;
   }
 
   * _process_timeline () {
@@ -260,13 +292,8 @@ class Timeline {
     }
 
     const tline = this._timelines[this._t];
-    if (!this.config.timelines.poll_if_empty) {
-      if (tline.room.every((roomId) =>{
-        this._empty_rooms.includes(roomId);
-      })) {
-        log.info("Timeline", "Skipping %s because no real users are using it.", tline.twitter_id);
-        return;
-      }
+    if(this.is_room_excluded(tline.room, tline.twitter_id)) {
+      return;
     }
 
     const client = yield this.twitter.client_factory.get_client();
@@ -288,7 +315,7 @@ class Timeline {
     }
     let feed;
     try {
-      feed = yield client.getAsync('statuses/user_timeline', req);
+      feed = yield client.get('statuses/user_timeline', req);
     }
     catch (error) {
       log.error("Timeline", "_process_timeline: GET /statuses/user_timeline returned: %s", error.code);
@@ -300,6 +327,7 @@ class Timeline {
     else if(feed.length === TIMELINE_TWEET_FETCH_COUNT) {
       log.info("Timeline", "Poll request hit count limit. Request likely incomplete.");
     }
+
     const s = feed[0].id_str;
     this.twitter.storage.set_since("@"+tline.twitter_id, s);
     // If req.count = 1, the resp will be the initial tweet used to get initial "since"
@@ -311,6 +339,7 @@ class Timeline {
         log.error("Timeline", "Error whilst processing timeline %s: %s", tline.twitter_id, err);
       }
     }
+    return;
   }
 
   * _process_hashtags () {
@@ -324,17 +353,10 @@ class Timeline {
 
     const client = yield this.twitter.client_factory.get_client();
     const feed = this._hashtags[this._h];
-
-
-    if (!this.config.hashtags.poll_if_empty) {
-      if (feed.room.every((roomId) =>{
-        return this._empty_rooms.includes(roomId);
-      })) {
-        log.verbose("Timeline", "Skipping #%s because no real users are using it.", feed.hashtag);
-        return;
-      }
+    if(this.is_room_excluded(feed.room, feed.hashtag)) {
+      return;
     }
-    
+
     const req = {
       q: "%23"+feed.hashtag,
       result_type: 'recent',
@@ -353,7 +375,7 @@ class Timeline {
     }
     let results;
     try {
-      results = yield client.getAsync('search/tweets', req);
+      results = yield client.get('search/tweets', req);
     }
     catch (error) {
       log.error("Timeline", "_process_hashtags: GET /search/tweets returned: %s", error.code);
@@ -381,15 +403,16 @@ class Timeline {
   * _check_empty_rooms () {
     const bot = this.twitter.bridge.getBot();
     const memberLists = yield bot.getMemberLists();
-    const empty_room_list = [];
     for (const room in memberLists) {
       if (memberLists[room].realJoinedUsers.length === 0) {
         log.silly("Timeline", "%s has no real users", room);
-        empty_room_list.push(room);
+        console.log("A:"+room);
+        this._empty_rooms.add(room);
+      } else {
+        console.log("D:"+room);
+        this._empty_rooms.delete(room);
       }
     }
-    this._empty_rooms = empty_room_list;
-    return false;
   }
 
   _find_timeline (twitter_id) {
