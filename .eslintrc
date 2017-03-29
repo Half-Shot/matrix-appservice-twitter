@@ -37,5 +37,6 @@
       }],
       eqeqeq: ["error", "smart"],
       space-infix-ops: ["error"],
+      camelcase: ["warn", { "properties": "never" }],
     }
 }
