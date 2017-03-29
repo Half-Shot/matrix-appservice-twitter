@@ -244,7 +244,6 @@ class TweetProcessor {
    *
    * @see {@link https://dev.twitter.com/overview/api/tweets}
    */
-   */
   process_tweet (rooms, tweet, opts) {
     if (opts == null) {
       opts = { }
@@ -289,16 +288,17 @@ class TweetProcessor {
       if(typeof rooms == "string") {
         rooms = [rooms];
       }
-      rooms.forEach((roomid) => {
-        this._storage.room_has_tweet(roomid, tweet.id_str).then(
+      return rooms.map((roomid) => {
+        return this._storage.room_has_tweet(roomid, tweet.id_str).then(
           (room_has_tweet) => {
             if (!room_has_tweet) {
               const realUserId = '_twitter_'+tweet.user.id_str;
               const userId = opts.force_user_id == null ? realUserId : opts.force_user_id
-              this._push_to_msg_queue(
+              return this._push_to_msg_queue(
                 userId, roomid, tweet, type, opts.force_user_id != null ? realUserId : null
               );
             }
+            return Promise.resolve();
           }
         );
       });
