@@ -281,15 +281,19 @@ class Timeline {
     return false;
   }
 
-  is_feed_exceeding_user_limit (tweets, timeline = true) {
-    let max = (timeline ? (TIMELINE_POLL_INTERVAL * this._t) : (HASHTAG_POLL_INTERVAL * this._h)) / 60000;
-    max = Math.max(max * NEW_PROFILE_THRESHOLD_MIN, 1)
-    if ((timeline ? this.config.timelines : this.config.hashtags).single_account_fallback === true) {
-      const user_ids = new Set(tweets.map((tweet) => {tweet.id_str})).size;
-      log.verbose(`is_feed_exceeding_user_limit: ${user_ids} > ${max}`);
-      return user_ids > max;
+  is_feed_exceeding_user_limit (tweets, isTimeline) {
+    if((isTimeline ? this.config.timelines : this.config.hashtags).single_account_fallback) {
+      return false;
     }
-    return false;
+
+    const pollInterval = isTimeline ? TIMELINE_POLL_INTERVAL_MS : HASHTAG_POLL_INTERVAL_MS;
+    // Rough time since we last polled this feed
+    const currentPollInterval = (isTimeline ? this._timelines : this._hashtags).length * pollInterval;
+    // Number of new profiles that we can accept in this timespan.
+    const maxNProfiles = Math.ceil((currentPollInterval / 60000) * NEW_PROFILE_THRESHOLD_MIN);
+    const userIds = new Set(tweets.map((tweet) => {tweet.id_str})).size;
+    log.verbose(`is_feed_exceeding_user_limit: ${userIds} > ${maxNProfiles}`);
+    return userIds > maxNProfiles;
   }
 
   _process_timeline () {
