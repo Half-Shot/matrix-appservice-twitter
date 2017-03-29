@@ -62,7 +62,7 @@ class Twitter {
         storage: this._storage,
         media: this._config.media
       });
-
+      this._processor.start();
 
       if (this._config.timelines.enable) {
         this.timeline.start_timeline();
@@ -71,19 +71,13 @@ class Twitter {
       if (this._config.hashtags.enable) {
         this.timeline.start_hashtag();
       }
+
+      if (this._config.hashtags.enable || this._config.timelines.enable) {
+        this.timeline.start_empty_room_checker();
+      }
+
       this._userstream.start();
-
-      if (this._config.hashtags.enable && this._config.timelines.enable) {
-        this.timeline.start_empty_room_checker();
-      }
-
-      if (this._config.hashtags.enable && this._config.timelines.enable) {
-        this.timeline.start_empty_room_checker();
-      }
-
       this._userstream.attach_all();
-
-      this._processor.start();
 
     }).catch((error) => {
       log.error('Error trying to retrieve bearer token:', error);

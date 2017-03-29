@@ -13,6 +13,8 @@ describe('Timeline', function () {
   let _check_empty_rooms; //For coroutine.
   let _since = null;
   let _tweets_fetched;
+  let processTimeline;
+  let processHashtag;
   const twitter = {
     bridge: {
       getBot: () => {
@@ -49,7 +51,7 @@ describe('Timeline', function () {
           get: (path, req) => {
             _tweets_fetched = true;
             const feed = [];
-            for(let i = 0;i<req.count; i++) {
+            for(let i = 0;i < req.count; i++) {
               feed.push({
                 id_str: String(i)
               });
@@ -72,6 +74,12 @@ describe('Timeline', function () {
       enable: true,
     });
     _check_empty_rooms = Promise.coroutine(timeline._check_empty_rooms.bind(timeline));
+    processTimeline = () => {
+      return Promise.coroutine(timeline._process_feed.bind(timeline))(true);
+    }
+    processHashtag = () => {
+      return Promise.coroutine(timeline._process_feed.bind(timeline))(false);
+    }
   });
 
   describe('empty room timers', function () {
@@ -117,19 +125,6 @@ describe('Timeline', function () {
       });
       assert.isFalse(timeline.add_hashtag("string", "!room:someplace"));
     });
-    it('should add a new hashtag with no opts and invalid room', function () {
-      assert.throws(() => {
-        timeline.add_hashtag("test");
-      }, "Not a valid room_id");
-      assert.throws(() => {
-        timeline.add_hashtag("test", "somewords");
-      }, "Not a valid room_id");
-    });
-    it('should add a new invalid hashtag', function () {
-      assert.throws(() => {
-        timeline.add_hashtag("£$^£$£$", "!room:someplace");
-      }, "Not a valid hashtag");
-    });
     it('should add a new hashtag without is_new', function () {
       assert.isTrue(timeline.add_hashtag("test", "!room:someplace"));
       assert.equal(timeline._hashtags[0].hashtag, "test");
@@ -153,14 +148,6 @@ describe('Timeline', function () {
         enable: false,
       }, {});
       assert.isFalse(timeline.add_timeline("string", "!room:someplace"));
-    });
-    it('should add a new timeline with no opts and invalid room', function () {
-      assert.throws(() => {
-        timeline.add_timeline("test");
-      }, "Not a valid room_id");
-      assert.throws(() => {
-        timeline.add_timeline("test", "somewords");
-      }, "Not a valid room_id");
     });
     it('should add a new timeline without is_new', function () {
       assert.isTrue(timeline.add_timeline("test", "!room:someplace"));
@@ -225,10 +212,10 @@ describe('Timeline', function () {
     });
   });
 
-  describe('timeline._process_timeline', function () {
+  describe('processTimeline', function () {
     it('should not process if the timeline list is empty.', function () {
-      return timeline._process_timeline().then(() => {
-        assert.equal(timeline._t, -1);
+      return processTimeline().then(() => {
+        assert.equal(timeline._timelineIndex, -1);
       });
     });
     it('should skip empty rooms.', function () {
@@ -237,7 +224,7 @@ describe('Timeline', function () {
         room: new Set(["bacon"])
       });
       timeline._empty_rooms.add("bacon");
-      return timeline._process_timeline().then(() => {
+      return processTimeline().then(() => {
         assert.isFalse(_tweets_fetched);
       });
     });
@@ -246,8 +233,8 @@ describe('Timeline', function () {
         twitter_id: "test",
         room: new Set(["bacon"])
       });
-      return timeline._process_timeline().then(() => {
-        assert.equal(timeline._t, 0, "Queue is incremented.");
+      return processTimeline().then(() => {
+        assert.equal(timeline._timelineIndex, 0, "Queue is incremented.");
         assert.equal(_since, "0");
       });
     });
@@ -264,17 +251,17 @@ describe('Timeline', function () {
         twitter_id: "test2",
         room: new Set(["bacon"])
       });
-      return timeline._process_timeline().then(() => {
-        assert.equal(timeline._t, 0, "Queue is incremented.");
-        return timeline._process_timeline();
+      return processTimeline().then(() => {
+        assert.equal(timeline._timelineIndex, 0, "Queue is incremented.");
+        return processTimeline();
       }).then(() => {
-        assert.equal(timeline._t, 1, "Queue is incremented.");
-        return timeline._process_timeline();
+        assert.equal(timeline._timelineIndex, 1, "Queue is incremented.");
+        return processTimeline();
       }).then(() => {
-        assert.equal(timeline._t, 2, "Queue is incremented.");
-        return timeline._process_timeline();
+        assert.equal(timeline._timelineIndex, 2, "Queue is incremented.");
+        return processTimeline();
       }).then(() => {
-        assert.equal(timeline._t, 0, "Queue is incremented.");
+        assert.equal(timeline._timelineIndex, 0, "Queue is incremented.");
       });
     });
     it('should fetch a tweet for _newtags mode.', function () {
@@ -283,8 +270,8 @@ describe('Timeline', function () {
         room: new Set(["bacon"])
       });
       timeline._newtags.add("test");
-      return timeline._process_timeline().then(() => {
-        assert.equal(timeline._t, 0, "Queue is incremented.");
+      return processTimeline().then(() => {
+        assert.equal(timeline._timelineIndex, 0, "Queue is incremented.");
         assert.equal(_since, "0");
         assert.isFalse(timeline._newtags.has("test"));
       });
@@ -292,8 +279,8 @@ describe('Timeline', function () {
   });
   describe('timeline._process_hashtags', function () {
     it('should not process if the hashtag list is empty.', function () {
-      timeline._process_hashtag().then(() => {
-        assert.equal(timeline._h, -1);
+      processHashtag().then(() => {
+        assert.equal(timeline._hashtagIndex, -1);
       });
     });
     it('should skip empty rooms.', function () {
@@ -302,7 +289,7 @@ describe('Timeline', function () {
         room: new Set(["bacon"])
       });
       timeline._empty_rooms.add("bacon");
-      return timeline._process_hashtag().then(() => {
+      return processHashtag().then(() => {
         assert.isFalse(_tweets_fetched);
       });
     });
@@ -311,8 +298,8 @@ describe('Timeline', function () {
         hashtag: "test",
         room: new Set(["bacon"])
       });
-      return timeline._process_hashtag().then(() => {
-        assert.equal(timeline._h, 0, "Queue is incremented.");
+      return processHashtag().then(() => {
+        assert.equal(timeline._hashtagIndex, 0, "Queue is incremented.");
         assert.equal(_since, "0");
       });
     });
@@ -329,17 +316,17 @@ describe('Timeline', function () {
         hashtag: "test2",
         room: new Set(["bacon"])
       });
-      return timeline._process_hashtag().then(() => {
-        assert.equal(timeline._h, 0, "Queue is incremented.");
-        return timeline._process_hashtag();
+      return processHashtag().then(() => {
+        assert.equal(timeline._hashtagIndex, 0, "Queue is incremented.");
+        return processHashtag();
       }).then(() => {
-        assert.equal(timeline._h, 1, "Queue is incremented.");
-        return timeline._process_hashtag();
+        assert.equal(timeline._hashtagIndex, 1, "Queue is incremented.");
+        return processHashtag();
       }).then(() => {
-        assert.equal(timeline._h, 2, "Queue is incremented.");
-        return timeline._process_hashtag();
+        assert.equal(timeline._hashtagIndex, 2, "Queue is incremented.");
+        return processHashtag();
       }).then(() => {
-        assert.equal(timeline._h, 0, "Queue is incremented.");
+        assert.equal(timeline._hashtagIndex, 0, "Queue is incremented.");
       });
     });
     it('should fetch a tweet for _newtags mode.', function () {
@@ -348,8 +335,8 @@ describe('Timeline', function () {
         room: new Set(["bacon"])
       });
       timeline._newtags.add("#test");
-      return timeline._process_hashtag().then(() => {
-        assert.equal(timeline._h, 0, "Queue is incremented.");
+      return processHashtag().then(() => {
+        assert.equal(timeline._hashtagIndex, 0, "Queue is incremented.");
         assert.equal(_since, "0");
         assert.isFalse(timeline._newtags.has("#test"));
       });
