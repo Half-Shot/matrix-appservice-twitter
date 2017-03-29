@@ -119,7 +119,6 @@ class Timeline {
     const htag = this._find_hashtag(hashtag);
     let obj;
 
-
     if(opts === undefined) {
       opts = {};
     }
@@ -152,15 +151,11 @@ class Timeline {
    * Add a Twitters user's timeline to the timeline processor. Tweets will be
    * automatically send to the given room.
    *
-   * HTM* - Use a single account to send tweets, avoiding large numbers of join
-   * events. This is enabled automatically unless disabled via config
-   *
    * @param  {string} twitter_id The twitter ID of a timeline.
    * @param  {string} room_id The room_id to insert tweets into.
    * @param  {object} opts Options
    * @param  {boolean} opts.is_new Is the room 'new', and we shouldn't do a full poll.
    * @param  {boolean} opts.exclude_replies Should we not fetch replies.
-   * @param  {boolean} opts.high_traffic_mode Enable high traffic mode on the timeline*.
    * @return {boolean} was the hashtag added/changed
   */
   add_timeline (twitter_id, room_id, opts) {
@@ -197,7 +192,6 @@ class Timeline {
         twitter_id,
         room: new Set(),
         exclude_replies: opts.exclude_replies,
-        high_traffic_mode: opts.high_traffic_mode
       }
       if(opts.is_new) {
         this._newtags.add(twitter_id);
