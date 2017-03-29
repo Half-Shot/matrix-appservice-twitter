@@ -233,10 +233,12 @@ class Timeline {
   }
 
   _remove_from_queue (isTimeline, id, room_id) {
+    // Get the index of the item and it's associated queue.
     const i = isTimeline ? this._find_timeline(id) : this._find_hashtag(id);
     const queue = isTimeline ? this._timelines : this._hashtags;
+    const removeSingle = room_id !== undefined;
     if(i !== -1) {
-      if(room_id) {
+      if(removeSingle) {
         if (queue[i].room.has(room_id)) {
           queue[i].room.delete(room_id);
         }
@@ -246,8 +248,11 @@ class Timeline {
         }
       }
       else {
+        // Remove the whole timeline.
         queue[i].room.clear();
       }
+
+      // Are any rooms being processed at this point. Remove if not.
       if(queue[i].room.size === 0) {
         queue.splice(i, 1);
       }
@@ -261,7 +266,7 @@ class Timeline {
       return true;
     }
     else {
-      log.warn("Tried to remove %s but it doesn't exist", id);
+      log.warn("Tried to remove %s but it isn't queued.", id);
       return false;
     }
   }
