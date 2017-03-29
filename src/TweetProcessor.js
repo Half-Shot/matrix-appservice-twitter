@@ -72,8 +72,8 @@ class TweetProcessor {
    * This function will fill the content structure for a new matrix message for a given tweet.
    *
    * @param  {TwitterTweet} tweet The tweet object from the Twitter API See {@link}
-   * @param  {type} type  The 'msgtype' of a message.
-   * @return {object}     The content of a Matrix 'm.room.message' event.
+   * @param  {Type} type  The 'msgtype' of a message.
+   * @return {Object}     The content of a Matrix 'm.room.message' event.
    *
    * @see {@link https://dev.twitter.com/overview/api/tweets}
    */
@@ -202,15 +202,13 @@ class TweetProcessor {
 
 
   /**
-   * A function used to process tweets and post them to rooms.
-   *
-   * @param  {type} rooms Rooms to post the tweets to.
-   * @param  {type} tweets Tweets to process
-   * @param  {type} opts.depth The maximum depth of the tweet chain (replies to
-   * replies) to be traversed. Set this to how deep you wish to traverse and it
-   * will be decreased when the function calls itself.
-   * @param  {type} opts.client = null The twitter authed client to use.
-   * @param  {string} opts.force_user_id Should we force one account to post for every tweet.
+   * Simliar to process_tweet but returns a promise for when all tweets have
+   * been sent. This function is intended to optimise the processing of
+   * tweets in a given array.
+   * @param  {String} rooms
+   * @param  {TwitterTweet[]} tweets
+   * @param  {Object} opts
+   * @see this.process_tweet()
    */
   process_tweets (rooms, tweets, opts) {
     if (opts == null) {
@@ -230,15 +228,22 @@ class TweetProcessor {
   }
 
   /**
-   * A function used to process a tweet and post them to rooms.
+   * Process a given tweet (including esolving any parent tweets),
+   * and submit it to the given room. This function is recursive,
+   * limited to the depth set.
    *
-   * @param  {type} rooms Rooms to post the tweets to.
-   * @param  {type} tweet Tweet to process
-   * @param  {type} opts.depth The maximum depth of the tweet chain (replies to
+   * @param  {String} rooms Matrix Room ID of the room that we are processing.
+   * @param  {TwitterTweet} tweet The tweet object from the Twitter API See {@link}
+   * @param  {Object} opts Options for the processor.
+   * @param  {Number} opts.depth The maximum depth of the tweet chain (replies to
    * replies) to be traversed. Set this to how deep you wish to traverse and it
    * will be decreased when the function calls itself.
-   * @param  {type} opts.client = null The twitter authed client to use.
-   * @param  {string} opts.force_user_id Should we force one account to post for every tweet.
+   * @param  {TwitterClient} opts.client = null The twitter authed client to use.
+   * @param  {String} opts.force_user_id Should we force one account to post for the tweet.
+   * @return {Promise}  A promise that resolves once the tweet has been queued.
+   *
+   * @see {@link https://dev.twitter.com/overview/api/tweets}
+   */
    */
   process_tweet (rooms, tweet, opts) {
     if (opts == null) {
@@ -254,20 +259,7 @@ class TweetProcessor {
   }
 
   /**
-   * TweetProcessor.prototype._process_tweet - Process a given tweet (including
-   * resolving any parent tweets), and submit it to the given room. This function
-   * is recursive, limited to the depth set.
-   *
-   * @param  {String} rooms Matrix Room ID of the room that we are processing.
-   * @param  {TwitterTweet} tweet The tweet object from the Twitter API See {@link}
-   * @param  {type} opts.depth The maximum depth of the tweet chain (replies to
-   * replies) to be traversed. Set this to how deep you wish to traverse and it
-   * will be decreased when the function calls itself.
-   * @param  {type} opts.client = null The twitter authed client to use.
-   * @param  {string} opts.force_user_id Should we force one account to post for every tweet.
-   * @return {Promise[]]}  A promise that resolves once the tweet has been queued.
-   *
-   * @see {@link https://dev.twitter.com/overview/api/tweets}
+   * @see this.process_tweet()
    */
   _process_tweet (rooms, tweet, depth, opts) {
     depth--;
