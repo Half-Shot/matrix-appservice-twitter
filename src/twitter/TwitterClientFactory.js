@@ -5,7 +5,7 @@ const Buffer   = require('buffer').Buffer;
 const Twitter  = require('twitter');
 const Promise = require('bluebird');
 
-const TWITTER_CLIENT_INTERVAL_MS    = 60000*12; // Check creds every 12 hours.
+const TWITTER_CLIENT_INTERVAL_MS    = 60000 * 12; // Check creds every 12 hours.
 
 /**
   * Deals with authentication

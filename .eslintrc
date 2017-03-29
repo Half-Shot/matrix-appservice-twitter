@@ -35,6 +35,7 @@
         "beforeColon": false,
         "afterColon": true
       }],
-      eqeqeq: ["error", "smart"]
+      eqeqeq: ["error", "smart"],
+      space-infix-ops: ["error"],
     }
 }

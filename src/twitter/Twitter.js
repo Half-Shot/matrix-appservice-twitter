@@ -142,13 +142,13 @@ class Twitter {
 
   notify_matrix_user (user, message) {
     const roomstore = this._bridge.getRoomStore();
-    roomstore.getEntriesByRemoteId("service_"+user).then((items) => {
+    roomstore.getEntriesByRemoteId("service_" + user).then((items) => {
       log.info('Sending %s "%s"', user, message);
       if(items.length === 0) {
         log.warn("Couldn't find service room for %s, so couldn't send notice.", user);
         return;
       }
-      const latest_service = items[items.length-1].matrix.getId();
+      const latest_service = items[items.length - 1].matrix.getId();
       this._bridge.getIntent().sendMessage(latest_service, {"msgtype": "m.notice", "body": message});
     });
   }
@@ -168,7 +168,7 @@ class Twitter {
       }
       const intent = this._bridge.getIntent();
       const users = {};
-      users["@_twitter_bot:"+this._bridge.opts.domain] = 100;
+      users["@_twitter_bot:" + this._bridge.opts.domain] = 100;
       users[user] = 100;
       const powers = util.roomPowers(users);
       //Create the room
@@ -194,7 +194,7 @@ class Twitter {
       ).then(room =>{
         log.verbose("Created new user timeline room %s", room.room_id);
         const mroom = new Bridge.MatrixRoom(room.room_id);
-        const rroom = new Bridge.RemoteRoom("tl_"+user);
+        const rroom = new Bridge.RemoteRoom("tl_" + user);
         rroom.set("twitter_type", "user_timeline");
         rroom.set("twitter_bidirectional", true);
         rroom.set("twitter_owner", user);

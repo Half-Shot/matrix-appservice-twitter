@@ -26,7 +26,7 @@ class TwitterRoomHandler {
 
   processInvite (event, request, context) {
     const remote = context.rooms.remote;
-    const twitbot = "@"+this._bridge.opts.registration.sender_localpart+":"+this._bridge.opts.domain;
+    const twitbot = "@" + this._bridge.opts.registration.sender_localpart + ":" + this._bridge.opts.domain;
     if(event.sender === twitbot) {
       return;
     }

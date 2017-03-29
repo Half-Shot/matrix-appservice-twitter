@@ -5,8 +5,8 @@ const Promise = require('bluebird');
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 const MatrixRoom = require("matrix-appservice-bridge").MatrixRoom;
 
-const LEAVE_UNPROVIS_AFTER_MS = 10*60*1000;
-const ROOM_JOIN_TIMEOUT_MS = 1*60*1000;
+const LEAVE_UNPROVIS_AFTER_MS = 10 * 60 * 1000;
+const ROOM_JOIN_TIMEOUT_MS = 1 * 60 * 1000;
 const DEFAULT_POWER_REQ = 50;
 
 class Provisioner {

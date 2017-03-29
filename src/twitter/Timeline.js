@@ -134,7 +134,7 @@ class Timeline {
     else {
       obj = {hashtag, room: new Set() }
       if(opts.is_new) {
-        this._newtags.add("#"+hashtag);
+        this._newtags.add("#" + hashtag);
       }
     }
     obj.room.add(room_id);
@@ -283,7 +283,7 @@ class Timeline {
   }
 
   is_feed_exceeding_user_limit (tweets, timeline = true) {
-    let max = (timeline ? (TIMELINE_POLL_INTERVAL*this._t) : (HASHTAG_POLL_INTERVAL*this._h))/60000;
+    let max = (timeline ? (TIMELINE_POLL_INTERVAL * this._t) : (HASHTAG_POLL_INTERVAL * this._h)) / 60000;
     max = Math.max(max * NEW_PROFILE_THRESHOLD_MIN, 1)
     if ((timeline ? this.config.timelines : this.config.hashtags).single_account_fallback === true) {
       const user_ids = new Set(tweets.map((tweet) => {tweet.id_str})).size;
@@ -322,7 +322,7 @@ class Timeline {
 
   *_process_feed (isTimeline, feed) {
     const client = yield this.twitter.client_factory.get_client();
-    const sinceId = isTimeline ? "@"+feed.twitter_id : feed.hashtag;
+    const sinceId = isTimeline ? "@" + feed.twitter_id : feed.hashtag;
     const getPath = isTimeline ? 'statuses/user_timeline' : 'search/tweets'
     if(this.is_room_excluded(feed.room)) {
       log.info("Timeline", `${feed.hashtag} is ignored because the room(s) contains no real members`);
@@ -340,11 +340,11 @@ class Timeline {
         this._newtags.delete(feed.twitter_id);
       }
     } else {
-      req.q = "%23"+feed.hashtag;
+      req.q = "%23" + feed.hashtag;
       req.result_type = 'recent';
-      if(this._newtags.has("#"+feed.hashtag)) {
+      if(this._newtags.has("#" + feed.hashtag)) {
         req.count = 1;
-        this._newtags.delete("#"+feed.hashtag);
+        this._newtags.delete("#" + feed.hashtag);
       }
     }
     const since = yield this.twitter.storage.get_since(sinceId);
@@ -371,12 +371,10 @@ class Timeline {
     }
     this.twitter.storage.set_since(sinceId, results[0].id_str);
     const shouldForceUserId = this.is_feed_exceeding_user_limit(results, isTimeline);
-    let force_user_id;
+    let force_user_id = null;
     if(shouldForceUserId) {
       log.verbose("Timeline", `Forcing single user mode for ${feed.hashtag}`);
       force_user_id = shouldForceUserId ? `_twitter_@` + feed.twitter_id : `_twitter_#` + feed.hashtag;
-    } else {
-      force_user_id = null;
     }
     // If req.count = 1, the resp will be the initial tweet used to get initial "since"
     if (req.count !== 1) {

@@ -1,9 +1,9 @@
 const log  = require('../logging.js');
 
 const STREAM_RETRY_INTERVAL = 5000;
-const BACKOFF_NOTIFY_USER_AT = (1000*60*2);
-const STREAM_LOCKOUT_RETRY_INTERVAL = 60*60*1000;
-const STREAM_CONCERN_TIMER = 40*60*1000; // Twitter should send something every 30s.
+const BACKOFF_NOTIFY_USER_AT = (1000 * 60 * 2);
+const STREAM_LOCKOUT_RETRY_INTERVAL = 60 * 60 * 1000;
+const STREAM_CONCERN_TIMER = 40 * 60 * 1000; // Twitter should send something every 30s.
 const TWEET_REPLY_MAX_DEPTH = 0;
 
 class UserStream {
@@ -107,18 +107,18 @@ class UserStream {
   }
 
   _on_error (error, user_id) {
-    const backoff =  2 * (this._backoff.has(user_id) ? this._backoff.get(user_id) : STREAM_RETRY_INTERVAL/2);
+    const backoff =  2 * (this._backoff.has(user_id) ? this._backoff.get(user_id) : STREAM_RETRY_INTERVAL / 2);
     this._backoff.set(user_id, backoff);
     if (backoff >= BACKOFF_NOTIFY_USER_AT) {
       this.twitter.notify_matrix_user(user_id,
-        `Currently experiencing connection issues with Twitter. Will retry to connect in ${backoff/1000} seconds.
+        `Currently experiencing connection issues with Twitter. Will retry to connect in ${backoff / 1000} seconds.
         If this continues, notify the bridge maintainer.`);
     }
     this.detach(user_id);
     setTimeout(() => {this.attach(user_id); }, backoff);
     log.error(
       "UserStream",
-      "Stream gave an error %s. Detaching for %s seconds for %s.", error, backoff/1000, user_id
+      "Stream gave an error %s. Detaching for %s seconds for %s.", error, backoff / 1000, user_id
     );
   }
 

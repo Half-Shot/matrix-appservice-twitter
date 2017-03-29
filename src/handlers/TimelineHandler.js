@@ -119,7 +119,7 @@ class TimelineHandler {
     const description = (user.description ? user.description : "") + ` | https://twitter.com/${user.screen_name}`;
     const opts = {
       visibility: "public",
-      room_alias_name: "_twitter_@"+alias,
+      room_alias_name: "_twitter_@" + alias,
       name: "[Twitter] " + user.name,
       topic: description,
       invite: [roomOwner],

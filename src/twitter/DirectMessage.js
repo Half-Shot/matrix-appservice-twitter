@@ -41,7 +41,7 @@ class DirectMessage {
     }).then(() => {
       return this.twitter.storage.add_dm_room(room_id, users).then(() => {
         const mroom = new Bridge.MatrixRoom(room_id);
-        const rroom = new Bridge.RemoteRoom("dm_"+users);
+        const rroom = new Bridge.RemoteRoom("dm_" + users);
         rroom.set("twitter_type", "dm");
         this.twitter.bridge.getRoomStore().linkRooms(mroom, rroom);
         return room_id;
@@ -162,7 +162,7 @@ the DB. This shouldn't happen.`;
           options: {
             invite: invitees,
             is_direct: true,
-            name: "[Twitter] DM "+sender.screen_name+" : "+recipient.screen_name,
+            name: "[Twitter] DM " + sender.screen_name + " : " + recipient.screen_name,
             visibility: "private",
             initial_state: [
               {

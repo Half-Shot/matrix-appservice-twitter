@@ -59,7 +59,7 @@ class AccountServices {
       backoff: 2,
       max_tries: RETRY_INVITE_COUNT
     }).then( () => {
-      const rroom = new RemoteRoom("service_"+event.sender);
+      const rroom = new RemoteRoom("service_" + event.sender);
       rroom.set("twitter_type", "service");
       this._bridge.getRoomStore().linkRooms(context.rooms.matrix, rroom);
       intent.sendMessage(event.room_id,
@@ -90,7 +90,7 @@ class AccountServices {
    */
   processMessage (event) {
     const body = event.content.body.toLowerCase();
-    if (event.sender === "@"+this._sender_localpart+":" + this._bridge.opts.domain) {
+    if (event.sender === "@" + this._sender_localpart + ":" + this._bridge.opts.domain) {
       return;//Don't talk to ourselves.
     }
     if (body.startsWith("account.link ")) {
@@ -360,7 +360,7 @@ ${dm_rooms}`
           client.get("account/verify_credentials", (error, profile) =>{
             if(error) {
               log.error("Handler.AccountServices", `We couldn't authenticate with `
-            +`the supplied access token for ${user_id}. ${error}`);
+            + `the supplied access token for ${user_id}. ${error}`);
               reject("Twitter account could not be authenticated.");
               return;
             }

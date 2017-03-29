@@ -113,10 +113,10 @@ const cli = new AppService.Cli({
 
       // Setup twitbot profile (this is needed for some actions)
       bridge.getClientFactory().getClientAs().register(regObj.sender_localpart).then( () => {
-        log.info("Init", "Created user '"+regObj.sender_localpart+"'.");
+        log.info("Init", "Created user '" + regObj.sender_localpart + "'.");
       }).catch( (err) => {
         if (err.errcode !== "M_USER_IN_USE") {
-          log.info("Init", "Failed to create bot user '"+regObj.sender_localpart+"'. %s", err.errcode);
+          log.info("Init", "Failed to create bot user '" + regObj.sender_localpart + "'. %s", err.errcode);
         }
       });
 
