@@ -127,7 +127,7 @@ class TweetProcessor {
       const start = offset + url.indices[0];
       const end = offset + url.indices[1];
       text = text.substr(0, start) + url.expanded_url + text.substr(end);
-      offset += url.expanded_url.length - (end-start);
+      offset += url.expanded_url.length - (end - start);
     }
     return text;
   }
@@ -208,7 +208,7 @@ class TweetProcessor {
    * @param  {String} rooms
    * @param  {TwitterTweet[]} tweets
    * @param  {Object} opts
-   * @see this.process_tweet()
+   * @see process_tweet()
    */
   process_tweets (rooms, tweets, opts) {
     if (opts == null) {
@@ -258,11 +258,10 @@ class TweetProcessor {
   }
 
   /**
-   * @see this.process_tweet()
+   * @see process_tweet()
    */
   _process_tweet (rooms, tweet, depth, opts) {
     depth--;
-    const type = "m.text";
     let promise;
     if (tweet.in_reply_to_status_id_str != null && depth > 0) {
       promise = opts.client.get('statuses/show/' + tweet.in_reply_to_status_id_str, {})
@@ -289,20 +288,40 @@ class TweetProcessor {
         rooms = [rooms];
       }
       return rooms.map((roomid) => {
-        return this._storage.room_has_tweet(roomid, tweet.id_str).then(
-          (room_has_tweet) => {
-            if (!room_has_tweet) {
-              const realUserId = '_twitter_'+tweet.user.id_str;
-              const userId = opts.force_user_id == null ? realUserId : opts.force_user_id
-              return this._push_to_msg_queue(
-                userId, roomid, tweet, type, opts.force_user_id != null ? realUserId : null
-              );
-            }
-            return Promise.resolve();
-          }
-        );
+        return this._process_tweet_for_room(roomid, tweet, opts);
       });
     });
+  }
+
+
+  /**
+   * Process a given tweet for a given room on behalf of  _process_tweet
+   *
+   * @param  {String} roomid The matrix roomid of the room.
+   * @param  {TwitterTweet} tweet  description
+   * @param  {Object} opts   See process_tweet()
+   * @return {Promise}
+   * @see process_tweet()
+   */
+  _process_tweet_for_room (roomid, tweet, opts) {
+    const type = "m.text";
+    return this._storage.room_has_tweet(roomid, tweet.id_str).then(
+      (room_has_tweet) => {
+        if (room_has_tweet) {
+          return Promise.resolve();
+        }
+        const realUserId = '_twitter_' + tweet.user.id_str;
+        let on_behalf_of = null;
+        let userId = realUserId;
+        if (opts.force_user_id) {
+          userId = opts.force_user_id;
+          on_behalf_of = realUserId;
+        }
+        return this._push_to_msg_queue(
+          userId, roomid, tweet, type, on_behalf_of
+        );
+      }
+    );
   }
 }
 
