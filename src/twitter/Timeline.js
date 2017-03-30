@@ -288,11 +288,15 @@ class Timeline {
         return `_twitter_${tweet.id_str}:${this.twitter.bridge.opts.domain}`;
       }));
       // Find users that aren't already in the room and count them.
-      const newMembers = (new Set([...tweetMembers].filter(x => !currentMembers.has(x)))).size;
-      const count = (this._hot_room_counter.get(roomId) || 0) + newMembers;
-
+      const newMembers = (new Set([...tweetMembers].filter(x => !currentMembers.has(x))));
+      const count = (this._hot_room_counter.get(roomId) || 0) + newMembers.size;
       this._hot_room_counter.set(roomId, count);
-      return (count >= this.config.rooms.member_join_threshold);
+      if (count >= this.config.rooms.member_join_threshold) {
+        return true;
+      }
+      newMembers.forEach((userId) => currentMembers.add(userId));
+      this._members_rooms.set(roomId, newMembers);
+      return false;
     });
     return new Set(result);
   }
