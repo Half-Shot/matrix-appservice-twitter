@@ -288,11 +288,12 @@ class TweetProcessor {
       if(typeof rooms == "string") {
         rooms = [rooms];
       }
-      return [...rooms].map((roomid) => {
+      // [...rooms] will allow us to map the Set by creating an array
+      return [...rooms].map((roomId) => {
         // Are we limiting joins on this room?
-        const forceUserId = opts.hotRooms.has(roomid) ? opts.forceUserId : null;
+        const forceUserId = opts.hotRooms.has(roomId) ? opts.forceUserId : null;
         return this._processTweetForRoom(
-          roomid,
+          roomId,
           tweet,
           forceUserId);
       });
@@ -305,7 +306,7 @@ class TweetProcessor {
    *
    * @param  {String} roomid The matrix roomid of the room.
    * @param  {TwitterTweet} tweet  description
-   * @param  {String} force_user_id   See process_tweet()
+   * @param  {String} forceUserId   See process_tweet()
    * @return {Promise}
    * @see process_tweet()
    */

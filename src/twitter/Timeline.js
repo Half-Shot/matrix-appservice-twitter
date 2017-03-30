@@ -27,7 +27,7 @@ class Timeline {
     this._newtags = new Set();
     this._empty_rooms = new Set();
     this._hot_room_counter = new Map();
-    this._members_rooms = new Map(); // [string -> Set]
+    this._members_rooms = new Map(); // [roomId: string -> Set]
     this._hashtagIndex = -1;
     this._timelineIndex = -1;
     cfg.rooms = cfg.rooms || {}
@@ -108,7 +108,7 @@ class Timeline {
    * @param  {string} hashtag The twitter ID of a timeline. (without the #)
    * @param  {string} room_id The room_id to insert tweets into.
    * @param  {object} opts Options
-   * @param  {boolean} opts.is_new Is the room 'new', and we shouldn't do a full poll.
+   * @param  {boolean} opts.is_new Is the feed 'new', and we shouldn't do a full poll.
    * @return {boolean} was the hashtag added/changed
    */
   add_hashtag (hashtag, room_id, opts) {
@@ -130,12 +130,12 @@ class Timeline {
       hashtagObj = this._hashtags[hashtagIndex]
     }
     else {
-      hashtagObj = {hashtag, room: new Set() }
+      hashtagObj = {hashtag, rooms: new Set() }
       if(opts.is_new) {
         this._newtags.add("#" + hashtag);
       }
     }
-    hashtagObj.room.add(room_id);
+    hashtagObj.rooms.add(room_id);
     if(hashtagIndex !== -1) {
       this._hashtags[hashtagIndex] = hashtagObj;
     }
@@ -153,7 +153,7 @@ class Timeline {
    * @param  {string} twitter_id The twitter ID of a timeline.
    * @param  {string} room_id The room_id to insert tweets into.
    * @param  {object} opts Options
-   * @param  {boolean} opts.is_new Is the room 'new', and we shouldn't do a full poll.
+   * @param  {boolean} opts.is_new Is the feed 'new', and we shouldn't do a full poll.
    * @param  {boolean} opts.exclude_replies Should we not fetch replies.
    * @return {boolean} was the hashtag added/changed
   */
@@ -186,14 +186,14 @@ class Timeline {
     else {
       timeline = {
         twitter_id,
-        room: new Set(),
+        rooms: new Set(),
         exclude_replies: opts.exclude_replies
       }
       if(opts.is_new) {
         this._newtags.add(twitter_id);
       }
     }
-    timeline.room.add(room_id);
+    timeline.rooms.add(room_id);
     if(timelineIndex !== -1) {
       this._timelines[timelineIndex] = timeline;
     }
@@ -238,8 +238,8 @@ class Timeline {
       return false;
     }
     if(removeSingle) {
-      if (queue[i].room.has(roomId)) {
-        queue[i].room.delete(roomId);
+      if (queue[i].rooms.has(roomId)) {
+        queue[i].rooms.delete(roomId);
       }
       else{
         log.warn("Tried to remove %s for %s but it didn't exist", roomId, id);
@@ -248,11 +248,11 @@ class Timeline {
     }
     else {
       // Remove the whole timeline.
-      queue[i].room.clear();
+      queue[i].rooms.clear();
     }
 
     // Are any rooms being processed at this point. Remove if not.
-    if(queue[i].room.size === 0) {
+    if(queue[i].rooms.size === 0) {
       queue.splice(i, 1);
     }
 
@@ -276,22 +276,22 @@ class Timeline {
   }
 
   roomsExceedingJoinThreshold (tweets, rooms, isTimeline) {
+    const EMPTY_SET = new Set();
     if(!(isTimeline ? this.config.timelines : this.config.hashtags).single_account_fallback) {
-      return new Set();
+      return EMPTY_SET;
     }
     // Find any rooms that exceed the threshold.
-    const result = ([...rooms]).filter((room) => {
-      const currentMembers = this._members_rooms.get(room) || new Set();
+    const result = ([...rooms]).filter((roomId) => {
+      const currentMembers = this._members_rooms.get(roomId) || EMPTY_SET;
       // Get the (future) userids of twitter users.
       const tweetMembers = new Set(tweets.map((tweet) => {
         return `_twitter_${tweet.id_str}:${this.twitter.bridge.opts.domain}`;
       }));
       // Find users that aren't already in the room and count them.
       const newMembers = (new Set([...tweetMembers].filter(x => !currentMembers.has(x)))).size;
-      const count = (this._hot_room_counter.get(room) || 0) + newMembers;
+      const count = (this._hot_room_counter.get(roomId) || 0) + newMembers;
 
-      log.info(`[${room}] C${currentMembers.size} T${tweetMembers.size} : C${count}`);
-      this._hot_room_counter.set(room, count);
+      this._hot_room_counter.set(roomId, count);
       return (count >= this.config.rooms.member_join_threshold);
     });
     return new Set(result);
@@ -329,7 +329,7 @@ class Timeline {
 
     const client = yield this.twitter.client_factory.get_client();
     const sinceId = isTimeline ? "@" + feed.twitter_id : feed.hashtag;
-    if(this.isRoomExcluded(feed.room)) {
+    if(this.isRoomExcluded(feed.rooms)) {
       log.info("Timeline", `${sinceId} is ignored because the room(s) contains no real members`);
       return;
     }
@@ -393,7 +393,7 @@ class Timeline {
      * which will tell process_tweets to use forceUserId when sending
      * for *just* those rooms.
      */
-    const hotRooms = this.roomsExceedingJoinThreshold(results, feed.room, isTimeline);
+    const hotRooms = this.roomsExceedingJoinThreshold(results, feed.rooms, isTimeline);
     let forceUserId = null;
     // Do we need a forceUserId
     if(hotRooms.size > 0) {
@@ -406,7 +406,7 @@ class Timeline {
     }
     try {
       return this.twitter.processor.process_tweets(
-        feed.room,
+        feed.rooms,
         results,
         {
           depth: TWEET_REPLY_MAX_DEPTH,
@@ -426,11 +426,15 @@ class Timeline {
     for (const room in memberLists) {
       if (memberLists[room].realJoinedUsers.length === 0) {
         log.silly("Timeline", "%s has no real users", room);
+        // Room is empty, lets ignore it
         this._empty_rooms.add(room);
       } else {
+        // Room is not empty, delete if it exists
         this._empty_rooms.delete(room);
+        // Store the number of bot users away
         this._members_rooms.set(room.id, memberLists[room].remoteJoinedUsers);
         log.verbose("Timeline", "Clearing hot_room_counter");
+        // Clear the collection of hot rooms and let them reset to 0.
         this._hot_room_counter.clear();
       }
     }

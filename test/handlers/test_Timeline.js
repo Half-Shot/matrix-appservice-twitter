@@ -133,7 +133,7 @@ describe('Timeline', function () {
     it('should add a new hashtag without is_new', function () {
       assert.isTrue(timeline.add_hashtag("test", "!room:someplace"));
       assert.equal(timeline._hashtags[0].hashtag, "test");
-      assert.isTrue(timeline._hashtags[0].room.has("!room:someplace"));
+      assert.isTrue(timeline._hashtags[0].rooms.has("!room:someplace"));
     });
     it('should add a new hashtag with is_new', function () {
       assert.isTrue(timeline.add_hashtag("test", "!room:someplace", {is_new: true}));
@@ -141,9 +141,9 @@ describe('Timeline', function () {
     });
     it('should update an existing hashtag with a new room', function () {
       assert.isTrue(timeline.add_hashtag("test", "!room:someplace"));
-      assert.isTrue(timeline._hashtags[0].room.has("!room:someplace"));
+      assert.isTrue(timeline._hashtags[0].rooms.has("!room:someplace"));
       assert.isTrue(timeline.add_hashtag("test", "!room2:someplace"));
-      assert.sameMembers([...timeline._hashtags[0].room], ["!room:someplace", "!room2:someplace"]);
+      assert.sameMembers([...timeline._hashtags[0].rooms], ["!room:someplace", "!room2:someplace"]);
     });
   });
 
@@ -157,7 +157,7 @@ describe('Timeline', function () {
     it('should add a new timeline without is_new', function () {
       assert.isTrue(timeline.add_timeline("test", "!room:someplace"));
       assert.equal(timeline._timelines[0].twitter_id, "test");
-      assert.isTrue(timeline._timelines[0].room.has("!room:someplace"));
+      assert.isTrue(timeline._timelines[0].rooms.has("!room:someplace"));
     });
     it('should add a new timeline with is_new', function () {
       assert.isTrue(timeline.add_timeline("test", "!room:someplace", {is_new: true}));
@@ -165,9 +165,9 @@ describe('Timeline', function () {
     });
     it('should update an existing timeline with a new room', function () {
       assert.isTrue(timeline.add_timeline("test", "!room:someplace"));
-      assert.isTrue(timeline._timelines[0].room.has("!room:someplace"));
+      assert.isTrue(timeline._timelines[0].rooms.has("!room:someplace"));
       assert.isTrue(timeline.add_timeline("test", "!room2:someplace"));
-      assert.sameMembers([...timeline._timelines[0].room], ["!room:someplace", "!room2:someplace"]);
+      assert.sameMembers([...timeline._timelines[0].rooms], ["!room:someplace", "!room2:someplace"]);
     });
   });
 
@@ -178,15 +178,15 @@ describe('Timeline', function () {
     it('should remove a timeline.', function () {
       timeline._timelines.push({
         twitter_id: "test",
-        room: new Set()
+        rooms: new Set()
       });
       timeline._timelines.push({
         twitter_id: "test2",
-        room: new Set()
+        rooms: new Set()
       });
       timeline._timelines.push({
         twitter_id: "test3",
-        room: new Set()
+        rooms: new Set()
       });
       assert.isTrue(timeline.remove_timeline("test"));
       assert.equal(timeline._timelines[0].twitter_id, "test2");
@@ -197,7 +197,7 @@ describe('Timeline', function () {
     it('should remove a timeline with a single room.', function () {
       timeline._timelines.push({
         twitter_id: "test",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       })
       assert.isTrue(timeline.remove_timeline("test", "bacon"));
       assert.equal(timeline._timelines.length, 0);
@@ -205,13 +205,13 @@ describe('Timeline', function () {
     it('should return true if the room does not exist', function () {
       timeline._timelines.push({
         twitter_id: "test",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       })
       assert.isTrue(timeline.remove_timeline("test", "!room:someplace"));
       assert.deepEqual(timeline._timelines, [
         {
           twitter_id: "test",
-          room: new Set(["bacon"])
+          rooms: new Set(["bacon"])
         }
       ]);
     });
@@ -226,7 +226,7 @@ describe('Timeline', function () {
     it('should skip empty rooms.', function () {
       timeline._timelines.push({
         twitter_id: "test",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       timeline._empty_rooms.add("bacon");
       return processTimeline().then(() => {
@@ -236,7 +236,7 @@ describe('Timeline', function () {
     it('should fetch some tweets.', function () {
       timeline._timelines.push({
         twitter_id: "test",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       return processTimeline().then(() => {
         assert.equal(timeline._timelineIndex, 0, "Queue is incremented.");
@@ -246,15 +246,15 @@ describe('Timeline', function () {
     it('should wrap around queue.', function () {
       timeline._timelines.push({
         twitter_id: "test",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       timeline._timelines.push({
         twitter_id: "test1",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       timeline._timelines.push({
         twitter_id: "test2",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       return processTimeline().then(() => {
         assert.equal(timeline._timelineIndex, 0, "Queue is incremented.");
@@ -272,7 +272,7 @@ describe('Timeline', function () {
     it('should fetch a tweet for _newtags mode.', function () {
       timeline._timelines.push({
         twitter_id: "test",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       timeline._newtags.add("test");
       return processTimeline().then(() => {
@@ -291,7 +291,7 @@ describe('Timeline', function () {
     it('should skip empty rooms.', function () {
       timeline._hashtags.push({
         hashtag: "test",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       timeline._empty_rooms.add("bacon");
       return processHashtag().then(() => {
@@ -301,7 +301,7 @@ describe('Timeline', function () {
     it('should fetch some tweets.', function () {
       timeline._hashtags.push({
         hashtag: "test",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       return processHashtag().then(() => {
         assert.equal(timeline._hashtagIndex, 0, "Queue is incremented.");
@@ -311,15 +311,15 @@ describe('Timeline', function () {
     it('should wrap around queue.', function () {
       timeline._hashtags.push({
         hashtag: "test",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       timeline._hashtags.push({
         hashtag: "test1",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       timeline._hashtags.push({
         hashtag: "test2",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       return processHashtag().then(() => {
         assert.equal(timeline._hashtagIndex, 0, "Queue is incremented.");
@@ -337,7 +337,7 @@ describe('Timeline', function () {
     it('should fetch a tweet for _newtags mode.', function () {
       timeline._hashtags.push({
         hashtag: "test",
-        room: new Set(["bacon"])
+        rooms: new Set(["bacon"])
       });
       timeline._newtags.add("#test");
       return processHashtag().then(() => {
