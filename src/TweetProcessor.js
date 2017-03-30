@@ -277,11 +277,21 @@ class TweetProcessor {
       promise = Promise.resolve();
     }
 
-    promise = promise.then(() => { return this._twitter.profile.update(tweet.user); });
+    // If all the rooms are marked as hot, don't bother with updating the profile.
+    const updateProfiles = ![...rooms].every((roomId) => {return opts.hotRooms.has(roomId)});
+    if (updateProfiles) {
+      promise = promise.then(() => { return this._twitter.profile.update(tweet.user); });
+    }
+    else {
+      promise = Promise.resolve();
+    }
+
     if (tweet.retweeted_status) {
       tweet.retweeted_status._retweet_info = { id: tweet.id_str, tweet: tweet.user.id_str };
       tweet = tweet.retweeted_status; // We always want the root tweet.
-      promise = promise.then(() => { return this._twitter.profile.update(tweet.user) });
+      if (updateProfiles) {
+        promise = promise.then(() => { return this._twitter.profile.update(tweet.user) });
+      }
     }
 
     return promise.then( () => {
