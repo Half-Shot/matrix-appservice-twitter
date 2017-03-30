@@ -6,6 +6,7 @@ const HASHTAG_POLL_INTERVAL_MS = 2010; //Twitter allows 450 calls per 15 minute 
 const EMPTY_ROOM_INTERVAL_MS = 30000;
 const TIMELINE_TWEET_FETCH_COUNT = 100;
 const HASHTAG_TWEET_FETCH_COUNT = 100;
+const RATE_LIMIT_WAIT_MS = 15000; // If the bridge hits a rate limit, how long should it wait before it tries again.
 const TWEET_REPLY_MAX_DEPTH = 0;
 const NEW_PROFILE_THRESHOLD_MIN = 15; // Max number of new profiles that can be made per minute.
 
@@ -345,8 +346,27 @@ class Timeline {
         results = results.statuses;
       }
     }
-    catch (error) {
-      log.error("Timeline", `_process_feed: GET ${getPath} returned: %s`, error.code);
+    catch (err) {
+      const error = Array.isArray(err) ? err[0] : err;
+      if (error.code === 88) {
+        log.warn("Timeline", `Bridge hit a rate limit on ${getPath}. Waiting ${RATE_LIMIT_WAIT_MS}ms`);
+        // We hit a rate limit. Stop the correct timer for RATE_LIMIT_WAIT_MS
+        if(isTimeline) {
+          this.stop_timeline();
+          setTimeout(() => {
+            this.start_timeline();
+          }, RATE_LIMIT_WAIT_MS);
+        } else {
+          this.stop_hashtag();
+          setTimeout(() => {
+            this.start_hashtag();
+          }, RATE_LIMIT_WAIT_MS);
+        }
+
+      } else {
+        log.error("Timeline", `_process_feed: GET ${getPath} returned: %s`, JSON.stringify(error));
+      }
+
       return;
     }
 
