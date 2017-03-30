@@ -3,12 +3,12 @@ const Promise  = require('bluebird');
 
 const TIMELINE_POLL_INTERVAL_MS = 3010; //Twitter allows 300 calls per 15 minute (We add 10 milliseconds for a little safety).
 const HASHTAG_POLL_INTERVAL_MS = 2010; //Twitter allows 450 calls per 15 minute (We add 10 milliseconds for a little safety).
-const EMPTY_ROOM_INTERVAL_MS = 30000;
+const MEMBER_CHECK_INTERVAL_MS = 60000;
 const TIMELINE_TWEET_FETCH_COUNT = 100;
 const HASHTAG_TWEET_FETCH_COUNT = 100;
 const RATE_LIMIT_WAIT_MS = 15000; // If the bridge hits a rate limit, how long should it wait before it tries again.
 const TWEET_REPLY_MAX_DEPTH = 0;
-const NEW_PROFILE_THRESHOLD_MIN = 15; // Max number of new profiles that can be made per minute.
+const MEMBER_JOIN_THRESHOLD = 15; // Max number of new profiles that can be made per MEMBER_CHECK_INTERVAL_MS.
 
 /**
   Terms:
@@ -17,7 +17,7 @@ const NEW_PROFILE_THRESHOLD_MIN = 15; // Max number of new profiles that can be 
 */
 
 class Timeline {
-  constructor (twitter, cfg_timelines, cfg_hashtags) {
+  constructor (twitter, cfg) {
     this.twitter = twitter;
     this._t_intervalID = null;
     this._h_intervalID = null;
@@ -26,11 +26,16 @@ class Timeline {
     this._hashtags = [] // {hashtag:string, room:[string]}
     this._newtags = new Set();
     this._empty_rooms = new Set();
+    this._hot_room_counter = new Map();
+    this._members_rooms = new Map(); // [string -> Set]
     this._hashtagIndex = -1;
     this._timelineIndex = -1;
+    cfg.rooms = cfg.rooms || {}
+    cfg.rooms.member_join_threshold = cfg.rooms.member_join_threshold || MEMBER_JOIN_THRESHOLD;
     this.config = {
-      timelines: cfg_timelines,
-      hashtags: cfg_hashtags
+      timelines: cfg.timelines,
+      hashtags: cfg.hashtags,
+      rooms: cfg.rooms,
     }
   }
 
@@ -39,13 +44,13 @@ class Timeline {
    * If a room has no 'real' members then drop/ignore it.
    * If a room has 'real' members then keep/ignore it.
    */
-  start_empty_room_checker () {
+  startMemberChecker () {
     this._empty_intervalID = setInterval(() => {
-      Promise.coroutine(this._check_empty_rooms.bind(this))()
-    }, EMPTY_ROOM_INTERVAL_MS);
+      Promise.coroutine(this._checkMembers.bind(this))()
+    }, MEMBER_CHECK_INTERVAL_MS);
   }
 
-  stop_empty_room_checker () {
+  stopMemberChecker () {
     if (this._empty_intervalID) {
       clearInterval(this._empty_intervalID);
       this._empty_intervalID = null;
@@ -257,10 +262,10 @@ class Timeline {
     else{
       this._hashtags = queue;
     }
-    return true
+    return true;
   }
 
-  is_room_excluded (rooms) {
+  isRoomExcluded (rooms) {
     if (!this.config.timelines.poll_if_empty) {
       const difference = new Set([...rooms].filter(x => !this._empty_rooms.has(x)));
       if (difference.size === 0) {
@@ -270,18 +275,26 @@ class Timeline {
     return false;
   }
 
-  is_feed_exceeding_user_limit (tweets, isTimeline) {
-    if((isTimeline ? this.config.timelines : this.config.hashtags).single_account_fallback) {
-      return false;
+  roomsExceedingJoinThreshold (tweets, rooms, isTimeline) {
+    if(!(isTimeline ? this.config.timelines : this.config.hashtags).single_account_fallback) {
+      return new Set();
     }
+    // Find any rooms that exceed the threshold.
+    const result = ([...rooms]).filter((room) => {
+      const currentMembers = this._members_rooms.get(room) || new Set();
+      // Get the (future) userids of twitter users.
+      const tweetMembers = new Set(tweets.map((tweet) => {
+        return `_twitter_${tweet.id_str}:${this.twitter.bridge.opts.domain}`;
+      }));
+      // Find users that aren't already in the room and count them.
+      const newMembers = (new Set([...tweetMembers].filter(x => !currentMembers.has(x)))).size;
+      const count = (this._hot_room_counter.get(room) || 0) + newMembers;
 
-    const pollInterval = isTimeline ? TIMELINE_POLL_INTERVAL_MS : HASHTAG_POLL_INTERVAL_MS;
-    // Rough time since we last polled this feed
-    const currentPollInterval = (isTimeline ? this._timelines : this._hashtags).length * pollInterval;
-    // Number of new profiles that we can accept in this timespan.
-    const maxNProfiles = Math.ceil((currentPollInterval / 60000) * NEW_PROFILE_THRESHOLD_MIN);
-    const userIds = new Set(tweets.map((tweet) => {tweet.id_str})).size;
-    return userIds > maxNProfiles;
+      log.info(`[${room}] C${currentMembers.size} T${tweetMembers.size} : C${count}`);
+      this._hot_room_counter.set(room, count);
+      return (count >= this.config.rooms.member_join_threshold);
+    });
+    return new Set(result);
   }
 
   * _process_feed (isTimeline) {
@@ -316,7 +329,7 @@ class Timeline {
 
     const client = yield this.twitter.client_factory.get_client();
     const sinceId = isTimeline ? "@" + feed.twitter_id : feed.hashtag;
-    if(this.is_room_excluded(feed.room)) {
+    if(this.isRoomExcluded(feed.room)) {
       log.info("Timeline", `${sinceId} is ignored because the room(s) contains no real members`);
       return;
     }
@@ -377,16 +390,24 @@ class Timeline {
       log.info("Timeline", "Poll request hit count limit. Request likely incomplete.");
     }
     this.twitter.storage.set_since(sinceId, results[0].id_str);
-    const shouldForceUserId = this.is_feed_exceeding_user_limit(results, isTimeline);
+    const hotRooms = this.roomsExceedingJoinThreshold(results, feed.room, isTimeline);
     let forceUserId = null;
-    if(shouldForceUserId) {
-      log.verbose("Timeline", `Forcing single user mode for ${sinceId}`);
-      forceUserId = shouldForceUserId ? `_twitter_@` + feed.twitter_id : `_twitter_#` + feed.hashtag;
+    if(hotRooms.size > 0) {
+      log.verbose("Timeline", `Forcing single user mode for ${sinceId} in some rooms.`);
+      forceUserId = isTimeline ? `_twitter_@` + feed.twitter_id : `_twitter_#` + feed.hashtag;
     }
     // If req.count = 1, the resp will be the initial tweet used to get initial "since"
     if (req.count !== 1) {
       try {
-        return this.twitter.processor.process_tweets(feed.room, results, {depth: TWEET_REPLY_MAX_DEPTH, forceUserId});
+        return this.twitter.processor.process_tweets(
+          feed.room,
+          results,
+          {
+            depth: TWEET_REPLY_MAX_DEPTH,
+            forceUserId,
+            hotRooms
+          }
+        );
       }
       catch(err) {
         log.error("Timeline", "Error whilst processing %s: %s", sinceId, err);
@@ -394,7 +415,7 @@ class Timeline {
     }
   }
 
-  * _check_empty_rooms () {
+  * _checkMembers () {
     const bot = this.twitter.bridge.getBot();
     const memberLists = yield bot.getMemberLists();
     for (const room in memberLists) {
@@ -403,6 +424,9 @@ class Timeline {
         this._empty_rooms.add(room);
       } else {
         this._empty_rooms.delete(room);
+        this._members_rooms.set(room.id, memberLists[room].remoteJoinedUsers);
+        log.verbose("Timeline", "Clearing hot_room_counter");
+        this._hot_room_counter.clear();
       }
     }
   }

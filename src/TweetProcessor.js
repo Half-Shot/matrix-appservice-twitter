@@ -239,7 +239,8 @@ class TweetProcessor {
    * replies) to be traversed. Set this to how deep you wish to traverse and it
    * will be decreased when the function calls itself.
    * @param  {TwitterClient} opts.client = null The twitter authed client to use.
-   * @param  {String} opts.force_user_id Should we force one account to post for the tweet.
+   * @param  {String} opts.forceUserId Should we force one account to post for the tweet.
+   * @param  {String} opts.hotRooms Which rooms should be forced to use force_user_id.
    * @return {Promise}  A promise that resolves once the tweet has been queued.
    *
    * @see {@link https://dev.twitter.com/overview/api/tweets}
@@ -287,8 +288,11 @@ class TweetProcessor {
       if(typeof rooms == "string") {
         rooms = [rooms];
       }
-      return rooms.map((roomid) => {
-        return this._process_tweet_for_room(roomid, tweet, opts);
+      return [...rooms].map((roomid) => {
+        return this._processTweetForRoom(
+          roomid,
+          tweet,
+          opts.hotRooms.has(roomid) ? opts.forceUserId : null);
       });
     });
   }
@@ -299,26 +303,26 @@ class TweetProcessor {
    *
    * @param  {String} roomid The matrix roomid of the room.
    * @param  {TwitterTweet} tweet  description
-   * @param  {Object} opts   See process_tweet()
+   * @param  {String} force_user_id   See process_tweet()
    * @return {Promise}
    * @see process_tweet()
    */
-  _process_tweet_for_room (roomid, tweet, opts) {
+  _processTweetForRoom (roomid, tweet, forceUserId) {
     const type = "m.text";
     return this._storage.room_has_tweet(roomid, tweet.id_str).then(
-      (room_has_tweet) => {
-        if (room_has_tweet) {
+      (roomHasTweet) => {
+        if (roomHasTweet) {
           return Promise.resolve();
         }
         const realUserId = '_twitter_' + tweet.user.id_str;
-        let on_behalf_of = null;
+        let onBehalfOf = null;
         let userId = realUserId;
-        if (opts.force_user_id) {
-          userId = opts.force_user_id;
-          on_behalf_of = realUserId;
+        if (forceUserId) {
+          userId = forceUserId;
+          onBehalfOf = realUserId;
         }
         return this._push_to_msg_queue(
-          userId, roomid, tweet, type, on_behalf_of
+          userId, roomid, tweet, type, onBehalfOf
         );
       }
     );

@@ -32,7 +32,7 @@ class Twitter {
     this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
     this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
 
-    this._timeline = new Timeline(this, this._config.timelines, this._config.hashtags);
+    this._timeline = new Timeline(this, this._config);
 
     this._userstream = new UserStream(this);
     this._status = new Status(this);
@@ -73,7 +73,7 @@ class Twitter {
       }
 
       if (this._config.hashtags.enable || this._config.timelines.enable) {
-        this.timeline.start_empty_room_checker();
+        this.timeline.startMemberChecker();
       }
 
       this._userstream.start();
@@ -93,7 +93,7 @@ class Twitter {
   stop () {
     this.timeline.stop_timeline();
     this.timeline.stop_hashtag();
-    this.timeline.stop_empty_room_checker();
+    this.timeline.stopMemberChecker();
     this._userstream.detach_all();
     this._userstream.stop();
   }
