@@ -10,7 +10,7 @@ const Timeout = setTimeout(function () { }, 0).constructor; // Only way to acces
 require('../../src/logging.js').init({level: 'silent'});
 describe('Timeline', function () {
   let timeline;
-  let _check_empty_rooms; //For coroutine.
+  let _checkMembers; //For coroutine.
   let _since = null;
   let _tweets_fetched;
   let processTimeline;
@@ -67,13 +67,18 @@ describe('Timeline', function () {
   }
   beforeEach( function () {
     _tweets_fetched = false;
-    timeline = new Timeline(twitter, {
-      enable: true,
-      poll_if_empty: false,
-    }, {
-      enable: true,
-    });
-    _check_empty_rooms = Promise.coroutine(timeline._check_empty_rooms.bind(timeline));
+    timeline = new Timeline(twitter,
+      {
+        timelines: {
+          enable: true,
+          poll_if_empty: false,
+        },
+        hashtags: {
+          enable: true,
+        }
+      }
+    );
+    _checkMembers = Promise.coroutine(timeline._checkMembers.bind(timeline));
     processTimeline = () => {
       return Promise.coroutine(timeline._process_feed.bind(timeline))(true);
     }
@@ -82,15 +87,15 @@ describe('Timeline', function () {
     }
   });
 
-  describe('empty room timers', function () {
+  describe('member checker timers', function () {
     it('start_empty_room_checker/stop_empty_room_checker should control the timer', function () {
-      timeline.start_empty_room_checker();
+      timeline.startMemberChecker();
       assert.instanceOf(timeline._empty_intervalID, Timeout);
-      timeline.stop_empty_room_checker();
+      timeline.stopMemberChecker();
       assert.isNull(timeline._empty_intervalID);
     });
     it('should fail if not started', function () {
-      assert.throws(timeline.stop_empty_room_checker.bind(timeline));
+      assert.throws(timeline.stopMemberChecker.bind(timeline));
     });
   });
 
@@ -120,9 +125,9 @@ describe('Timeline', function () {
 
   describe('add_hashtag', function () {
     it('must not add a timeline if the config denys it', function () {
-      timeline = new Timeline(null, {}, {
+      timeline = new Timeline(null, {hashtags: {
         enable: false,
-      });
+      }});
       assert.isFalse(timeline.add_hashtag("string", "!room:someplace"));
     });
     it('should add a new hashtag without is_new', function () {
@@ -144,9 +149,9 @@ describe('Timeline', function () {
 
   describe('add_timeline', function () {
     it('must not add a timeline if the config denys it', function () {
-      timeline = new Timeline(null, {
+      timeline = new Timeline(null, {timelines: {
         enable: false,
-      }, {});
+      }});
       assert.isFalse(timeline.add_timeline("string", "!room:someplace"));
     });
     it('should add a new timeline without is_new', function () {
@@ -342,14 +347,14 @@ describe('Timeline', function () {
       });
     });
   });
-  describe('_check_empty_rooms', function () {
+  describe('_checkMembers', function () {
     it('should add a empty room to the set.', function () {
-      _check_empty_rooms().then(()=> {
+      _checkMembers().then(()=> {
         assert.isTrue(timeline._empty_rooms.has("foobar"));
       })
     });
     it('should not add an active room to the set.', function () {
-      _check_empty_rooms().then(()=> {
+      _checkMembers().then(()=> {
         assert.isFalse(timeline._empty_rooms.has("bazbar"));
       })
     });
