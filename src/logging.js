@@ -13,7 +13,7 @@ function init (loggingConfig) {
     timestamp: () => new Date().toISOString().replace(/[TZ]/g, ' '),
     formatter: function (options) {
       return options.timestamp() + options.level + ' ' + (options.message ? options.message : '') +
-        (options.meta && Object.keys(options.meta).length ? '\n\t'+ JSON.stringify(options.meta) : '' );
+        (options.meta && Object.keys(options.meta).length ? '\n\t' + JSON.stringify(options.meta) : '' );
     },
     level: loggingConfig.level,
   }));
@@ -28,7 +28,7 @@ function init (loggingConfig) {
       timestamp: () => new Date().toISOString().replace(/[TZ]/g, ' '),
       formatter: function (options) {
         return options.timestamp() + options.level + ' ' + (options.message ? options.message : '') +
-          (options.meta && Object.keys(options.meta).length ? '\n\t'+ JSON.stringify(options.meta) : '' );
+          (options.meta && Object.keys(options.meta).length ? '\n\t' + JSON.stringify(options.meta) : '' );
       },
       level: loggingConfig.level,
     };

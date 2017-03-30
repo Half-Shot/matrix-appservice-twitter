@@ -8,7 +8,7 @@ global.Promise = require('bluebird');
 require('../../src/logging.js').init({level: 'silent'});
 
 describe('TwitterDB.dm', function () {
-  var db;
+  let db;
   beforeEach(() => {
     db = new TwitterDB(":memory:");
     return db.init();

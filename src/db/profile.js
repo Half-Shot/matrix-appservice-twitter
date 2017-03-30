@@ -19,9 +19,9 @@ module.exports = {
       $id: id
     }).then((profile) =>{
       if(profile !== undefined) {
-        var ts = new Date().getTime();
-        var pro = JSON.parse(profile.profile);
-        pro._outofdate =(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
+        const ts = new Date().getTime();
+        const pro = JSON.parse(profile.profile);
+        pro._outofdate = (ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
         return pro;
       }
       else {
@@ -50,9 +50,9 @@ module.exports = {
       $name: name
     }).then((profile) =>{
       if(profile !== undefined) {
-        var ts = new Date().getTime();
-        var pro = JSON.parse(profile.profile);
-        pro._outofdate =(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
+        const ts = new Date().getTime();
+        const pro = JSON.parse(profile.profile);
+        pro._outofdate = (ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
         return pro;
       }
       else {
@@ -76,9 +76,9 @@ module.exports = {
       $id: user_id
     }).then((profile) => {
       if(profile !== undefined) {
-        var ts = new Date().getTime();
-        var pro = JSON.parse(profile.profile);
-        pro._outofdate =(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
+        const ts = new Date().getTime();
+        const pro = JSON.parse(profile.profile);
+        pro._outofdate = (ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
         return pro;
       }
       else {

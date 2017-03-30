@@ -16,7 +16,7 @@ class TwitterProfile {
   }
 
   * _update_profile (new_profile) {
-    var ts = new Date().getTime();
+    const ts = new Date().getTime();
     if(new_profile == null) {
       throw Error("Tried to preform a profile update with a null profile.");
     }
@@ -83,7 +83,7 @@ class TwitterProfile {
       });
     }
 
-    var url = null;
+    let url = null;
     if(update_avatar) {
       log.verbose(`Updating avatar for @${new_profile.screen_name}`);
       //We have to replace _normal because it gives us a bad quality image

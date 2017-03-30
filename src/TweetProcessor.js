@@ -7,6 +7,7 @@ const Promise = require('bluebird');
 
 const TWITTER_MSG_QUEUE_INTERVAL_MS = 150;
 const MSG_QUEUE_LAGGING_THRESHOLD = 50; // The number of messages to be stored in the msg queue before we complain about lag.
+const DEFAULT_TWEET_DEPTH = 1;
 
 class TweetProcessor {
   constructor (opts) {
@@ -54,7 +55,7 @@ class TweetProcessor {
       }
       const msgs = this.msg_queue.pop();
       for(const msg of msgs) {
-        var intent = this._bridge.getIntent(msg.userId);
+        const intent = this._bridge.getIntentFromLocalpart(msg.userId);
         promises.push(intent.sendEvent(msg.roomId, msg.type, msg.content).then(res => {
           if (msg.content.msgtype === "m.text" ) {
             this._storage.add_event(res.event_id, msg.userId, msg.roomId, msg.content.tweet_id, Date.now());
@@ -71,12 +72,12 @@ class TweetProcessor {
    * This function will fill the content structure for a new matrix message for a given tweet.
    *
    * @param  {TwitterTweet} tweet The tweet object from the Twitter API See {@link}
-   * @param  {type} type  The 'msgtype' of a message.
-   * @return {object}     The content of a Matrix 'm.room.message' event.
+   * @param  {Type} type  The 'msgtype' of a message.
+   * @return {Object}     The content of a Matrix 'm.room.message' event.
    *
    * @see {@link https://dev.twitter.com/overview/api/tweets}
    */
-  tweet_to_matrix_content (tweet, type) {
+  tweet_to_matrix_content (tweet, type, on_behalf_of) {
     let text = tweet.full_text || tweet.text;
     let tags = [];
     if (!tweet.entities) {
@@ -94,6 +95,9 @@ class TweetProcessor {
       })
     }
     text = HTMLDecoder.decode(text);
+    if (on_behalf_of) {
+      text = `@${tweet.user.screen_name}: ${text}`;
+    }
 
     const mxtweet = {
       "body": text,
@@ -110,6 +114,10 @@ class TweetProcessor {
       mxtweet.retweet = tweet._retweet_info;
     }
 
+    if (on_behalf_of) {
+      mxtweet.on_behalf_of = on_behalf_of;
+    }
+
     return mxtweet;
   }
 
@@ -119,20 +127,20 @@ class TweetProcessor {
       const start = offset + url.indices[0];
       const end = offset + url.indices[1];
       text = text.substr(0, start) + url.expanded_url + text.substr(end);
-      offset += url.expanded_url.length - (end-start);
+      offset += url.expanded_url.length - (end - start);
     }
     return text;
   }
 
-  _push_to_msg_queue (muser, roomid, tweet, type) {
-    var time = Date.parse(tweet.created_at);
+  _push_to_msg_queue (muser, roomid, tweet, type, on_behalf_of) {
+    const time = Date.parse(tweet.created_at);
     let content;
     try {
-      content = this.tweet_to_matrix_content(tweet, type)
+      content = this.tweet_to_matrix_content(tweet, type, on_behalf_of);
     } catch (e) {
       return Promise.reject("Tweet was missing user field.", e);
     }
-    var newmsg = {
+    const newmsg = {
       userId: muser,
       roomId: roomid,
       time: time,
@@ -140,9 +148,9 @@ class TweetProcessor {
       content: content,
     };
 
-    var media_promises = [];
+    const media_promises = [];
     if(tweet.entities.hasOwnProperty("media") && this.media_cfg.enable_download) {
-      for(var media of tweet.entities.media) {
+      for(const media of tweet.entities.media) {
         if(media.type !== 'photo') {
           continue;
         }
@@ -179,7 +187,7 @@ class TweetProcessor {
 
     return Promise.all(media_promises).then(msgs =>{
       msgs.unshift(newmsg);
-      for(var m in this.msg_queue) {
+      for(const m in this.msg_queue) {
         if(newmsg.time > this.msg_queue[m].time) {
           this.msg_queue.splice(m, 0, msgs);
           return;
@@ -194,53 +202,72 @@ class TweetProcessor {
 
 
   /**
-   * A function used to process
-   *
-   * @param  {type} roomid        description
-   * @param  {type} tweets        description
-   * @param  {type} depth         description
-   * @param  {type} client = null description
-   * @return {type}               description
+   * Simliar to process_tweet but returns a promise for when all tweets have
+   * been sent. This function is intended to optimise the processing of
+   * tweets in a given array.
+   * @param  {String} rooms
+   * @param  {TwitterTweet[]} tweets
+   * @param  {Object} opts
+   * @see process_tweet()
    */
-  process_tweets (rooms, tweets, depth, client = null) {
-    if (client == null) {
-      client = this._tclient;
+  process_tweets (rooms, tweets, opts) {
+    if (opts == null) {
+      opts = { }
     }
+    if (opts.client == null) {
+      opts.client = this._tclient;
+    }
+    if (opts.depth == null) {
+      opts.depth = DEFAULT_TWEET_DEPTH;
+    }
+    const promises = [];
     tweets.forEach( (tweet) => {
-      this._process_tweet(rooms, tweet, depth, client);
+      promises.push(this._process_tweet(rooms, tweet, opts.depth, opts));
     });
-
-  }
-
-  process_tweet (rooms, tweet, depth, client = null) {
-    if (client == null) {
-      client = this._tclient;
-    }
-    this._process_tweet(rooms, tweet, depth, client);
+    return Promise.all(promises);
   }
 
   /**
-   * TweetProcessor.prototype._process_tweet - Process a given tweet (including
-   * resolving any parent tweets), and submit it to the given room. This function
-   * is recursive, limited to the depth set.
+   * Process a given tweet (including esolving any parent tweets),
+   * and submit it to the given room. This function is recursive,
+   * limited to the depth set.
    *
    * @param  {String} rooms Matrix Room ID of the room that we are processing.
    * @param  {TwitterTweet} tweet The tweet object from the Twitter API See {@link}
-   * @param  {Number} depth  The maximum depth of the tweet chain (replies to
+   * @param  {Object} opts Options for the processor.
+   * @param  {Number} opts.depth The maximum depth of the tweet chain (replies to
    * replies) to be traversed. Set this to how deep you wish to traverse and it
    * will be decreased when the function calls itself.
-   * @return {Promise[]]}  A promise that resolves once the tweet has been queued.
+   * @param  {TwitterClient} opts.client = null The twitter authed client to use.
+   * @param  {String} opts.forceUserId Should we force one account to post for the tweet.
+   * @param  {Set<string>} opts.hotRooms Which rooms should be forced to use force_user_id.
+   * @return {Promise}  A promise that resolves once the tweet has been queued.
    *
    * @see {@link https://dev.twitter.com/overview/api/tweets}
    */
-  _process_tweet (rooms, tweet, depth, client) {
+  process_tweet (rooms, tweet, opts) {
+    if (opts == null) {
+      opts = { }
+    }
+    if (opts.client == null) {
+      opts.client = this._tclient;
+    }
+    if (opts.depth == null) {
+      opts.depth = DEFAULT_TWEET_DEPTH;
+    }
+    return this._process_tweet(rooms, tweet, opts.depth, opts);
+  }
+
+  /**
+   * @see process_tweet()
+   */
+  _process_tweet (rooms, tweet, depth, opts) {
     depth--;
-    var type = "m.text";
-    var promise;
+    let promise;
     if (tweet.in_reply_to_status_id_str != null && depth > 0) {
-      promise = client.get('statuses/show/' + tweet.in_reply_to_status_id_str, {})
+      promise = opts.client.get('statuses/show/' + tweet.in_reply_to_status_id_str, {})
       .then((newtweet) => {
-        return this._process_tweet(rooms, newtweet, depth, client);
+        return this._process_tweet(rooms, newtweet, depth, opts);
       }).catch(error => {
         log.error("process_tweet: GET /statuses/show returned: " + error);
         throw error;
@@ -257,23 +284,51 @@ class TweetProcessor {
       promise = promise.then(() => { return this._twitter.profile.update(tweet.user) });
     }
 
-    promise.then( () => {
+    return promise.then( () => {
       if(typeof rooms == "string") {
         rooms = [rooms];
       }
-      rooms.forEach((roomid) => {
-        this._storage.room_has_tweet(roomid, tweet.id_str).then(
-          (room_has_tweet) => {
-            if (!room_has_tweet) {
-              this._push_to_msg_queue(
-                '@_twitter_'+tweet.user.id_str + ':' + this._bridge.opts.domain, roomid, tweet, type
-              );
-            }
-          }
-        );
+      // [...rooms] will allow us to map the Set by creating an array
+      return [...rooms].map((roomId) => {
+        // Are we limiting joins on this room?
+        const forceUserId = opts.hotRooms.has(roomId) ? opts.forceUserId : null;
+        return this._processTweetForRoom(
+          roomId,
+          tweet,
+          forceUserId);
       });
     });
-    return promise;
+  }
+
+
+  /**
+   * Process a given tweet for a given room on behalf of  _process_tweet
+   *
+   * @param  {String} roomid The matrix roomid of the room.
+   * @param  {TwitterTweet} tweet  description
+   * @param  {String} forceUserId   See process_tweet()
+   * @return {Promise}
+   * @see process_tweet()
+   */
+  _processTweetForRoom (roomid, tweet, forceUserId) {
+    const type = "m.text";
+    return this._storage.room_has_tweet(roomid, tweet.id_str).then(
+      (roomHasTweet) => {
+        if (roomHasTweet) {
+          return Promise.resolve();
+        }
+        const realUserId = '_twitter_' + tweet.user.id_str;
+        let onBehalfOf = null;
+        let userId = realUserId;
+        if (forceUserId) {
+          userId = forceUserId;
+          onBehalfOf = realUserId;
+        }
+        return this._push_to_msg_queue(
+          userId, roomid, tweet, type, onBehalfOf
+        );
+      }
+    );
   }
 }
 

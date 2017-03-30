@@ -63,7 +63,7 @@ class HashtagHandler {
       return null;
     }
 
-    var remote = new RemoteRoom("hashtag_" + name);
+    const remote = new RemoteRoom("hashtag_" + name);
     remote.set("twitter_type", "hashtag");
     remote.set("twitter_bidirectional", true);
     remote.set("twitter_hashtag", name);
@@ -71,9 +71,9 @@ class HashtagHandler {
     return {
       creationOpts: {
         visibility: "public",
-        room_alias_name: "_twitter_#"+name,
-        name: "[Twitter] #"+name,
-        topic: "Twitter feed for #"+name,
+        room_alias_name: "_twitter_#" + name,
+        name: "[Twitter] #" + name,
+        topic: "Twitter feed for #" + name,
         initial_state: [
           {
             "type": "m.room.join_rules",

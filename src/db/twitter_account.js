@@ -1,5 +1,5 @@
 const log = require('../logging.js');
-const TWITTER_PROFILE_INTERVAL_MS = 10*60000;
+const TWITTER_PROFILE_INTERVAL_MS = 10 * 60000;
 module.exports = {
   get_twitter_account: function (user_id) {
     log.silly("SQL", "get_twitter_account => %s", user_id);
@@ -49,9 +49,9 @@ module.exports = {
       $id: user_id
     }).then((profile) => {
       if(profile !== undefined) {
-        var ts = new Date().getTime();
-        var pro = JSON.parse(profile.profile);
-        pro._outofdate =(ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
+        const ts = new Date().getTime();
+        const pro = JSON.parse(profile.profile);
+        pro._outofdate = (ts - profile.timestamp >= TWITTER_PROFILE_INTERVAL_MS);
         return pro;
       }
       else {

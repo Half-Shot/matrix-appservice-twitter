@@ -96,7 +96,7 @@ class Status {
   _get_room_context (rooms) {
     const context = {screennames: [], hashtags: [], pass: false};
     const promises = [];
-    for(var room of rooms) {
+    for(const room of rooms) {
       const isbi = (room.data.twitter_bidirectional === true) ;
       if(room.data.twitter_type === "user_timeline" && isbi) {
         context.pass = true;
@@ -120,7 +120,7 @@ class Status {
 
   _build_tweets (event, context, profile) {
     //TODO: Get context for REPLYING
-    var content = [];
+    const content = [];
     if(event.content.msgtype === "m.text" || event.content.msgtype === "m.emote") {
       let body = event.content.body;
       if(event.content.msgtype === "m.emote") {
@@ -129,7 +129,7 @@ class Status {
       let i = 0;
       const sname = "@" + profile.screen_name + " ";
       const tweet_length = TWEET_SIZE - (sname).length;
-      while(i<CONSECUTIVE_TWEET_MAX && body.length > 0) {
+      while(i < CONSECUTIVE_TWEET_MAX && body.length > 0) {
         let tweet;
         if(i === 0) {
           tweet = body.slice(0, TWEET_SIZE);
@@ -137,7 +137,7 @@ class Status {
         else {
           tweet = sname + body.slice(0, tweet_length);
         }
-        body = body.slice(i === 0 ? TWEET_SIZE: tweet_length);
+        body = body.slice(i === 0 ? TWEET_SIZE : tweet_length);
         content.push({status: tweet, in_reply_to_status_id: i > 0 ? "previous" : null});
         i++;
       }
@@ -146,7 +146,7 @@ class Status {
         return Promise.reject(
           {
             "notify": `The tweet was over the limit the bridge supports.
-We support ${CONSECUTIVE_TWEET_MAX*(TWEET_SIZE-(sname.length))} characters (or ${CONSECUTIVE_TWEET_MAX} tweets.) `,
+We support ${CONSECUTIVE_TWEET_MAX * (TWEET_SIZE - (sname.length))} characters (or ${CONSECUTIVE_TWEET_MAX} tweets.) `,
             "error": `Tweet was too large.`
           }
         );

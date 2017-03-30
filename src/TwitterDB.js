@@ -28,8 +28,8 @@ class TwitterDB {
     handlers.timeline_room = require("./db/timeline_room.js");
     handlers.twitter_account = require("./db/twitter_account.js");
 
-    for(var handler of Object.keys(handlers)) {
-      for(var func of Object.keys(handlers[handler])) {
+    for(const handler of Object.keys(handlers)) {
+      for(const func of Object.keys(handlers[handler])) {
         this[func] = handlers[handler][func];
       }
     }
@@ -41,14 +41,14 @@ class TwitterDB {
    */
   init () {
     log.info("Starting DB Init");
-    var old_version;
-    var version;
+    let old_version;
+    let version;
     return this._get_schema_version().then(o =>{
       old_version = o;
       version = o;
       while(version < this._target_schema) {
         version++;
-        var schema = require(`./database_schema/v${version}.js`);
+        const schema = require(`./database_schema/v${version}.js`);
         schema.run(this);
         log.info("Updated database v%s", version);
         this.version = version;

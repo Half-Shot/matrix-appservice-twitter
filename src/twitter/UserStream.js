@@ -1,9 +1,9 @@
 const log  = require('../logging.js');
 
 const STREAM_RETRY_INTERVAL = 5000;
-const BACKOFF_NOTIFY_USER_AT = (1000*60*2);
-const STREAM_LOCKOUT_RETRY_INTERVAL = 60*60*1000;
-const STREAM_CONCERN_TIMER = 40*60*1000; // Twitter should send something every 30s.
+const BACKOFF_NOTIFY_USER_AT = (1000 * 60 * 2);
+const STREAM_LOCKOUT_RETRY_INTERVAL = 60 * 60 * 1000;
+const STREAM_CONCERN_TIMER = 40 * 60 * 1000; // Twitter should send something every 30s.
 const TWEET_REPLY_MAX_DEPTH = 0;
 
 class UserStream {
@@ -56,7 +56,7 @@ class UserStream {
     }
 
     this._user_streams.set(user_id, "pending");//Block race attempts;
-    var client;
+    let client;
     return this.twitter.client_factory.get_client(user_id).then((c) => {
       if(!c) {
         this._user_streams.delete(user_id);
@@ -91,7 +91,7 @@ class UserStream {
         log.info(
           "UserStream",
           "Got 'end'. %s",
-          response
+          JSON.stringify(response)
         );
       });
       stream.on('error', (error) => {this._on_error(error, user_id)});
@@ -107,23 +107,24 @@ class UserStream {
   }
 
   _on_error (error, user_id) {
-    const backoff =  2 * (this._backoff.has(user_id) ? this._backoff.get(user_id) : STREAM_RETRY_INTERVAL/2);
+    const backoff =  2 * (this._backoff.has(user_id) ? this._backoff.get(user_id) : STREAM_RETRY_INTERVAL / 2);
     this._backoff.set(user_id, backoff);
     if (backoff >= BACKOFF_NOTIFY_USER_AT) {
       this.twitter.notify_matrix_user(user_id,
-        `Currently experiencing connection issues with Twitter. Will retry to connect in ${backoff/1000} seconds.
+        `Currently experiencing connection issues with Twitter. Will retry to connect in ${backoff / 1000} seconds.
         If this continues, notify the bridge maintainer.`);
     }
     this.detach(user_id);
     setTimeout(() => {this.attach(user_id); }, backoff);
     log.error(
       "UserStream",
-      "Stream gave an error %s. Detaching for %s seconds for %s.", error, backoff/1000, user_id
+      "Stream gave an error %s. Detaching for %s seconds for %s.", error, backoff / 1000, user_id
     );
   }
 
   detach (user_id) {
     if(this._user_streams.has(user_id)) {
+      this._user_keepalive.delete(user_id);
       this._user_streams.get(user_id).destroy();
       this._user_streams.delete(user_id);
       log.info("UserStream", "Detached stream for ", user_id);
@@ -157,7 +158,7 @@ class UserStream {
         return this.twitter.storage.get_timeline_room(user_id);
       }).then((room) =>{
         if(room !== null) {
-          this.twitter.processor.process_tweet(room.room_id, data, TWEET_REPLY_MAX_DEPTH, client);
+          this.twitter.processor.process_tweet(room.room_id, data, {depth: TWEET_REPLY_MAX_DEPTH, client});
         }
         else{
           log.verbose("UserStream", `${user_id} does not have a registered timeline view for their stream.`);

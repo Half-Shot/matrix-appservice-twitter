@@ -31,7 +31,8 @@ class Twitter {
     this._dm = new DirectMessage(this);
     this._config.timelines.poll_if_empty = this._config.timelines.poll_if_empty || false;
     this._config.hashtags.poll_if_empty = this._config.hashtags.poll_if_empty || false;
-    this._timeline = new Timeline(this, this._config.timelines, this._config.hashtags);
+
+    this._timeline = new Timeline(this, this._config);
 
     this._userstream = new UserStream(this);
     this._status = new Status(this);
@@ -61,7 +62,7 @@ class Twitter {
         storage: this._storage,
         media: this._config.media
       });
-
+      this._processor.start();
 
       if (this._config.timelines.enable) {
         this.timeline.start_timeline();
@@ -71,9 +72,12 @@ class Twitter {
         this.timeline.start_hashtag();
       }
 
-      this._userstream.attach_all();
+      if (this._config.hashtags.enable || this._config.timelines.enable) {
+        this.timeline.startMemberChecker();
+      }
 
-      this._processor.start();
+      this._userstream.start();
+      this._userstream.attach_all();
 
     }).catch((error) => {
       log.error('Error trying to retrieve bearer token:', error);
@@ -89,7 +93,9 @@ class Twitter {
   stop () {
     this.timeline.stop_timeline();
     this.timeline.stop_hashtag();
+    this.timeline.stopMemberChecker();
     this._userstream.detach_all();
+    this._userstream.stop();
   }
 
   get dm () {
@@ -130,13 +136,13 @@ class Twitter {
 
   notify_matrix_user (user, message) {
     const roomstore = this._bridge.getRoomStore();
-    roomstore.getEntriesByRemoteId("service_"+user).then((items) => {
+    roomstore.getEntriesByRemoteId("service_" + user).then((items) => {
       log.info('Sending %s "%s"', user, message);
       if(items.length === 0) {
         log.warn("Couldn't find service room for %s, so couldn't send notice.", user);
         return;
       }
-      const latest_service = items[items.length-1].matrix.getId();
+      const latest_service = items[items.length - 1].matrix.getId();
       this._bridge.getIntent().sendMessage(latest_service, {"msgtype": "m.notice", "body": message});
     });
   }
@@ -154,11 +160,11 @@ class Twitter {
       if(troom != null) {
         return;
       }
-      var intent = this._bridge.getIntent();
-      var users = {};
-      users["@_twitter_bot:"+this._bridge.opts.domain] = 100;
+      const intent = this._bridge.getIntent();
+      const users = {};
+      users["@_twitter_bot:" + this._bridge.opts.domain] = 100;
       users[user] = 100;
-      var powers = util.roomPowers(users);
+      const powers = util.roomPowers(users);
       //Create the room
       return intent.createRoom(
         {
@@ -181,8 +187,8 @@ class Twitter {
         }
       ).then(room =>{
         log.verbose("Created new user timeline room %s", room.room_id);
-        var mroom = new Bridge.MatrixRoom(room.room_id);
-        var rroom = new Bridge.RemoteRoom("tl_"+user);
+        const mroom = new Bridge.MatrixRoom(room.room_id);
+        const rroom = new Bridge.RemoteRoom("tl_" + user);
         rroom.set("twitter_type", "user_timeline");
         rroom.set("twitter_bidirectional", true);
         rroom.set("twitter_owner", user);

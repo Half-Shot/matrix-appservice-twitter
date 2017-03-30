@@ -5,8 +5,8 @@ const Promise = require('bluebird');
 const RemoteRoom = require("matrix-appservice-bridge").RemoteRoom;
 const MatrixRoom = require("matrix-appservice-bridge").MatrixRoom;
 
-const LEAVE_UNPROVIS_AFTER_MS = 10*60*1000;
-const ROOM_JOIN_TIMEOUT_MS = 1*60*1000;
+const LEAVE_UNPROVIS_AFTER_MS = 10 * 60 * 1000;
+const ROOM_JOIN_TIMEOUT_MS = 1 * 60 * 1000;
 const DEFAULT_POWER_REQ = 50;
 
 class Provisioner {
@@ -282,7 +282,7 @@ class Provisioner {
       log.info("Reconfiguring %s %s", profile.id_str, room_id);
       //Reconfigure and bail.
       this._twitter.timeline.remove_timeline(profile.id_str, room_id);
-      var entry = rooms[0];
+      const entry = rooms[0];
       entry.remote.set("twitter_exclude_replies", opts.exclude_replies);
       roomstore.upsertEntry(entry);
       this._twitter.timeline.add_timeline(profile.id_str, room_id, {
@@ -292,7 +292,7 @@ class Provisioner {
       return {err: 201, body: {message: "Link updated."}};
     }
 
-    var remote = new RemoteRoom("timeline_" + profile.id_str);
+    const remote = new RemoteRoom("timeline_" + profile.id_str);
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", profile.id_str);
     remote.set("twitter_exclude_replies", opts.exclude_replies);
@@ -318,7 +318,7 @@ class Provisioner {
       return {body: {message: "Hashtag already bridged!"}};
     }
 
-    var remote = new RemoteRoom("hashtag_" + hashtag);
+    const remote = new RemoteRoom("hashtag_" + hashtag);
     remote.set("twitter_type", "hashtag");
     remote.set("twitter_hashtag", hashtag);
     roomstore.linkRooms(new MatrixRoom(room_id), remote);
@@ -361,7 +361,7 @@ class Provisioner {
         err: 403, body: {message: "Couldn't join room. Perhaps room permissions are not set to public?"}
       });
     }
-    var powerState;
+    let powerState;
     try{
       powerState = yield matrixClient.getStateEvent(roomId, 'm.room.power_levels');
     }

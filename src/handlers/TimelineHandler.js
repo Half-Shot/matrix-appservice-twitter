@@ -34,14 +34,14 @@ class TimelineHandler {
   }
 
   processLeave (event, request, context) {
-    var remote = context.rooms.remote;
+    const remote = context.rooms.remote;
     if( remote.data.twitter_type === "user_timeline" && remote.data.twitter_owner === event.sender ) {
       log.info("User %s left room. Leaving", event.sender);
       this.twitter.user_stream.detach(event.sender);
-      var intent = this._bridge.getIntent();
+      const intent = this._bridge.getIntent();
       this.twitter.storage.remove_timeline_room(event.sender);
       intent.leave(event.room_id).then(() =>{
-        var roomstore = this._bridge.getRoomStore();
+        const roomstore = this._bridge.getRoomStore();
         roomstore.removeEntriesByRemoteRoomData(context.rooms.remote.data);
       });
     }
@@ -75,7 +75,7 @@ class TimelineHandler {
   processAliasQuery (alias) {
     //Create the room
     log.info("Looking up " + alias);
-    var tuser;
+    let tuser;
     return this.twitter.get_profile_by_screenname(alias).then((tu) => {
       tuser = tu;
       if (tuser != null) {
@@ -104,22 +104,22 @@ class TimelineHandler {
     The bot will have 100
   */
   _constructTimelineRoom (user, alias, avatar) {
-    var botID = this._bridge.getBot().getUserId();
+    const botID = this._bridge.getBot().getUserId();
 
-    var roomOwner = "@_twitter_" + user.id_str + ":" + this._bridge.opts.domain;
-    var users = {};
+    const roomOwner = "@_twitter_" + user.id_str + ":" + this._bridge.opts.domain;
+    const users = {};
     users[botID] = 100;
     users[roomOwner] = 75;
-    var powers = util.roomPowers(users);
-    var remote = new RemoteRoom("timeline_" + user.id_str);
+    const powers = util.roomPowers(users);
+    const remote = new RemoteRoom("timeline_" + user.id_str);
     remote.set("twitter_type", "timeline");
     remote.set("twitter_user", user.id_str);
     remote.set("twitter_exclude_replies", false);
     remote.set("twitter_bidirectional", true);
-    var description = (user.description ? user.description : "") + ` | https://twitter.com/${user.screen_name}`;
-    var opts = {
+    const description = (user.description ? user.description : "") + ` | https://twitter.com/${user.screen_name}`;
+    const opts = {
       visibility: "public",
-      room_alias_name: "_twitter_@"+alias,
+      room_alias_name: "_twitter_@" + alias,
       name: "[Twitter] " + user.name,
       topic: description,
       invite: [roomOwner],

@@ -5,7 +5,7 @@ const Buffer   = require('buffer').Buffer;
 const Twitter  = require('twitter');
 const Promise = require('bluebird');
 
-const TWITTER_CLIENT_INTERVAL_MS    = 60000*12; // Check creds every 12 hours.
+const TWITTER_CLIENT_INTERVAL_MS    = 60000 * 12; // Check creds every 12 hours.
 
 /**
   * Deals with authentication
@@ -53,7 +53,7 @@ class TwitterClientFactory {
     }).then(token => {
       //Test the token
       return new Promise((resolve, reject) =>{
-        var auth = {
+        const auth = {
           consumer_key: this._auth_config.consumer_key,
           consumer_secret: this._auth_config.consumer_secret,
           bearer_token: token
@@ -92,9 +92,9 @@ class TwitterClientFactory {
 
   _get_bearer_http () {
     return new Promise( (resolve, reject) => {
-      var key = this._auth_config.consumer_key + ":" + this._auth_config.consumer_secret;
+      let key = this._auth_config.consumer_key + ":" + this._auth_config.consumer_secret;
       key = Buffer.from(key, 'ascii').toString('base64');
-      var options = {
+      const options = {
         url: "https://api.twitter.com/oauth2/token",
         headers: {
           'Authorization': "Basic " + key
@@ -113,10 +113,12 @@ class TwitterClientFactory {
                 response.statusCode
               );
         } else {
+          let jsonresponse;
           try {
-            var jsonresponse = JSON.parse(body);
+            jsonresponse = JSON.parse(body);
           } catch (e) {
             reject(e);
+            return;
           }
           if (jsonresponse.token_type === "bearer") {
             FS.writeFile("bearer.tok", jsonresponse.access_token, (err) => {
@@ -151,9 +153,9 @@ class TwitterClientFactory {
         throw "No twitter account linked.";
       }
 
-      var ts = new Date().getTime();
-      var id = creds.user_id;
-      var client = this._tclients.has(id) ? this._tclients.get(id) : this._create_twitter_client(creds);
+      const ts = new Date().getTime();
+      const id = creds.user_id;
+      const client = this._tclients.has(id) ? this._tclients.get(id) : this._create_twitter_client(creds);
       if(ts - client.last_auth < TWITTER_CLIENT_INTERVAL_MS) {
         return client;
       }
@@ -189,7 +191,7 @@ class TwitterClientFactory {
   }
 
   _create_twitter_client (creds) {
-    var client = new Twitter({
+    const client = new Twitter({
       consumer_key: this._auth_config.consumer_key,
       consumer_secret: this._auth_config.consumer_secret,
       access_token_key: creds.access_token,
