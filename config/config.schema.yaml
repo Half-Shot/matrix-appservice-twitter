@@ -40,6 +40,12 @@ properties:
             type: "boolean"
           single_account_fallback:
             type: "boolean"
+    rooms:
+      type: "object"
+      required: []
+      properties:
+        member_join_threshold:
+          type: "integer"
     media:
         type: "object"
         required: ["enable_download","enable_profile_images"]
