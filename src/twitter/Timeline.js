@@ -375,11 +375,9 @@ class Timeline {
             this.start_hashtag();
           }, RATE_LIMIT_WAIT_MS);
         }
-
       } else {
         log.error("Timeline", `_process_feed: GET ${getPath} returned: %s`, JSON.stringify(error));
       }
-
       return;
     }
 
@@ -390,28 +388,35 @@ class Timeline {
       log.info("Timeline", "Poll request hit count limit. Request likely incomplete.");
     }
     this.twitter.storage.set_since(sinceId, results[0].id_str);
+    /**
+     * hotRooms contains all rooms currently peanalised for being too busy
+     * which will tell process_tweets to use forceUserId when sending
+     * for *just* those rooms.
+     */
     const hotRooms = this.roomsExceedingJoinThreshold(results, feed.room, isTimeline);
     let forceUserId = null;
+    // Do we need a forceUserId
     if(hotRooms.size > 0) {
       log.verbose("Timeline", `Forcing single user mode for ${sinceId} in some rooms.`);
       forceUserId = isTimeline ? `_twitter_@` + feed.twitter_id : `_twitter_#` + feed.hashtag;
     }
     // If req.count = 1, the resp will be the initial tweet used to get initial "since"
-    if (req.count !== 1) {
-      try {
-        return this.twitter.processor.process_tweets(
-          feed.room,
-          results,
-          {
-            depth: TWEET_REPLY_MAX_DEPTH,
-            forceUserId,
-            hotRooms
-          }
-        );
-      }
-      catch(err) {
-        log.error("Timeline", "Error whilst processing %s: %s", sinceId, err);
-      }
+    if (req.count === 1) {
+      return;
+    }
+    try {
+      return this.twitter.processor.process_tweets(
+        feed.room,
+        results,
+        {
+          depth: TWEET_REPLY_MAX_DEPTH,
+          forceUserId,
+          hotRooms
+        }
+      );
+    }
+    catch(err) {
+      log.error("Timeline", "Error whilst processing %s: %s", sinceId, err);
     }
   }
 

@@ -240,7 +240,7 @@ class TweetProcessor {
    * will be decreased when the function calls itself.
    * @param  {TwitterClient} opts.client = null The twitter authed client to use.
    * @param  {String} opts.forceUserId Should we force one account to post for the tweet.
-   * @param  {String} opts.hotRooms Which rooms should be forced to use force_user_id.
+   * @param  {Set<string>} opts.hotRooms Which rooms should be forced to use force_user_id.
    * @return {Promise}  A promise that resolves once the tweet has been queued.
    *
    * @see {@link https://dev.twitter.com/overview/api/tweets}
@@ -289,10 +289,12 @@ class TweetProcessor {
         rooms = [rooms];
       }
       return [...rooms].map((roomid) => {
+        // Are we limiting joins on this room?
+        const forceUserId = opts.hotRooms.has(roomid) ? opts.forceUserId : null;
         return this._processTweetForRoom(
           roomid,
           tweet,
-          opts.hotRooms.has(roomid) ? opts.forceUserId : null);
+          forceUserId);
       });
     });
   }
