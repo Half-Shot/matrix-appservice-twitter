@@ -220,6 +220,9 @@ class TweetProcessor {
     if (opts.depth == null) {
       opts.depth = DEFAULT_TWEET_DEPTH;
     }
+    if (opts.hotRooms == null) {
+      opts.hotRooms = new Set();
+    }
     const promises = [];
     tweets.forEach( (tweet) => {
       promises.push(this._process_tweet(rooms, tweet, opts.depth, opts));
@@ -254,6 +257,9 @@ class TweetProcessor {
     }
     if (opts.depth == null) {
       opts.depth = DEFAULT_TWEET_DEPTH;
+    }
+    if (opts.hotRooms == null) {
+      opts.hotRooms = new Set();
     }
     return this._process_tweet(rooms, tweet, opts.depth, opts);
   }
