@@ -7,6 +7,12 @@ let log = null;
 
 function init (loggingConfig) {
   const transports = [];
+  if (loggingConfig == null) {
+    loggingConfig = { };
+  }
+  if (loggingConfig.level == null) {
+    loggingConfig.level = "info";
+  }
   transports.push(new (winston.transports.Console)({
     json: false,
     name: "console",
@@ -18,7 +24,7 @@ function init (loggingConfig) {
     level: loggingConfig.level,
   }));
 
-  if (loggingConfig && loggingConfig.file) {
+  if (loggingConfig.file) {
     const logrotateConfig = {
       file: loggingConfig.file,
       json: false,
