@@ -36,7 +36,7 @@ class Twitter {
 
     this._userstream = new UserStream(this);
     this._status = new Status(this);
-    this._client_factory = new TwitterClientFactory(config.app_auth, this);
+    this._client_factory = new TwitterClientFactory(this, config.app_auth, config.proxy);
     this._profile = new TwitterProfile(this, config);
 
     this._processor = null;

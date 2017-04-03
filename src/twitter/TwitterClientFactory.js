@@ -12,9 +12,15 @@ const TWITTER_CLIENT_INTERVAL_MS    = 60000 * 12; // Check creds every 12 hours.
   * and getting user clients
   */
 class TwitterClientFactory {
-  constructor (auth_config, twitter) {
+  constructor (twitter, auth_config, proxy_config) {
     this._auth_config = auth_config;
     this._app_client = null;
+    if (proxy_config) {
+      this._request = Request.defaults({proxy: proxy_config.url});
+    }
+    else {
+      this._request = Request.defaults();
+    }
     this._twitter = twitter;
     this._tclients = new Map(); // {'@userid':TwitterClient}
   }
@@ -102,7 +108,7 @@ class TwitterClientFactory {
         form: "grant_type=client_credentials",
         contentType: "application/x-www-form-urlencoded;charset=UTF-8"
       };
-      Request.post(options, function (error, response, body) {
+      this._request.post(options, function (error, response, body) {
         if (error) {
           reject(error);
         } else if (response.statusCode !== 200) {
@@ -191,12 +197,16 @@ class TwitterClientFactory {
   }
 
   _create_twitter_client (creds) {
-    const client = new Twitter({
+    const opts = {
       consumer_key: this._auth_config.consumer_key,
       consumer_secret: this._auth_config.consumer_secret,
       access_token_key: creds.access_token,
-      access_token_secret: creds.access_token_secret
-    });
+      access_token_secret: creds.access_token_secret,
+    };
+    if (this.proxy_config) {
+      opts.request_options = {proxy: this.proxy_config.url}
+    }
+    const client = new Twitter();
     /* Store a timestamp to track the point of login with the client. We do this
        to avoid having to keep track of auth timestamps in another map. */
     client.last_auth = 0;

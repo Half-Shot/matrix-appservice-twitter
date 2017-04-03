@@ -43,3 +43,6 @@ formatting:
   # %name %id_str %screen_name
   # though you may use any top level field from https://dev.twitter.com/overview/api/users
   user_displayname: "%name (@%screen_name)"
+
+proxy: # Proxy for accessing twitter
+  url: "localhost",

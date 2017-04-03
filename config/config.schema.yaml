@@ -85,3 +85,9 @@ properties:
       properties:
         user_displayname:
           type: "string"
+    proxy:
+      type: "object"
+      required: ["url"]
+      properties:
+        url:
+          type: "string"
