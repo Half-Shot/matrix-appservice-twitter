@@ -185,6 +185,7 @@ try{
 catch(err) {
   console.error("Init", "Failed to start bridge.");// eslint-disable-line no-console
   console.error("Init", err);// eslint-disable-line no-console
+  process.exit(1)
 }
 
 /**
