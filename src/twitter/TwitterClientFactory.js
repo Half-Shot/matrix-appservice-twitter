@@ -12,11 +12,16 @@ const TWITTER_CLIENT_INTERVAL_MS    = 60000 * 12; // Check creds every 12 hours.
   * and getting user clients
   */
 class TwitterClientFactory {
-  constructor (twitter, auth_config, proxy_config) {
+  constructor (twitter, auth_config, proxyConfig) {
     this._auth_config = auth_config;
     this._app_client = null;
-    if (proxy_config) {
-      this._request = Request.defaults({proxy: proxy_config.url});
+    this.proxyConfig = proxyConfig;
+    if (proxyConfig) {
+      const opts = {proxy: proxyConfig.url};
+      if (proxyConfig.tunnel !== undefined) {
+        opts.tunnel = proxyConfig.tunnel;
+      }
+      this._request = Request.defaults(opts);
     }
     else {
       this._request = Request.defaults();
@@ -64,6 +69,12 @@ class TwitterClientFactory {
           consumer_secret: this._auth_config.consumer_secret,
           bearer_token: token
         };
+        if (this.proxyConfig) {
+          auth.request_options = {proxy: this.proxyConfig.url}
+          if (this.proxyConfig.tunnel !== undefined) {
+            auth.request_options.tunnel = this.proxyConfig.tunnel;
+          }
+        }
         this.app_twitter = new Twitter(auth).get(
           'application/rate_limit_status',
           {},
@@ -203,10 +214,10 @@ class TwitterClientFactory {
       access_token_key: creds.access_token,
       access_token_secret: creds.access_token_secret,
     };
-    if (this.proxy_config) {
-      opts.request_options = {proxy: this.proxy_config.url}
-      if (opts.proxy_config.tunnel !== undefined) {
-        opts.request_options.tunnel = opts.proxy_config.tunnel;
+    if (this.proxyConfig) {
+      opts.request_options = {proxy: this.proxyConfig.url}
+      if (opts.proxyConfig.tunnel !== undefined) {
+        opts.request_options.tunnel = opts.proxyConfig.tunnel;
       }
     }
     const client = new Twitter(opts);
