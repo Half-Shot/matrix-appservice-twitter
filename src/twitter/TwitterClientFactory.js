@@ -205,6 +205,9 @@ class TwitterClientFactory {
     };
     if (this.proxy_config) {
       opts.request_options = {proxy: this.proxy_config.url}
+      if (opts.proxy_config.tunnel !== undefined) {
+        opts.request_options.tunnel = opts.proxy_config.tunnel;
+      }
     }
     const client = new Twitter();
     /* Store a timestamp to track the point of login with the client. We do this

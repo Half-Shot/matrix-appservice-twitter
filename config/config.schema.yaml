@@ -91,3 +91,5 @@ properties:
       properties:
         url:
           type: "string"
+        tunnel:
+          type: "boolean"

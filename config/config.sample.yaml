@@ -46,3 +46,4 @@ formatting:
 
 proxy: # Proxy for accessing twitter
   url: "localhost",
+  tunnel: true,
