@@ -209,7 +209,7 @@ class TwitterClientFactory {
         opts.request_options.tunnel = opts.proxy_config.tunnel;
       }
     }
-    const client = new Twitter();
+    const client = new Twitter(opts);
     /* Store a timestamp to track the point of login with the client. We do this
        to avoid having to keep track of auth timestamps in another map. */
     client.last_auth = 0;
