@@ -35,12 +35,17 @@ class TwitterClientFactory {
   }
 
   get_application_client () {
-
     if(!this._app_client) {
       this._app_client = this._get_bearer_token().then((token) => {
-        this._auth_config.bearer_token = token;
         log.info('Retrieved bearer token');
-        this._app_client = Promise.promisifyAll(new Twitter(this._auth_config));
+        const opts = {bearer_token: token};
+        if (this.proxyConfig) {
+          opts.request_options = {proxy: this.proxyConfig.url}
+          if (opts.proxyConfig.tunnel !== undefined) {
+            opts.request_options.tunnel = opts.proxyConfig.tunnel;
+          }
+        }
+        this._app_client = Promise.promisifyAll(new Twitter(opts));
       }).catch( err => {
         log.error( "Error getting bearer token %s", err);
         this._app_client = null;
