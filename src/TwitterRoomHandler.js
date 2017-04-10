@@ -103,10 +103,7 @@ class TwitterRoomHandler {
     else if(type[0] === '#' && this._hashtags.enable) { //Hashtag
       return this.handlers.hashtag.processAliasQuery(part);
     }
-    else {
-      //Unknown
-      return null;
-    }
+    return null;
   }
 
   onRoomCreated (alias, roomId) {
