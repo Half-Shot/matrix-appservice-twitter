@@ -93,9 +93,9 @@ class TwitterRoomHandler {
   }
 
   processAliasQuery (alias, aliasLocalpart) {
+    log.silly("RoomHandler", "Got alias request");
     const type = aliasLocalpart.substr("_twitter_".length, 2);
     const part = aliasLocalpart.substr("_twitter_.".length);
-
     //TODO: Check permissions for admins
     if(type[0] === '@' && this._timelines.enable) { //User timeline
       return this.handlers.timeline.processAliasQuery(part);
