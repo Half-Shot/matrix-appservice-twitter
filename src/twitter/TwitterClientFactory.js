@@ -41,8 +41,8 @@ class TwitterClientFactory {
         const opts = {bearer_token: token};
         if (this.proxyConfig) {
           opts.request_options = {proxy: this.proxyConfig.url}
-          if (opts.proxyConfig.tunnel !== undefined) {
-            opts.request_options.tunnel = opts.proxyConfig.tunnel;
+          if (this.proxyConfig.tunnel !== undefined) {
+            opts.request_options.tunnel = this.proxyConfig.tunnel;
           }
         }
         this._app_client = Promise.promisifyAll(new Twitter(opts));
@@ -221,8 +221,8 @@ class TwitterClientFactory {
     };
     if (this.proxyConfig) {
       opts.request_options = {proxy: this.proxyConfig.url}
-      if (opts.proxyConfig.tunnel !== undefined) {
-        opts.request_options.tunnel = opts.proxyConfig.tunnel;
+      if (this.proxyConfig.tunnel !== undefined) {
+        opts.request_options.tunnel = this.proxyConfig.tunnel;
       }
     }
     const client = new Twitter(opts);
