@@ -76,7 +76,7 @@ class TimelineHandler {
     //Create the room
     log.info("Looking up " + alias);
     let tuser;
-    return this.twitter.get_profile_by_screenname(alias).then((tu) => {
+    return this.twitter.profile.get_by_screenname(alias).then((tu) => {
       tuser = tu;
       if (tuser != null) {
         if (tuser.protected) {
