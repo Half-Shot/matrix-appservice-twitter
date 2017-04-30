@@ -282,9 +282,6 @@ class TweetProcessor {
     if (updateProfiles) {
       promise = promise.then(() => { return this._twitter.profile.update(tweet.user); });
     }
-    else {
-      promise = Promise.resolve();
-    }
 
     if (tweet.retweeted_status) {
       tweet.retweeted_status._retweet_info = { id: tweet.id_str, tweet: tweet.user.id_str };
