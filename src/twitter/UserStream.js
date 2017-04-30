@@ -87,13 +87,6 @@ class UserStream {
         );
         this._user_keepalive.set(user_id, Date.now());
       })
-      stream.on('end', (response) => {
-        log.info(
-          "UserStream",
-          "Got 'end'. %s",
-          JSON.stringify(response)
-        );
-      });
       stream.on('error', (error) => {this._on_error(error, user_id)});
       this._user_streams.set(user_id, stream);
       this._user_keepalive.set(user_id, Date.now());
