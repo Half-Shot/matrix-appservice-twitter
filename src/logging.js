@@ -1,9 +1,14 @@
 const winston = require('winston');
 const util = require('util');
 
-const Rotate = require('winston-logrotate').Rotate;
-
 let log = null;
+
+const DEFAULT_LOG_LEVEL = "info";
+
+function winstonFormatter (options) {
+  return options.timestamp() + options.level + ' ' + (options.message ? options.message : '') +
+    (options.meta && Object.keys(options.meta).length ? '\n\t' + JSON.stringify(options.meta) : '' );
+}
 
 function init (loggingConfig) {
   const transports = [];
@@ -11,35 +16,32 @@ function init (loggingConfig) {
     loggingConfig = { };
   }
   if (loggingConfig.level == null) {
-    loggingConfig.level = "info";
+    loggingConfig.level = DEFAULT_LOG_LEVEL;
   }
+
+  const funcTimestamp = () => new Date().toISOString().replace(/[TZ]/g, ' ');
+
+  if (loggingConfig.file) {
+    transports.push(new (winston.transports.File)({
+      json: false,
+      name: "file",
+      filename: loggingConfig.file,
+      timestamp: funcTimestamp,
+      formatter: winstonFormatter,
+      level: loggingConfig.level,
+      maxsize: loggingConfig.size,
+      maxFiles: loggingConfig.count,
+      zippedArchive: loggingConfig.compress,
+    }));
+  }
+
   transports.push(new (winston.transports.Console)({
     json: false,
     name: "console",
-    timestamp: () => new Date().toISOString().replace(/[TZ]/g, ' '),
-    formatter: function (options) {
-      return options.timestamp() + options.level + ' ' + (options.message ? options.message : '') +
-        (options.meta && Object.keys(options.meta).length ? '\n\t' + JSON.stringify(options.meta) : '' );
-    },
+    timestamp: funcTimestamp,
+    formatter: winstonFormatter,
     level: loggingConfig.level,
   }));
-
-  if (loggingConfig.file) {
-    const logrotateConfig = {
-      file: loggingConfig.file,
-      json: false,
-      size: loggingConfig.size,
-      keep: loggingConfig.count,
-      compress: loggingConfig.compress,
-      timestamp: () => new Date().toISOString().replace(/[TZ]/g, ' '),
-      formatter: function (options) {
-        return options.timestamp() + options.level + ' ' + (options.message ? options.message : '') +
-          (options.meta && Object.keys(options.meta).length ? '\n\t' + JSON.stringify(options.meta) : '' );
-      },
-      level: loggingConfig.level,
-    };
-    transports.push(new Rotate(logrotateConfig));
-  }
 
 
   log = new winston.Logger({
@@ -51,7 +53,6 @@ function handle (level, args) {
   if (!log) {
     console.error("Log not initialised"); // eslint-disable-line no-console
   }
-
   // If the first arg does NOT contain '%', assume it is context and append it onto the
   // string created by passing the remaining args to util.format. Otherwise pass all args
   // to util.format
@@ -60,9 +61,7 @@ function handle (level, args) {
   if (typeof args[0] === 'string' && args[0].indexOf('%') === -1) {
     context = args.shift() + ' ';
   }
-
   const message = context + util.format.apply(null, args);
-
   log.log(level, message);
 }
 

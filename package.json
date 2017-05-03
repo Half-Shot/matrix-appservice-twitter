@@ -34,8 +34,7 @@
     "request": "^2.76.0",
     "sqlite3": "^3.1.4",
     "twitter": "git+https://github.com/Half-Shot/node-twitter.git",
-    "winston": "^2.3.0",
-    "winston-logrotate": "^1.0.0"
+    "winston": "^2.3.0"
   },
   "devDependencies": {
     "chai": "^3.5.0",
