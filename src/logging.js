@@ -26,7 +26,7 @@ function init (loggingConfig) {
 
   if (loggingConfig.file) {
     const logrotateConfig = {
-      file: loggingConfig.file,
+      filename: loggingConfig.file,
       json: false,
       size: loggingConfig.size,
       keep: loggingConfig.count,
