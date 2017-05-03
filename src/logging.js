@@ -49,12 +49,15 @@ function init (loggingConfig) {
     maxFiles: loggingConfig.rotate.count,
     zippedArchive: loggingConfig.compress,
   }
-  if (loggingConfig.rotate.daily !== true) {
-    transports.push(new (winston.transports.File)(fileCfg));
-  } else {
-    fileCfg.datePattern = loggingConfig.rotate.datePattern;
-    transports.push(new (winston.transports.DailyRotateFile)(fileCfg));
+  if (loggingConfig.file ) {
+    if (loggingConfig.rotate.daily !== true) {
+      transports.push(new (winston.transports.File)(fileCfg));
+    } else {
+      fileCfg.datePattern = loggingConfig.rotate.datePattern;
+      transports.push(new (winston.transports.DailyRotateFile)(fileCfg));
+    }
   }
+
 
   if (showConsole) {
     transports.push(new (winston.transports.Console)({
