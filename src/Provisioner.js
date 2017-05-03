@@ -328,7 +328,7 @@ class Provisioner {
   }
 
   isProvisionRequest (req) {
-    return new req.url.match(RegExp(
+    return req.url.match(new RegExp(
       "^\/_matrix\/provision\/(\S+)\/" +
       "(link|links|timeline|unoauth|oauth|oauth_tokens|get_oauthed_timeline)"
     )) || req.url.startsWith("/_matrix/provision/show");
