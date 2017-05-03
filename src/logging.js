@@ -1,12 +1,25 @@
 const winston = require('winston');
 const util = require('util');
-
+require("winston-daily-rotate-file");
+const chalk = require("chalk");
 let log = null;
 
 const DEFAULT_LOG_LEVEL = "info";
+const TERM_COLORS = {
+  error: "red",
+  warn: "yellow",
+  info: "blue",
+  verbose: "white",
+  silly: "grey",
+};
 
 function winstonFormatter (options) {
-  return options.timestamp() + options.level + ' ' + (options.message ? options.message : '') +
+  let level = options.level;
+  if(options.colorize && chalk.supportsColor) {
+    level = chalk[TERM_COLORS[level]](level);
+  }
+
+  return options.timestamp() + level + ' ' + (options.message ? options.message : '') +
     (options.meta && Object.keys(options.meta).length ? '\n\t' + JSON.stringify(options.meta) : '' );
 }
 
@@ -19,34 +32,56 @@ function init (loggingConfig) {
     loggingConfig.level = DEFAULT_LOG_LEVEL;
   }
 
-  const funcTimestamp = () => new Date().toISOString().replace(/[TZ]/g, ' ');
-
-  if (loggingConfig.file) {
-    transports.push(new (winston.transports.File)({
-      json: false,
-      name: "file",
-      filename: loggingConfig.file,
-      timestamp: funcTimestamp,
-      formatter: winstonFormatter,
-      level: loggingConfig.level,
-      maxsize: loggingConfig.size,
-      maxFiles: loggingConfig.count,
-      zippedArchive: loggingConfig.compress,
-    }));
+  if (loggingConfig.rotate == null) {
+    loggingConfig.rotate = {};
   }
 
-  transports.push(new (winston.transports.Console)({
+  const funcTimestamp = () => new Date().toISOString().replace(/[TZ]/g, ' ');
+  const showConsole = loggingConfig.console !== false;
+  const fileCfg = {
     json: false,
-    name: "console",
+    name: "file",
+    filename: loggingConfig.file,
     timestamp: funcTimestamp,
     formatter: winstonFormatter,
     level: loggingConfig.level,
-  }));
+    maxsize: loggingConfig.rotate.size,
+    maxFiles: loggingConfig.rotate.count,
+    zippedArchive: loggingConfig.compress,
+  }
+  if (loggingConfig.rotate.daily !== true) {
+    transports.push(new (winston.transports.File)(fileCfg));
+  } else {
+    fileCfg.datePattern = loggingConfig.rotate.datePattern;
+    transports.push(new (winston.transports.DailyRotateFile)(fileCfg));
+  }
+
+  if (showConsole) {
+    transports.push(new (winston.transports.Console)({
+      json: false,
+      name: "console",
+      timestamp: funcTimestamp,
+      formatter: winstonFormatter,
+      level: loggingConfig.level,
+      colorize: true,
+      prettyPrint: true,
+    }));
+  }
 
 
   log = new winston.Logger({
     transports: transports,
+    levels: {
+      error: 0,
+      warn: 1,
+      info: 2,
+      verbose: 3,
+      silly: 4,
+    }
   });
+  if (loggingConfig.rotate.size && loggingConfig.rotate.daily) {
+    handle("warn", ["You have enabled both 'size' and 'daily' in your logger config. Size will be ignored."]);
+  }
 }
 
 function handle (level, args) {
