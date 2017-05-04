@@ -13,13 +13,13 @@ const TERM_COLORS = {
   silly: "grey",
 };
 
-function winstonFormatter (options) {
-  let level = options.level;
-  if(options.colorize && chalk.supportsColor) {
-    level = chalk[TERM_COLORS[level]](level);
-  }
+function winstonColorFormatter (options) {
+  options.level = chalk[TERM_COLORS[options.level]](options.level);
+  return winstonFormatter(options);
+}
 
-  return options.timestamp() + level + ' ' + (options.message ? options.message : '') +
+function winstonFormatter (options) {
+  return options.timestamp() + options.level + ' ' + (options.message ? options.message : '') +
     (options.meta && Object.keys(options.meta).length ? '\n\t' + JSON.stringify(options.meta) : '' );
 }
 
@@ -42,21 +42,20 @@ function init (loggingConfig) {
     name: "file",
     filename: loggingConfig.file,
     timestamp: funcTimestamp,
-    formatter: winstonFormatter,
+    formatter: winstonColorFormatter,
     level: loggingConfig.level,
     maxsize: loggingConfig.rotate.size,
     maxFiles: loggingConfig.rotate.count,
     zippedArchive: loggingConfig.compress,
   }
   if (loggingConfig.file) {
-    if (!loggingConfig.rotate.daily) {
-      transports.push(new (winston.transports.File)(fileCfg));
-    } else {
+    if (loggingConfig.rotate.daily) {
       fileCfg.datePattern = 'yyyy-MM-dd';
       transports.push(new (winston.transports.DailyRotateFile)(fileCfg));
+    } else {
+      transports.push(new (winston.transports.File)(fileCfg));
     }
   }
-
 
   if (showConsole) {
     transports.push(new (winston.transports.Console)({
@@ -67,7 +66,6 @@ function init (loggingConfig) {
       level: loggingConfig.level,
     }));
   }
-
 
   log = new winston.Logger({
     transports: transports,
