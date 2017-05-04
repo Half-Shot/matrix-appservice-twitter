@@ -33,26 +33,6 @@ logging:
     daily: true # Should the log file be rotated each day.
     size: 50m # Maximum size of a log file before it's rotated.
     count: 3 # How many log files should be kept
-      # yy: Last two digits of the year.
-      # yyyy: Full year.
-      # M: The month.
-      # MM: The zero padded month.
-      # d: The day.
-      # dd: The zero padded day.
-      # H: The hour.
-      # HH: The zero padded hour.
-      # m: The minute.
-      # mm: The zero padded minute.
-      # ddd: The weekday (Mon, Tue, ..., Sun).
-    datePattern: "yyyy-MM-dd" # Date pattern to be used with daily.
-  file:
-  rotate:
-    date: false
-    size: false
-    count: 1
-    datePattern:  # Date pattern for files split by date
-  compress:
-  level:
 
 provisioning: # Provisioning system for scalar-enabled clients such as Riot.
   enable: true # Enable the system. This does not disable existing registered rooms.

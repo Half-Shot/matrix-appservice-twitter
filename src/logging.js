@@ -31,7 +31,6 @@ function init (loggingConfig) {
   if (loggingConfig.level == null) {
     loggingConfig.level = DEFAULT_LOG_LEVEL;
   }
-
   if (loggingConfig.rotate == null) {
     loggingConfig.rotate = {};
   }
@@ -49,11 +48,11 @@ function init (loggingConfig) {
     maxFiles: loggingConfig.rotate.count,
     zippedArchive: loggingConfig.compress,
   }
-  if (loggingConfig.file ) {
-    if (loggingConfig.rotate.daily !== true) {
+  if (loggingConfig.file) {
+    if (!loggingConfig.rotate.daily) {
       transports.push(new (winston.transports.File)(fileCfg));
     } else {
-      fileCfg.datePattern = loggingConfig.rotate.datePattern;
+      fileCfg.datePattern = 'yyyy-MM-dd';
       transports.push(new (winston.transports.DailyRotateFile)(fileCfg));
     }
   }
@@ -66,8 +65,6 @@ function init (loggingConfig) {
       timestamp: funcTimestamp,
       formatter: winstonFormatter,
       level: loggingConfig.level,
-      colorize: true,
-      prettyPrint: true,
     }));
   }
 
@@ -83,7 +80,8 @@ function init (loggingConfig) {
     }
   });
   if (loggingConfig.rotate.size && loggingConfig.rotate.daily) {
-    handle("warn", ["You have enabled both 'size' and 'daily' in your logger config. Size will be ignored."]);
+    handle("error", ["You have enabled both 'size' and 'daily' in your logger config. Size will be ignored."]);
+    throw Error("Invalid configuration for logger.");
   }
 }
 
